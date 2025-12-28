@@ -3,48 +3,48 @@ import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
-import jerseyImage from "@/assets/product-jersey-1.jpg";
-import singletImage from "@/assets/product-singlet-1.jpg";
-import shortsImage from "@/assets/product-shorts-1.jpg";
+import nobodyJersey from "@/assets/product-nobody-jersey.jpg";
+import heroTee from "@/assets/product-hero-tee.jpg";
+import conquerors3km from "@/assets/product-conquerors-3km.jpg";
+import conquerors10km from "@/assets/product-conquerors-10km.jpg";
 
 // Featured products
 const featuredProducts = [
   { 
     id: "1", 
-    name: "NOBODY Trail Jersey - Red/Black", 
+    name: "NOBODY Jersey - Red/Black Graffiti", 
     price: 1299, 
-    image: jerseyImage, 
-    category: "Trail", 
+    image: nobodyJersey, 
+    category: "NOBODY", 
     isNew: true,
     inStock: true,
   },
   { 
     id: "2", 
-    name: "Performance Singlet - Black", 
+    name: "Be Your Own Hero Tee - Pink", 
     price: 899, 
-    image: singletImage, 
-    category: "Run", 
-    isNew: false,
+    image: heroTee, 
+    category: "NOBODY", 
+    isNew: true,
     inStock: true,
   },
   { 
     id: "3", 
-    name: "Elite Running Shorts", 
-    price: 999, 
-    originalPrice: 1299,
-    image: shortsImage, 
-    category: "Run", 
+    name: "Conquerors Mix Terrain - 3KM Finisher", 
+    price: 1199, 
+    image: conquerors3km, 
+    category: "Event", 
     isNew: false,
     inStock: true,
   },
   { 
     id: "4", 
-    name: "NOBODY Trail Jersey - Black", 
-    price: 1299, 
-    image: singletImage, 
-    category: "Trail", 
-    isNew: true,
-    inStock: false,
+    name: "Conquerors Mix Terrain - 10KM Finisher", 
+    price: 1199, 
+    image: conquerors10km, 
+    category: "Event", 
+    isNew: false,
+    inStock: true,
   },
 ];
 

@@ -4,25 +4,27 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
-import { Filter, Grid3X3, LayoutGrid, ChevronDown } from "lucide-react";
+import { Filter, ChevronDown } from "lucide-react";
 
-import jerseyImage from "@/assets/product-jersey-1.jpg";
-import singletImage from "@/assets/product-singlet-1.jpg";
-import shortsImage from "@/assets/product-shorts-1.jpg";
+import nobodyJersey from "@/assets/product-nobody-jersey.jpg";
+import heroTee from "@/assets/product-hero-tee.jpg";
+import conquerors3km from "@/assets/product-conquerors-3km.jpg";
+import conquerors10km from "@/assets/product-conquerors-10km.jpg";
+import tabukVest from "@/assets/product-tabuk-vest.jpg";
 
 // Mock product data
 const allProducts = [
-  { id: "1", name: "NOBODY Trail Jersey - Red/Black", price: 1299, image: jerseyImage, category: "Trail", isNew: true, inStock: true },
-  { id: "2", name: "Performance Singlet - Black", price: 899, image: singletImage, category: "Run", isNew: false, inStock: true },
-  { id: "3", name: "Elite Running Shorts", price: 999, originalPrice: 1299, image: shortsImage, category: "Run", isNew: false, inStock: true },
-  { id: "4", name: "NOBODY Trail Jersey - Black", price: 1299, image: singletImage, category: "Trail", isNew: true, inStock: false },
-  { id: "5", name: "Endurance Long Sleeve", price: 1499, image: jerseyImage, category: "Endurance", isNew: false, inStock: true },
-  { id: "6", name: "Trail Compression Shorts", price: 1099, image: shortsImage, category: "Trail", isNew: false, inStock: true },
-  { id: "7", name: "Race Day Singlet - White", price: 899, image: singletImage, category: "Run", isNew: true, inStock: true },
-  { id: "8", name: "Ultra Distance Jersey", price: 1599, image: jerseyImage, category: "Endurance", isNew: false, inStock: true },
+  { id: "1", name: "NOBODY Jersey - Red/Black Graffiti", price: 1299, image: nobodyJersey, category: "NOBODY", isNew: true, inStock: true },
+  { id: "2", name: "Be Your Own Hero Tee - Pink", price: 899, image: heroTee, category: "NOBODY", isNew: true, inStock: true },
+  { id: "3", name: "Conquerors Mix Terrain - 3KM", price: 1199, image: conquerors3km, category: "Event", isNew: false, inStock: true },
+  { id: "4", name: "Conquerors Mix Terrain - 10KM", price: 1199, image: conquerors10km, category: "Event", isNew: false, inStock: true },
+  { id: "5", name: "Tabuk II AdvenTour Vest", price: 1499, image: tabukVest, category: "Event", isNew: true, inStock: true },
+  { id: "6", name: "NOBODY Jersey - Teal/Black", price: 1299, image: nobodyJersey, category: "NOBODY", isNew: false, inStock: true },
+  { id: "7", name: "Be Your Own Hero Tee - Black", price: 899, image: heroTee, category: "NOBODY", isNew: false, inStock: false },
+  { id: "8", name: "Conquerors Finisher Jersey", price: 1199, image: conquerors3km, category: "Event", isNew: false, inStock: true },
 ];
 
-const categories = ["All", "Trail", "Run", "Endurance"];
+const categories = ["All", "NOBODY", "Event", "Trail"];
 const sizes = ["XS", "S", "M", "L", "XL", "2XL"];
 
 const Shop = () => {

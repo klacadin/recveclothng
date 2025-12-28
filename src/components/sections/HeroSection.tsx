@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import heroImage from "@/assets/hero-athlete.jpg";
+import heroImage from "@/assets/athlete-trail-run.jpg";
 
 const HeroSection = () => {
   return (
@@ -10,10 +10,10 @@ const HeroSection = () => {
       <div className="absolute inset-0">
         <img 
           src={heroImage} 
-          alt="Trail runner in performance gear" 
-          className="w-full h-full object-cover object-center"
+          alt="Trail runner in NOBODY performance gear on Bukidnon trail" 
+          className="w-full h-full object-cover object-top"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
       </div>
 
       <div className="container relative z-10 pt-20">
