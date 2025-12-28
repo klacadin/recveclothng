@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import nobodyMission from "@/assets/nobody-mission.png";
 
 const NobodySection = () => {
   return (
@@ -11,22 +12,19 @@ const NobodySection = () => {
           <div className="space-y-6">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-                Sub-Brand
+                Performance Sub-Brand
               </p>
-              <h2 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1]">
-                NOBODY
-              </h2>
             </div>
             
-            <blockquote className="text-xl md:text-2xl font-light italic text-primary-foreground/80 border-l-4 border-accent pl-6">
-              "For the unsung heroes. The 5AM starters. The back-of-the-pack finishers 
-              who show up anyway."
+            <blockquote className="text-lg md:text-xl text-primary-foreground/90 leading-relaxed">
+              We believe that greatness isn't about recognition—it's about the 
+              relentless pursuit of personal bests.
             </blockquote>
 
             <p className="text-primary-foreground/70 leading-relaxed">
-              NOBODY is for athletes who don't chase podiums—but chase personal bests. 
-              Performance gear for those who understand that the real competition is 
-              with yourself. No sponsors. No glory. Just the work.
+              Our apparel is a tribute to the unsung heroes of the track and trail—those 
+              who run not for applause, but for the love of the journey. The 5AM starters. 
+              The back-of-the-pack finishers who show up anyway.
             </p>
 
             <Button variant="red" size="lg" asChild>
@@ -37,20 +35,17 @@ const NobodySection = () => {
             </Button>
           </div>
 
-          {/* Visual */}
+          {/* Visual - NOBODY Mission Card */}
           <div className="relative">
-            <div className="aspect-square bg-primary-foreground/5 rounded-sm flex items-center justify-center">
-              <div className="text-center space-y-4">
-                <div className="font-display text-8xl md:text-9xl font-bold text-primary-foreground/10">
-                  N
-                </div>
-                <p className="text-xs uppercase tracking-[0.3em] text-primary-foreground/40">
-                  Be your own hero
-                </p>
-              </div>
+            <div className="bg-background rounded-sm overflow-hidden shadow-lg">
+              <img 
+                src={nobodyMission} 
+                alt="NOBODY - For the unsung heroes of the track and trail" 
+                className="w-full h-auto"
+              />
             </div>
             {/* Decorative accent */}
-            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-accent/20 rounded-sm" />
+            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-accent/20 rounded-sm -z-10" />
           </div>
         </div>
       </div>
