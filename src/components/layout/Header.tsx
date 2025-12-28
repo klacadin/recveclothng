@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, ShoppingBag, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import reveLogo from "@/assets/reve-logo.jpg";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -19,13 +20,12 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="container flex items-center justify-between h-16">
         {/* Logo */}
-        <Link to="/" className="flex flex-col items-start">
-          <span className="font-display text-xl font-bold tracking-tight text-foreground">
-            REVE
-          </span>
-          <span className="text-[9px] uppercase tracking-[0.25em] text-muted-foreground -mt-1">
-            Clothing
-          </span>
+        <Link to="/" className="flex items-center">
+          <img 
+            src={reveLogo} 
+            alt="REVE Clothing" 
+            className="h-10 w-auto"
+          />
         </Link>
 
         {/* Desktop Navigation */}

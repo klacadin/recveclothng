@@ -3,6 +3,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Target, Users, Heart, Mountain } from "lucide-react";
+import nobodyMission from "@/assets/nobody-mission.png";
 
 const About = () => {
   const values = [
@@ -95,35 +96,42 @@ const About = () => {
         {/* NOBODY Section */}
         <section className="py-16 md:py-24 bg-secondary">
           <div className="container">
-            <div className="max-w-3xl mx-auto text-center space-y-6">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-2">
-                  The Philosophy
-                </p>
-                <h2 className="font-display text-4xl md:text-5xl font-bold text-foreground">
-                  NOBODY
-                </h2>
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              {/* NOBODY Mission Image */}
+              <div className="bg-background rounded-sm overflow-hidden shadow-lg">
+                <img 
+                  src={nobodyMission} 
+                  alt="NOBODY - For the unsung heroes of the track and trail" 
+                  className="w-full h-auto"
+                />
               </div>
-              <blockquote className="text-xl md:text-2xl font-light italic text-muted-foreground">
-                "For every athlete who shows up when nobody's watching. Who trains when 
-                nobody cares. Who finishes when nobody cheers."
-              </blockquote>
-              <p className="text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-                NOBODY is our performance sub-brand dedicated to the unsung heroes of 
-                endurance sports. Not the podium finishers, but the ones who battle 
-                cut-off times. Not the sponsored athletes, but the ones who fund their 
-                own races. The 5AM starters. The back-of-the-pack warriors.
-              </p>
-              <p className="text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-                NOBODY cares about your pace—but <span className="text-foreground font-medium">you</span> do. 
-                And that's what matters.
-              </p>
-              <Button variant="red" size="lg" asChild>
-                <Link to="/collections/nobody">
-                  Shop NOBODY
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
+              
+              {/* Content */}
+              <div className="space-y-6">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-2">
+                    The Philosophy
+                  </p>
+                </div>
+                <blockquote className="text-lg md:text-xl text-muted-foreground leading-relaxed">
+                  We believe that greatness isn't about recognition—it's about the 
+                  relentless pursuit of personal bests.
+                </blockquote>
+                <p className="text-muted-foreground leading-relaxed">
+                  Our apparel is a tribute to the unsung heroes of the track and trail—those 
+                  who run not for applause, but for the love of the journey.
+                </p>
+                <p className="text-muted-foreground leading-relaxed">
+                  NOBODY cares about your pace—but <span className="text-foreground font-medium">you</span> do. 
+                  And that's what matters.
+                </p>
+                <Button variant="red" size="lg" asChild>
+                  <Link to="/collections/nobody">
+                    Shop NOBODY
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         </section>
