@@ -8,6 +8,7 @@ import Shop from "./pages/Shop";
 import ProductDetail from "./pages/ProductDetail";
 import About from "./pages/About";
 import Admin from "./pages/Admin";
+import NobodyCollection from "./pages/NobodyCollection";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/about" element={<About />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/collections/nobody" element={<NobodyCollection />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
