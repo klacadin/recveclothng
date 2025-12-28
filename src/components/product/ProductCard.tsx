@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
 import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/contexts/CartContext";
+import { useToast } from "@/hooks/use-toast";
+import type { Product } from "@/hooks/useProducts";
 
 interface ProductCardProps {
   id: string;
@@ -11,6 +14,7 @@ interface ProductCardProps {
   category?: string;
   isNew?: boolean;
   inStock?: boolean;
+  product?: Product;
 }
 
 const ProductCard = ({ 
@@ -22,10 +26,27 @@ const ProductCard = ({
   category,
   isNew = false,
   inStock = true,
+  product,
 }: ProductCardProps) => {
+  const { addToCart } = useCart();
+  const { toast } = useToast();
+  
   const discount = originalPrice 
     ? Math.round(((originalPrice - price) / originalPrice) * 100) 
     : 0;
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (product) {
+      addToCart(product, 1);
+      toast({
+        title: "Added to cart",
+        description: `${name} has been added to your cart.`,
+      });
+    }
+  };
 
   return (
     <div className="group relative bg-card border border-border rounded overflow-hidden hover:shadow-md transition-all duration-300">
@@ -62,9 +83,14 @@ const ProductCard = ({
         )}
 
         {/* Quick Add */}
-        {inStock && (
+        {inStock && product && (
           <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <Button variant="default" size="sm" className="w-full gap-2">
+            <Button 
+              variant="default" 
+              size="sm" 
+              className="w-full gap-2"
+              onClick={handleAddToCart}
+            >
               <ShoppingBag className="h-4 w-4" />
               Add to Cart
             </Button>

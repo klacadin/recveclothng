@@ -3,62 +3,69 @@ import { Link, useParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Heart, Truck, RotateCcw, Ruler, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { ShoppingBag, Heart, Truck, RotateCcw, ChevronLeft, ChevronRight, Check, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-import jerseyImage from "@/assets/product-jersey-1.jpg";
-import singletImage from "@/assets/product-singlet-1.jpg";
-
-// Mock product data
-const productData = {
-  id: "1",
-  name: "NOBODY Trail Jersey - Red/Black",
-  price: 1299,
-  description: "Technical trail running jersey built for Philippine heat and humidity. Lightweight mesh panels for maximum ventilation, flatlock seams to prevent chafing, and reflective details for early morning or late evening runs.",
-  category: "Trail",
-  images: [jerseyImage, singletImage],
-  sizes: [
-    { name: "XS", inStock: true },
-    { name: "S", inStock: true },
-    { name: "M", inStock: true },
-    { name: "L", inStock: false },
-    { name: "XL", inStock: true },
-    { name: "2XL", inStock: true },
-  ],
-  features: [
-    "Quick-dry fabric technology",
-    "UV protection UPF 30+",
-    "Reflective prints for visibility",
-    "Mesh ventilation panels",
-    "Flatlock seams for comfort",
-  ],
-  isNew: true,
-};
+import { useProduct } from "@/hooks/useProducts";
+import { useCart } from "@/contexts/CartContext";
 
 const ProductDetail = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
-  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const { data: product, isLoading, error } = useProduct(id || '');
+  const { addToCart } = useCart();
+  
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [showSizeGuide, setShowSizeGuide] = useState(false);
-
-  const product = productData; // In real app, fetch by id
 
   const handleAddToCart = () => {
-    if (!selectedSize) {
+    if (!product) return;
+    
+    if (product.stock_quantity < quantity) {
       toast({
-        title: "Select a size",
-        description: "Please choose a size before adding to cart.",
+        title: "Insufficient stock",
+        description: `Only ${product.stock_quantity} items available.`,
         variant: "destructive",
       });
       return;
     }
+    
+    addToCart(product, quantity);
     toast({
       title: "Added to cart",
-      description: `${product.name} (${selectedSize}) x${quantity} added to your cart.`,
+      description: `${product.name} x${quantity} added to your cart.`,
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="pt-20 flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="pt-20 flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+          <h1 className="text-2xl font-bold mb-2">Product not found</h1>
+          <p className="text-muted-foreground mb-6">The product you're looking for doesn't exist.</p>
+          <Button asChild>
+            <Link to="/shop">Back to Shop</Link>
+          </Button>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const images = product.image_url ? [product.image_url] : [];
+  const inStock = product.stock_quantity > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,151 +87,125 @@ const ProductDetail = () => {
             {/* Image Gallery */}
             <div className="space-y-4">
               <div className="relative aspect-[3/4] bg-secondary rounded-sm overflow-hidden">
-                <img
-                  src={product.images[currentImageIndex]}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
-                {product.isNew && (
-                  <span className="absolute top-4 left-4 px-3 py-1 bg-accent text-accent-foreground text-xs font-bold uppercase">
-                    New
-                  </span>
+                {images.length > 0 ? (
+                  <img
+                    src={images[currentImageIndex]}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                    No image available
+                  </div>
                 )}
+                
                 {/* Gallery Navigation */}
-                {product.images.length > 1 && (
+                {images.length > 1 && (
                   <>
                     <button
-                      onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? product.images.length - 1 : prev - 1))}
+                      onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
                       className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-background/80 rounded-full hover:bg-background transition-colors"
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </button>
                     <button
-                      onClick={() => setCurrentImageIndex((prev) => (prev === product.images.length - 1 ? 0 : prev + 1))}
+                      onClick={() => setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
                       className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-background/80 rounded-full hover:bg-background transition-colors"
                     >
                       <ChevronRight className="h-5 w-5" />
                     </button>
                   </>
                 )}
+                
+                {/* Stock Status Overlay */}
+                {!inStock && (
+                  <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
+                    <span className="px-4 py-2 bg-foreground text-background text-sm font-semibold uppercase">
+                      Sold Out
+                    </span>
+                  </div>
+                )}
               </div>
+              
               {/* Thumbnails */}
-              <div className="flex gap-2">
-                {product.images.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentImageIndex(idx)}
-                    className={`w-20 h-20 rounded-sm overflow-hidden border-2 transition-colors ${
-                      currentImageIndex === idx ? "border-foreground" : "border-transparent"
-                    }`}
-                  >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
+              {images.length > 1 && (
+                <div className="flex gap-2">
+                  {images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentImageIndex(idx)}
+                      className={`w-20 h-20 rounded-sm overflow-hidden border-2 transition-colors ${
+                        currentImageIndex === idx ? "border-foreground" : "border-transparent"
+                      }`}
+                    >
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Product Info */}
             <div className="space-y-6">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-2">
-                  {product.category}
-                </p>
+                {product.category && (
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-2">
+                    {product.category}
+                  </p>
+                )}
                 <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">
                   {product.name}
                 </h1>
                 <p className="font-display text-2xl font-bold text-foreground mt-2">
                   ₱{product.price.toLocaleString()}
                 </p>
+                
+                {/* Stock indicator */}
+                <p className={`text-sm mt-2 ${inStock ? 'text-green-600' : 'text-destructive'}`}>
+                  {inStock ? `${product.stock_quantity} in stock` : 'Out of stock'}
+                </p>
               </div>
 
-              <p className="text-muted-foreground leading-relaxed">
-                {product.description}
-              </p>
+              {product.description && (
+                <p className="text-muted-foreground leading-relaxed">
+                  {product.description}
+                </p>
+              )}
 
-              {/* Size Selection */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-foreground">Size</h3>
-                  <button
-                    onClick={() => setShowSizeGuide(!showSizeGuide)}
-                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                  >
-                    <Ruler className="h-3 w-3" />
-                    Size Guide
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
+              {/* Quantity */}
+              {inStock && (
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-3">Quantity</h3>
+                  <div className="flex items-center gap-2">
                     <button
-                      key={size.name}
-                      disabled={!size.inStock}
-                      onClick={() => setSelectedSize(size.name)}
-                      className={`px-4 py-2 text-sm font-medium border rounded transition-all ${
-                        selectedSize === size.name
-                          ? "bg-foreground text-background border-foreground"
-                          : size.inStock
-                          ? "bg-background text-foreground border-border hover:border-foreground"
-                          : "bg-muted text-muted-foreground border-border cursor-not-allowed line-through"
-                      }`}
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      className="w-10 h-10 border border-border rounded flex items-center justify-center hover:bg-secondary"
                     >
-                      {size.name}
+                      -
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Size Guide Modal */}
-              {showSizeGuide && (
-                <div className="p-4 bg-secondary rounded-sm border border-border animate-fade-in">
-                  <h4 className="font-semibold text-sm mb-3">Size Guide (in cm)</h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left py-2 pr-4">Size</th>
-                          <th className="text-left py-2 px-4">Chest</th>
-                          <th className="text-left py-2 px-4">Length</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-b border-border"><td className="py-2 pr-4">XS</td><td className="py-2 px-4">86-91</td><td className="py-2 px-4">66</td></tr>
-                        <tr className="border-b border-border"><td className="py-2 pr-4">S</td><td className="py-2 px-4">91-96</td><td className="py-2 px-4">68</td></tr>
-                        <tr className="border-b border-border"><td className="py-2 pr-4">M</td><td className="py-2 px-4">96-101</td><td className="py-2 px-4">70</td></tr>
-                        <tr className="border-b border-border"><td className="py-2 pr-4">L</td><td className="py-2 px-4">101-107</td><td className="py-2 px-4">72</td></tr>
-                        <tr className="border-b border-border"><td className="py-2 pr-4">XL</td><td className="py-2 px-4">107-112</td><td className="py-2 px-4">74</td></tr>
-                        <tr><td className="py-2 pr-4">2XL</td><td className="py-2 px-4">112-117</td><td className="py-2 px-4">76</td></tr>
-                      </tbody>
-                    </table>
+                    <span className="w-12 text-center font-medium">{quantity}</span>
+                    <button
+                      onClick={() => setQuantity((q) => Math.min(product.stock_quantity, q + 1))}
+                      className="w-10 h-10 border border-border rounded flex items-center justify-center hover:bg-secondary"
+                      disabled={quantity >= product.stock_quantity}
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Quantity */}
-              <div>
-                <h3 className="text-sm font-semibold text-foreground mb-3">Quantity</h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="w-10 h-10 border border-border rounded flex items-center justify-center hover:bg-secondary"
-                  >
-                    -
-                  </button>
-                  <span className="w-12 text-center font-medium">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity((q) => q + 1)}
-                    className="w-10 h-10 border border-border rounded flex items-center justify-center hover:bg-secondary"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
               {/* Add to Cart */}
               <div className="flex gap-3">
-                <Button variant="red" size="xl" className="flex-1" onClick={handleAddToCart}>
+                <Button 
+                  variant="red" 
+                  size="xl" 
+                  className="flex-1" 
+                  onClick={handleAddToCart}
+                  disabled={!inStock}
+                >
                   <ShoppingBag className="h-5 w-5 mr-2" />
-                  Add to Cart
+                  {inStock ? 'Add to Cart' : 'Sold Out'}
                 </Button>
                 <Button variant="outline" size="xl">
                   <Heart className="h-5 w-5" />
@@ -254,18 +235,14 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              {/* Features */}
-              <div className="pt-4 border-t border-border">
-                <h3 className="text-sm font-semibold text-foreground mb-3">Features</h3>
-                <ul className="space-y-2">
-                  {product.features.map((feature) => (
-                    <li key={feature} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Check className="h-4 w-4 text-accent" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {/* SKU */}
+              {product.sku && (
+                <div className="pt-4 border-t border-border">
+                  <p className="text-xs text-muted-foreground">
+                    SKU: {product.sku}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

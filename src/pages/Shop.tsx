@@ -179,6 +179,7 @@ const Shop = () => {
                   category={product.category || undefined}
                   isNew={new Date(product.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000}
                   inStock={product.stock_quantity > 0}
+                  product={product}
                 />
               ))}
             </div>
