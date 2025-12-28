@@ -4,25 +4,23 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
-import { Filter, ChevronDown } from "lucide-react";
+import { Filter, ChevronDown, Package } from "lucide-react";
+import { useProducts } from "@/hooks/useProducts";
 
+// Import images for fallback
 import nobodyJersey from "@/assets/product-nobody-jersey.jpg";
 import heroTee from "@/assets/product-hero-tee.jpg";
 import conquerors3km from "@/assets/product-conquerors-3km.jpg";
 import conquerors10km from "@/assets/product-conquerors-10km.jpg";
 import tabukVest from "@/assets/product-tabuk-vest.jpg";
 
-// Mock product data
-const allProducts = [
-  { id: "1", name: "NOBODY Jersey - Red/Black Graffiti", price: 1299, image: nobodyJersey, category: "NOBODY", isNew: true, inStock: true },
-  { id: "2", name: "Be Your Own Hero Tee - Pink", price: 899, image: heroTee, category: "NOBODY", isNew: true, inStock: true },
-  { id: "3", name: "Conquerors Mix Terrain - 3KM", price: 1199, image: conquerors3km, category: "Event", isNew: false, inStock: true },
-  { id: "4", name: "Conquerors Mix Terrain - 10KM", price: 1199, image: conquerors10km, category: "Event", isNew: false, inStock: true },
-  { id: "5", name: "Tabuk II AdvenTour Vest", price: 1499, image: tabukVest, category: "Event", isNew: true, inStock: true },
-  { id: "6", name: "NOBODY Jersey - Teal/Black", price: 1299, image: nobodyJersey, category: "NOBODY", isNew: false, inStock: true },
-  { id: "7", name: "Be Your Own Hero Tee - Black", price: 899, image: heroTee, category: "NOBODY", isNew: false, inStock: false },
-  { id: "8", name: "Conquerors Finisher Jersey", price: 1199, image: conquerors3km, category: "Event", isNew: false, inStock: true },
-];
+const imageMap: Record<string, string> = {
+  '/assets/product-nobody-jersey.jpg': nobodyJersey,
+  '/assets/product-hero-tee.jpg': heroTee,
+  '/assets/product-conquerors-3km.jpg': conquerors3km,
+  '/assets/product-conquerors-10km.jpg': conquerors10km,
+  '/assets/product-tabuk-vest.jpg': tabukVest,
+};
 
 const categories = ["All", "NOBODY", "Event", "Trail"];
 const sizes = ["XS", "S", "M", "L", "XL", "2XL"];
@@ -33,11 +31,20 @@ const Shop = () => {
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [inStockOnly, setInStockOnly] = useState(false);
 
-  const filteredProducts = allProducts.filter((product) => {
-    if (selectedCategory !== "All" && product.category !== selectedCategory) return false;
-    if (inStockOnly && !product.inStock) return false;
-    return true;
-  });
+  const { data: products = [], isLoading, error } = useProducts();
+
+  const filteredProducts = products
+    .filter(p => p.is_active)
+    .filter((product) => {
+      if (selectedCategory !== "All" && product.category !== selectedCategory) return false;
+      if (inStockOnly && product.stock_quantity === 0) return false;
+      return true;
+    });
+
+  const getProductImage = (imageUrl: string | null) => {
+    if (!imageUrl) return nobodyJersey;
+    return imageMap[imageUrl] || imageUrl;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,7 +62,7 @@ const Shop = () => {
               All Products
             </h1>
             <p className="text-muted-foreground mt-2">
-              {filteredProducts.length} products
+              {isLoading ? 'Loading...' : `${filteredProducts.length} products`}
             </p>
           </div>
         </div>
@@ -143,14 +150,41 @@ const Shop = () => {
             </div>
           )}
 
-          {/* Products Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} {...product} />
-            ))}
-          </div>
+          {/* Loading State */}
+          {isLoading && (
+            <div className="text-center py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground mt-4">Loading products...</p>
+            </div>
+          )}
 
-          {filteredProducts.length === 0 && (
+          {/* Error State */}
+          {error && (
+            <div className="text-center py-16">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">Failed to load products. Please try again.</p>
+            </div>
+          )}
+
+          {/* Products Grid */}
+          {!isLoading && !error && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  id={product.id}
+                  name={product.name}
+                  price={Number(product.price)}
+                  image={getProductImage(product.image_url)}
+                  category={product.category || undefined}
+                  isNew={new Date(product.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000}
+                  inStock={product.stock_quantity > 0}
+                />
+              ))}
+            </div>
+          )}
+
+          {!isLoading && !error && filteredProducts.length === 0 && (
             <div className="text-center py-16">
               <p className="text-muted-foreground">No products found matching your filters.</p>
               <Button variant="outline" className="mt-4" onClick={() => {
