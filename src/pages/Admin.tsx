@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Package, 
@@ -8,61 +9,107 @@ import {
   Search,
   Plus,
   Filter,
-  MoreVertical,
-  Eye,
   Edit,
+  Trash2,
   CheckCircle,
-  Clock,
   PackageCheck,
-  TruckIcon,
-  AlertCircle
+  LogOut,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-// Mock data
-const mockOrders = [
-  { id: "ORD-001", customer: "Juan Dela Cruz", items: 2, total: 2198, status: "new", date: "2024-01-15", payment: "COD" },
-  { id: "ORD-002", customer: "Maria Santos", items: 1, total: 1299, status: "paid", date: "2024-01-15", payment: "GCash" },
-  { id: "ORD-003", customer: "Pedro Reyes", items: 3, total: 3097, status: "packed", date: "2024-01-14", payment: "Maya" },
-  { id: "ORD-004", customer: "Ana Garcia", items: 1, total: 899, status: "shipped", date: "2024-01-14", payment: "GCash" },
-  { id: "ORD-005", customer: "Carlos Mendoza", items: 2, total: 2398, status: "completed", date: "2024-01-13", payment: "COD" },
-];
-
-const mockInventory = [
-  { sku: "NB-TJ-RB-S", name: "NOBODY Trail Jersey - Red/Black", size: "S", stock: 12, reserved: 2 },
-  { sku: "NB-TJ-RB-M", name: "NOBODY Trail Jersey - Red/Black", size: "M", stock: 8, reserved: 3 },
-  { sku: "NB-TJ-RB-L", name: "NOBODY Trail Jersey - Red/Black", size: "L", stock: 0, reserved: 0 },
-  { sku: "PS-BLK-S", name: "Performance Singlet - Black", size: "S", stock: 15, reserved: 0 },
-  { sku: "PS-BLK-M", name: "Performance Singlet - Black", size: "M", stock: 10, reserved: 1 },
-  { sku: "ERS-BLK-M", name: "Elite Running Shorts", size: "M", stock: 5, reserved: 2 },
-];
-
-const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  new: { label: "New", color: "bg-blue-100 text-blue-800", icon: AlertCircle },
-  paid: { label: "Paid", color: "bg-green-100 text-green-800", icon: CheckCircle },
-  packed: { label: "Packed", color: "bg-yellow-100 text-yellow-800", icon: PackageCheck },
-  shipped: { label: "Shipped", color: "bg-purple-100 text-purple-800", icon: TruckIcon },
-  completed: { label: "Completed", color: "bg-gray-100 text-gray-800", icon: CheckCircle },
-};
+import { useAuth } from "@/contexts/AuthContext";
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useUpdateStock, type Product, type ProductInsert } from "@/hooks/useProducts";
+import { useToast } from "@/hooks/use-toast";
+import ProductForm from "@/components/admin/ProductForm";
+import StockUpdateDialog from "@/components/admin/StockUpdateDialog";
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState("orders");
-  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("inventory");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [stockUpdateProduct, setStockUpdateProduct] = useState<Product | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  
+  const { user, signOut, isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const { data: products = [], isLoading } = useProducts();
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
+  const updateStock = useUpdateStock();
 
   const sidebarItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "orders", label: "Orders", icon: ShoppingCart },
     { id: "inventory", label: "Inventory", icon: Package },
     { id: "shipping", label: "Shipping", icon: Truck },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
-  const stats = [
-    { label: "New Orders", value: 3, change: "+2 today" },
-    { label: "Pending Shipment", value: 5, change: "4 COD" },
-    { label: "Low Stock Items", value: 2, change: "Action needed" },
-    { label: "Revenue (Today)", value: "₱4,596", change: "+₱1,299" },
-  ];
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.category?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const lowStockProducts = products.filter(p => p.stock_quantity <= p.low_stock_threshold);
+  const outOfStockProducts = products.filter(p => p.stock_quantity === 0);
+  const totalValue = products.reduce((sum, p) => sum + Number(p.price) * p.stock_quantity, 0);
+
+  const handleCreateProduct = async (data: ProductInsert) => {
+    try {
+      await createProduct.mutateAsync(data);
+      toast({ title: "Product created", description: "The product has been added successfully." });
+      setShowProductForm(false);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleUpdateProduct = async (data: ProductInsert) => {
+    if (!editingProduct) return;
+    try {
+      await updateProduct.mutateAsync({ id: editingProduct.id, updates: data });
+      toast({ title: "Product updated", description: "The product has been updated successfully." });
+      setEditingProduct(null);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteProduct.mutateAsync(id);
+      toast({ title: "Product deleted", description: "The product has been removed." });
+      setDeleteConfirmId(null);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleStockUpdate = async (newStock: number) => {
+    if (!stockUpdateProduct) return;
+    try {
+      await updateStock.mutateAsync({ id: stockUpdateProduct.id, stockQuantity: newStock });
+      toast({ title: "Stock updated", description: "Inventory has been updated successfully." });
+      setStockUpdateProduct(null);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/admin/login');
+  };
+
+  const getStockStatus = (product: Product) => {
+    if (product.stock_quantity === 0) return { label: "Out of Stock", color: "bg-red-100 text-red-800" };
+    if (product.stock_quantity <= product.low_stock_threshold) return { label: "Low Stock", color: "bg-yellow-100 text-yellow-800" };
+    return { label: "In Stock", color: "bg-green-100 text-green-800" };
+  };
 
   return (
     <div className="min-h-screen bg-secondary flex">
@@ -70,7 +117,7 @@ const Admin = () => {
       <aside className="w-64 bg-card border-r border-border flex flex-col">
         <div className="p-6 border-b border-border">
           <h1 className="font-display text-xl font-bold text-foreground">REVE Admin</h1>
-          <p className="text-xs text-muted-foreground mt-1">Operations Dashboard</p>
+          <p className="text-xs text-muted-foreground mt-1">Inventory Management</p>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {sidebarItems.map((item) => (
@@ -90,7 +137,21 @@ const Admin = () => {
         </nav>
         <div className="p-4 border-t border-border">
           <p className="text-xs text-muted-foreground">Logged in as</p>
-          <p className="text-sm font-medium text-foreground">Admin User</p>
+          <p className="text-sm font-medium text-foreground truncate">{user?.email}</p>
+          {isAdmin && (
+            <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-accent text-accent-foreground rounded">
+              Admin
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSignOut}
+            className="w-full mt-3 justify-start"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
         </div>
       </aside>
 
@@ -103,93 +164,79 @@ const Admin = () => {
               {activeTab}
             </h2>
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="pl-10 pr-4 py-2 bg-secondary border border-border rounded-sm text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-                />
-              </div>
-              <Button variant="red" size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                New Order
-              </Button>
+              {activeTab === "inventory" && (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search products..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 pr-4 py-2 bg-secondary border border-border rounded-sm text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                  </div>
+                  <Button variant="red" size="sm" onClick={() => setShowProductForm(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Product
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </header>
 
         <div className="p-6">
-          {/* Stats Grid */}
-          {activeTab === "orders" && (
-            <div className="grid grid-cols-4 gap-4 mb-6">
-              {stats.map((stat) => (
-                <div key={stat.label} className="bg-card p-4 rounded-sm border border-border">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{stat.label}</p>
-                  <p className="font-display text-2xl font-bold text-foreground mt-1">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
+          {/* Dashboard Tab */}
+          {activeTab === "dashboard" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-4 gap-4">
+                <div className="bg-card p-4 rounded-sm border border-border">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Products</p>
+                  <p className="font-display text-2xl font-bold text-foreground mt-1">{products.length}</p>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* Orders Table */}
-          {activeTab === "orders" && (
-            <div className="bg-card rounded-sm border border-border overflow-hidden">
-              <div className="p-4 border-b border-border flex items-center justify-between">
-                <h3 className="font-semibold text-foreground">Recent Orders</h3>
-                <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
-                </Button>
+                <div className="bg-card p-4 rounded-sm border border-border">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Low Stock Items</p>
+                  <p className="font-display text-2xl font-bold text-foreground mt-1">{lowStockProducts.length}</p>
+                  {lowStockProducts.length > 0 && (
+                    <p className="text-xs text-yellow-600 mt-1">Action needed</p>
+                  )}
+                </div>
+                <div className="bg-card p-4 rounded-sm border border-border">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Out of Stock</p>
+                  <p className="font-display text-2xl font-bold text-foreground mt-1">{outOfStockProducts.length}</p>
+                  {outOfStockProducts.length > 0 && (
+                    <p className="text-xs text-red-600 mt-1">Restock required</p>
+                  )}
+                </div>
+                <div className="bg-card p-4 rounded-sm border border-border">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Inventory Value</p>
+                  <p className="font-display text-2xl font-bold text-foreground mt-1">₱{totalValue.toLocaleString()}</p>
+                </div>
               </div>
-              <table className="w-full">
-                <thead className="bg-secondary">
-                  <tr>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Order ID</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Customer</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Items</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payment</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mockOrders.map((order) => {
-                    const status = statusConfig[order.status];
-                    return (
-                      <tr key={order.id} className="border-t border-border hover:bg-secondary/50">
-                        <td className="p-4 text-sm font-medium text-foreground">{order.id}</td>
-                        <td className="p-4 text-sm text-muted-foreground">{order.customer}</td>
-                        <td className="p-4 text-sm text-muted-foreground">{order.items}</td>
-                        <td className="p-4 text-sm font-medium text-foreground">₱{order.total.toLocaleString()}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 text-xs font-medium rounded ${order.payment === "COD" ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"}`}>
-                            {order.payment}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded ${status.color}`}>
-                            <status.icon className="h-3 w-3" />
-                            {status.label}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+
+              {lowStockProducts.length > 0 && (
+                <div className="bg-card rounded-sm border border-border p-6">
+                  <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                    Low Stock Alerts
+                  </h3>
+                  <div className="space-y-2">
+                    {lowStockProducts.slice(0, 5).map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-3 bg-secondary rounded-sm">
+                        <div>
+                          <p className="font-medium text-foreground">{product.name}</p>
+                          <p className="text-sm text-muted-foreground">{product.sku}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-foreground">{product.stock_quantity} left</p>
+                          <p className="text-xs text-muted-foreground">Threshold: {product.low_stock_threshold}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -197,55 +244,123 @@ const Admin = () => {
           {activeTab === "inventory" && (
             <div className="bg-card rounded-sm border border-border overflow-hidden">
               <div className="p-4 border-b border-border flex items-center justify-between">
-                <h3 className="font-semibold text-foreground">Inventory by SKU</h3>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <Filter className="h-4 w-4 mr-2" />
-                    Filter
-                  </Button>
-                  <Button variant="red" size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Stock
-                  </Button>
-                </div>
+                <h3 className="font-semibold text-foreground">
+                  Products ({filteredProducts.length})
+                </h3>
               </div>
-              <table className="w-full">
-                <thead className="bg-secondary">
-                  <tr>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">SKU</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Product</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Size</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">In Stock</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reserved</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Available</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mockInventory.map((item) => {
-                    const available = item.stock - item.reserved;
-                    const isLow = available <= 3;
-                    const isOut = available === 0;
-                    return (
-                      <tr key={item.sku} className="border-t border-border hover:bg-secondary/50">
-                        <td className="p-4 text-sm font-mono text-foreground">{item.sku}</td>
-                        <td className="p-4 text-sm text-muted-foreground">{item.name}</td>
-                        <td className="p-4 text-sm font-medium text-foreground">{item.size}</td>
-                        <td className="p-4 text-sm text-muted-foreground">{item.stock}</td>
-                        <td className="p-4 text-sm text-muted-foreground">{item.reserved}</td>
-                        <td className="p-4 text-sm font-medium text-foreground">{available}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 text-xs font-medium rounded ${
-                            isOut ? "bg-red-100 text-red-800" : isLow ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"
-                          }`}>
-                            {isOut ? "Out of Stock" : isLow ? "Low Stock" : "In Stock"}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              
+              {isLoading ? (
+                <div className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="text-muted-foreground mt-2">Loading products...</p>
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">No products found</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-secondary">
+                    <tr>
+                      <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Product</th>
+                      <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">SKU</th>
+                      <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Category</th>
+                      <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Price</th>
+                      <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stock</th>
+                      <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
+                      <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProducts.map((product) => {
+                      const status = getStockStatus(product);
+                      return (
+                        <tr key={product.id} className="border-t border-border hover:bg-secondary/50">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              {product.image_url && (
+                                <div className="w-10 h-10 bg-secondary rounded overflow-hidden">
+                                  <img 
+                                    src={product.image_url} 
+                                    alt={product.name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-medium text-foreground">{product.name}</p>
+                                {!product.is_active && (
+                                  <span className="text-xs text-muted-foreground">Inactive</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4 text-sm font-mono text-muted-foreground">{product.sku || '-'}</td>
+                          <td className="p-4 text-sm text-muted-foreground">{product.category || '-'}</td>
+                          <td className="p-4 text-sm font-medium text-foreground">₱{Number(product.price).toLocaleString()}</td>
+                          <td className="p-4">
+                            <button
+                              onClick={() => setStockUpdateProduct(product)}
+                              className="text-sm font-medium text-foreground hover:underline"
+                            >
+                              {product.stock_quantity}
+                            </button>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 text-xs font-medium rounded ${status.color}`}>
+                              {status.label}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => setEditingProduct(product)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              {deleteConfirmId === product.id ? (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleDeleteProduct(product.id)}
+                                    disabled={deleteProduct.isPending}
+                                  >
+                                    Confirm
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setDeleteConfirmId(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive"
+                                  onClick={() => setDeleteConfirmId(product.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
 
@@ -282,26 +397,6 @@ const Admin = () => {
                   ))}
                 </div>
               </div>
-
-              <div className="bg-card rounded-sm border border-border p-6">
-                <h3 className="font-semibold text-foreground mb-4">Internal Notes</h3>
-                <textarea
-                  placeholder="Add notes for team coordination..."
-                  className="w-full p-3 bg-secondary border border-border rounded-sm text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                  rows={4}
-                />
-                <Button variant="default" size="sm" className="mt-3">
-                  Save Note
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Dashboard Tab */}
-          {activeTab === "dashboard" && (
-            <div className="text-center py-16">
-              <h3 className="font-display text-xl font-semibold text-foreground mb-2">Welcome to REVE Admin</h3>
-              <p className="text-muted-foreground">Select a section from the sidebar to manage your store.</p>
             </div>
           )}
 
@@ -314,6 +409,29 @@ const Admin = () => {
           )}
         </div>
       </main>
+
+      {/* Product Form Modal */}
+      {(showProductForm || editingProduct) && (
+        <ProductForm
+          product={editingProduct}
+          onSubmit={editingProduct ? handleUpdateProduct : handleCreateProduct}
+          onCancel={() => {
+            setShowProductForm(false);
+            setEditingProduct(null);
+          }}
+          isSubmitting={createProduct.isPending || updateProduct.isPending}
+        />
+      )}
+
+      {/* Stock Update Modal */}
+      {stockUpdateProduct && (
+        <StockUpdateDialog
+          product={stockUpdateProduct}
+          onUpdate={handleStockUpdate}
+          onCancel={() => setStockUpdateProduct(null)}
+          isSubmitting={updateStock.isPending}
+        />
+      )}
     </div>
   );
 };
