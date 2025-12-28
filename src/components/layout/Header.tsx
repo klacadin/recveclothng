@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, ShoppingBag, User, ChevronDown } from "lucide-react";
+import { Menu, X, ShoppingBag, Heart, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import reveLogo from "@/assets/reve-logo.jpg";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const location = useLocation();
-  const { totalItems, setIsCartOpen } = useCart();
+  const { totalItems: cartItems, setIsCartOpen } = useCart();
+  const { totalItems: wishlistItems } = useWishlist();
 
   const navLinks = [
     { name: "Shop", href: "/shop" },
@@ -92,8 +94,20 @@ const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="hidden md:flex">
-            <User className="h-5 w-5" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="hidden md:flex relative"
+            asChild
+          >
+            <Link to="/wishlist">
+              <Heart className="h-5 w-5" />
+              {wishlistItems > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {wishlistItems > 99 ? '99+' : wishlistItems}
+                </span>
+              )}
+            </Link>
           </Button>
           <Button 
             variant="ghost" 
@@ -102,9 +116,9 @@ const Header = () => {
             onClick={() => setIsCartOpen(true)}
           >
             <ShoppingBag className="h-5 w-5" />
-            {totalItems > 0 && (
+            {cartItems > 0 && (
               <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center">
-                {totalItems > 99 ? '99+' : totalItems}
+                {cartItems > 99 ? '99+' : cartItems}
               </span>
             )}
           </Button>
@@ -139,6 +153,27 @@ const Header = () => {
                 {link.name}
               </Link>
             ))}
+            
+            {/* Mobile Wishlist Link */}
+            <Link
+              to="/wishlist"
+              onClick={() => setIsMenuOpen(false)}
+              className={`py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors flex items-center justify-between ${
+                isActive('/wishlist')
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Heart className="h-4 w-4" />
+                Wishlist
+              </span>
+              {wishlistItems > 0 && (
+                <span className="h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                  {wishlistItems}
+                </span>
+              )}
+            </Link>
             
             {/* Mobile Collections */}
             <div className="pt-2 border-t border-border mt-2">

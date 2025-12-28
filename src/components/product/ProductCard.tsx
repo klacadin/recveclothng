@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import { useToast } from "@/hooks/use-toast";
 import type { Product } from "@/hooks/useProducts";
 
@@ -29,7 +30,10 @@ const ProductCard = ({
   product,
 }: ProductCardProps) => {
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const { toast } = useToast();
+  
+  const isWishlisted = product ? isInWishlist(product.id) : false;
   
   const discount = originalPrice 
     ? Math.round(((originalPrice - price) / originalPrice) * 100) 
@@ -48,8 +52,37 @@ const ProductCard = ({
     }
   };
 
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (product) {
+      toggleWishlist(product);
+      toast({
+        title: isWishlisted ? "Removed from wishlist" : "Added to wishlist",
+        description: isWishlisted 
+          ? `${name} has been removed from your wishlist.`
+          : `${name} has been added to your wishlist.`,
+      });
+    }
+  };
+
   return (
     <div className="group relative bg-card border border-border rounded overflow-hidden hover:shadow-md transition-all duration-300">
+      {/* Wishlist Button */}
+      {product && (
+        <button
+          onClick={handleToggleWishlist}
+          className={`absolute top-3 right-3 z-10 p-2 rounded-full transition-all duration-200 ${
+            isWishlisted 
+              ? 'bg-red-500 text-white' 
+              : 'bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground'
+          }`}
+        >
+          <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
+        </button>
+      )}
+
       {/* Image Container */}
       <Link to={`/product/${id}`} className="block relative aspect-[3/4] bg-secondary overflow-hidden">
         <img 
