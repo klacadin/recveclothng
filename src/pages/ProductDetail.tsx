@@ -3,19 +3,23 @@ import { Link, useParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Heart, Truck, RotateCcw, ChevronLeft, ChevronRight, Check, Loader2 } from "lucide-react";
+import { ShoppingBag, Heart, Truck, RotateCcw, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProduct } from "@/hooks/useProducts";
 import { useCart } from "@/contexts/CartContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const { data: product, isLoading, error } = useProduct(id || '');
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+
+  const isWishlisted = product ? isInWishlist(product.id) : false;
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -33,6 +37,18 @@ const ProductDetail = () => {
     toast({
       title: "Added to cart",
       description: `${product.name} x${quantity} added to your cart.`,
+    });
+  };
+
+  const handleToggleWishlist = () => {
+    if (!product) return;
+    
+    toggleWishlist(product);
+    toast({
+      title: isWishlisted ? "Removed from wishlist" : "Added to wishlist",
+      description: isWishlisted 
+        ? `${product.name} has been removed from your wishlist.`
+        : `${product.name} has been added to your wishlist.`,
     });
   };
 
@@ -195,7 +211,7 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* Add to Cart */}
+              {/* Add to Cart & Wishlist */}
               <div className="flex gap-3">
                 <Button 
                   variant="red" 
@@ -207,8 +223,13 @@ const ProductDetail = () => {
                   <ShoppingBag className="h-5 w-5 mr-2" />
                   {inStock ? 'Add to Cart' : 'Sold Out'}
                 </Button>
-                <Button variant="outline" size="xl">
-                  <Heart className="h-5 w-5" />
+                <Button 
+                  variant={isWishlisted ? "default" : "outline"} 
+                  size="xl"
+                  onClick={handleToggleWishlist}
+                  className={isWishlisted ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
+                >
+                  <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-current' : ''}`} />
                 </Button>
               </div>
 
