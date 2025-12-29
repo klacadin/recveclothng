@@ -200,6 +200,41 @@ serve(async (req) => {
 
     console.log('Stock quantities updated');
 
+    // Send confirmation email (non-blocking)
+    try {
+      const emailPayload = {
+        type: 'confirmation',
+        order_id: order.id,
+        customer_email: orderData.customer_email,
+        customer_name: orderData.customer_name,
+        order_number: orderNumber,
+        items: orderData.items,
+        subtotal: orderData.subtotal,
+        shipping_fee: orderData.shipping_fee,
+        total: orderData.total,
+        payment_method: orderData.payment_method,
+        shipping_address: orderData.shipping_address,
+      };
+
+      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-order-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+        },
+        body: JSON.stringify(emailPayload),
+      });
+
+      if (!emailResponse.ok) {
+        console.error('Failed to send confirmation email:', await emailResponse.text());
+      } else {
+        console.log('Confirmation email sent successfully');
+      }
+    } catch (emailError) {
+      console.error('Error sending confirmation email:', emailError);
+      // Don't fail the order if email fails
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
