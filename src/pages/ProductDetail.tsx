@@ -80,7 +80,15 @@ const ProductDetail = () => {
     );
   }
 
-  const images = product.image_url ? [product.image_url] : [];
+  // Combine main image with additional images array
+  const allImages: string[] = [];
+  if (product.image_url) allImages.push(product.image_url);
+  if (product.images && Array.isArray(product.images)) {
+    product.images.forEach((img: string) => {
+      if (img && !allImages.includes(img)) allImages.push(img);
+    });
+  }
+  const images = allImages;
   const inStock = product.stock_quantity > 0;
 
   return (

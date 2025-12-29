@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { X } from 'lucide-react';
+import { X, Plus, Trash2 } from 'lucide-react';
 import type { Product, ProductInsert } from '@/hooks/useProducts';
 
 interface ProductFormProps {
@@ -22,10 +22,12 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
     sku: '',
     category: '',
     image_url: '',
+    images: [],
     stock_quantity: 0,
     low_stock_threshold: 10,
     is_active: true,
   });
+  const [newImageUrl, setNewImageUrl] = useState('');
 
   useEffect(() => {
     if (product) {
@@ -36,12 +38,30 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
         sku: product.sku || '',
         category: product.category || '',
         image_url: product.image_url || '',
+        images: (product as any).images || [],
         stock_quantity: product.stock_quantity,
         low_stock_threshold: product.low_stock_threshold,
         is_active: product.is_active,
       });
     }
   }, [product]);
+
+  const addImage = () => {
+    if (newImageUrl.trim()) {
+      setFormData({
+        ...formData,
+        images: [...(formData.images || []), newImageUrl.trim()],
+      });
+      setNewImageUrl('');
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setFormData({
+      ...formData,
+      images: (formData.images || []).filter((_, i) => i !== index),
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,13 +137,49 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="image_url">Image URL</Label>
+            <Label htmlFor="image_url">Main Image URL</Label>
             <Input
               id="image_url"
               value={formData.image_url || ''}
               onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
               placeholder="/assets/product-image.jpg"
             />
+          </div>
+
+          {/* Additional Images */}
+          <div className="space-y-2">
+            <Label>Additional Images</Label>
+            <div className="flex gap-2">
+              <Input
+                value={newImageUrl}
+                onChange={(e) => setNewImageUrl(e.target.value)}
+                placeholder="Enter image URL"
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addImage())}
+              />
+              <Button type="button" variant="outline" onClick={addImage} size="icon">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {formData.images && formData.images.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {formData.images.map((img, idx) => (
+                  <div key={idx} className="relative group">
+                    <img 
+                      src={img} 
+                      alt={`Product ${idx + 1}`} 
+                      className="w-full h-20 object-cover rounded border border-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
