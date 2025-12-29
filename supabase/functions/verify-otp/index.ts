@@ -4,6 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const MAX_ATTEMPTS = 5;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -59,13 +61,12 @@ serve(async (req) => {
       );
     }
 
-    // Find the OTP - email field stores both email and phone
+    // Find the most recent unverified OTP for this user and identifier
     const { data: otpRecord, error: fetchError } = await supabase
       .from("checkout_otps")
       .select("*")
       .eq("user_id", user.id)
       .eq("email", identifier)
-      .eq("code", code)
       .eq("verified", false)
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
@@ -81,9 +82,45 @@ serve(async (req) => {
     }
 
     if (!otpRecord) {
-      console.error("Invalid or expired OTP");
+      console.error("No valid OTP found for identifier:", identifier);
       return new Response(
         JSON.stringify({ error: "Invalid or expired code. Please request a new one." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if max attempts exceeded
+    if (otpRecord.attempts >= MAX_ATTEMPTS) {
+      console.error("Max attempts exceeded for OTP:", otpRecord.id);
+      return new Response(
+        JSON.stringify({ error: "Too many failed attempts. Please request a new code." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify the code
+    if (otpRecord.code !== code) {
+      // Increment attempts on failure
+      const newAttempts = (otpRecord.attempts || 0) + 1;
+      await supabase
+        .from("checkout_otps")
+        .update({ attempts: newAttempts })
+        .eq("id", otpRecord.id);
+      
+      console.error(`Invalid code attempt ${newAttempts}/${MAX_ATTEMPTS} for OTP:`, otpRecord.id);
+      
+      const remainingAttempts = MAX_ATTEMPTS - newAttempts;
+      if (remainingAttempts <= 0) {
+        return new Response(
+          JSON.stringify({ error: "Too many failed attempts. Please request a new code." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          error: `Invalid code. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.` 
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
