@@ -20,21 +20,22 @@ serve(async (req) => {
     const payload = await req.json();
     console.log('Xendit webhook received:', JSON.stringify(payload));
 
-    // Xendit webhook event types for Payment Request API:
-    // - payment.capture: Payment was successfully captured
-    // - payment.authorization: Payment was authorized (cards)
-    // - payment.failure: Payment failed
+    // Xendit webhook event types:
+    // Payment Request API: payment.capture, payment.authorization, payment.failure
+    // Payment Session API: payment_session.completed, payment_session.expired
     const eventType = payload.event;
     const paymentData = payload.data || payload;
 
     console.log('Event type:', eventType);
     console.log('Payment status:', paymentData.status);
 
-    // Handle payment success events
+    // Handle payment success events (both Payment Request and Payment Session APIs)
     if (
       eventType === 'payment.capture' ||
+      eventType === 'payment_session.completed' ||
       paymentData.status === 'SUCCEEDED' ||
-      paymentData.status === 'PAID'
+      paymentData.status === 'PAID' ||
+      paymentData.status === 'COMPLETED'
     ) {
       // Get order ID from reference_id (we pass order_id as reference_id)
       const orderId = paymentData.reference_id || paymentData.metadata?.order_id;
@@ -103,9 +104,10 @@ serve(async (req) => {
       );
     }
 
-    // Handle payment failure
+    // Handle payment failure (both Payment Request and Payment Session APIs)
     if (
       eventType === 'payment.failure' ||
+      eventType === 'payment_session.expired' ||
       paymentData.status === 'FAILED' ||
       paymentData.status === 'EXPIRED'
     ) {
