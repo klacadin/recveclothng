@@ -18,13 +18,20 @@ import {
   AlertTriangle,
   Eye,
   AlertCircle,
-  Copy
+  Copy,
+  ToggleLeft,
+  ToggleRight,
+  Tag,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useUpdateStock, type Product, type ProductInsert } from "@/hooks/useProducts";
 import { useOrders, useCreateOrder, useUpdateOrderStatus, useDeleteOrder, type Order, type OrderWithItems } from "@/hooks/useOrders";
+import { useBulkProductActions } from "@/hooks/useBulkProductActions";
 import { useToast } from "@/hooks/use-toast";
 import ProductForm from "@/components/admin/ProductForm";
 import StockUpdateDialog from "@/components/admin/StockUpdateDialog";
@@ -57,6 +64,9 @@ const Admin = () => {
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
+  const [bulkCategoryInput, setBulkCategoryInput] = useState("");
+  const [showBulkCategoryInput, setShowBulkCategoryInput] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   
   const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -71,6 +81,20 @@ const Admin = () => {
   const createOrder = useCreateOrder();
   const updateOrderStatus = useUpdateOrderStatus();
   const deleteOrder = useDeleteOrder();
+
+  const {
+    selectedIds,
+    toggleSelection,
+    selectAll,
+    clearSelection,
+    isSelected,
+    selectedCount,
+    hasSelection,
+    bulkDelete,
+    bulkActivate,
+    bulkDeactivate,
+    bulkUpdateCategory,
+  } = useBulkProductActions();
 
   const sidebarItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -482,6 +506,119 @@ const Admin = () => {
                   Products ({filteredProducts.length})
                 </h3>
               </div>
+
+              {/* Bulk Actions Toolbar */}
+              {hasSelection && (
+                <div className="p-4 bg-accent/10 border-b border-border flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-medium text-foreground">
+                    {selectedCount} selected
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSelection}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear
+                  </Button>
+                  <div className="h-4 w-px bg-border" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => bulkActivate.mutate(Array.from(selectedIds))}
+                    disabled={bulkActivate.isPending}
+                  >
+                    <ToggleRight className="h-4 w-4 mr-1" />
+                    Activate
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => bulkDeactivate.mutate(Array.from(selectedIds))}
+                    disabled={bulkDeactivate.isPending}
+                  >
+                    <ToggleLeft className="h-4 w-4 mr-1" />
+                    Deactivate
+                  </Button>
+                  <div className="h-4 w-px bg-border" />
+                  {showBulkCategoryInput ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={bulkCategoryInput}
+                        onChange={(e) => setBulkCategoryInput(e.target.value)}
+                        placeholder="Category name"
+                        className="h-8 w-40"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (bulkCategoryInput.trim()) {
+                            bulkUpdateCategory.mutate({ ids: Array.from(selectedIds), category: bulkCategoryInput.trim() });
+                            setBulkCategoryInput("");
+                            setShowBulkCategoryInput(false);
+                          }
+                        }}
+                        disabled={bulkUpdateCategory.isPending || !bulkCategoryInput.trim()}
+                      >
+                        Apply
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowBulkCategoryInput(false);
+                          setBulkCategoryInput("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowBulkCategoryInput(true)}
+                    >
+                      <Tag className="h-4 w-4 mr-1" />
+                      Set Category
+                    </Button>
+                  )}
+                  <div className="h-4 w-px bg-border" />
+                  {confirmBulkDelete ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          bulkDelete.mutate(Array.from(selectedIds));
+                          setConfirmBulkDelete(false);
+                        }}
+                        disabled={bulkDelete.isPending}
+                      >
+                        Confirm Delete
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setConfirmBulkDelete(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setConfirmBulkDelete(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
+                  )}
+                </div>
+              )}
               
               {productsLoading ? (
                 <div className="p-8 text-center">
@@ -497,6 +634,18 @@ const Admin = () => {
                 <table className="w-full">
                   <thead className="bg-secondary">
                     <tr>
+                      <th className="p-4 w-12">
+                        <Checkbox
+                          checked={selectedCount === filteredProducts.length && filteredProducts.length > 0}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              selectAll(filteredProducts.map(p => p.id));
+                            } else {
+                              clearSelection();
+                            }
+                          }}
+                        />
+                      </th>
                       <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Product</th>
                       <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">SKU</th>
                       <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Category</th>
@@ -510,7 +659,13 @@ const Admin = () => {
                     {filteredProducts.map((product) => {
                       const status = getStockStatus(product);
                       return (
-                        <tr key={product.id} className="border-t border-border hover:bg-secondary/50">
+                        <tr key={product.id} className={`border-t border-border hover:bg-secondary/50 ${isSelected(product.id) ? 'bg-accent/5' : ''}`}>
+                          <td className="p-4">
+                            <Checkbox
+                              checked={isSelected(product.id)}
+                              onCheckedChange={() => toggleSelection(product.id)}
+                            />
+                          </td>
                           <td className="p-4">
                             <div className="flex items-center gap-3">
                               <div>
