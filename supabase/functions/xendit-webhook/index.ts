@@ -20,7 +20,10 @@ serve(async (req) => {
     const payload = await req.json();
     console.log('Xendit webhook received:', JSON.stringify(payload));
 
-    // Xendit sends different event types
+    // Xendit webhook event types for Payment Request API:
+    // - payment.capture: Payment was successfully captured
+    // - payment.authorization: Payment was authorized (cards)
+    // - payment.failure: Payment failed
     const eventType = payload.event;
     const paymentData = payload.data || payload;
 
@@ -29,12 +32,12 @@ serve(async (req) => {
 
     // Handle payment success events
     if (
-      eventType === 'payment.succeeded' ||
+      eventType === 'payment.capture' ||
       paymentData.status === 'SUCCEEDED' ||
       paymentData.status === 'PAID'
     ) {
-      // Get order ID from metadata or reference_id
-      const orderId = paymentData.metadata?.order_id || paymentData.reference_id;
+      // Get order ID from reference_id (we pass order_id as reference_id)
+      const orderId = paymentData.reference_id || paymentData.metadata?.order_id;
       
       if (!orderId) {
         console.error('No order ID in webhook payload');
@@ -102,14 +105,14 @@ serve(async (req) => {
 
     // Handle payment failure
     if (
-      eventType === 'payment.failed' ||
+      eventType === 'payment.failure' ||
       paymentData.status === 'FAILED' ||
       paymentData.status === 'EXPIRED'
     ) {
-      const orderId = paymentData.metadata?.order_id || paymentData.reference_id;
+      const orderId = paymentData.reference_id || paymentData.metadata?.order_id;
       
       if (orderId) {
-        console.log('Payment failed for order:', orderId);
+        console.log('Payment failed for order:', orderId, 'Reason:', paymentData.failure_code);
         // We don't update order status to cancelled automatically
         // The order stays as 'new' and admin can decide what to do
       }
