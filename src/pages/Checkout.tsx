@@ -126,12 +126,42 @@ const Checkout = () => {
         })),
       };
 
+      // Create the order first
       const { data, error } = await supabase.functions.invoke('create-order', {
         body: orderData,
       });
 
       if (error) throw error;
 
+      // For e-wallet payments (GCash/Maya), redirect to Xendit
+      if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') {
+        const { data: paymentData, error: paymentError } = await supabase.functions.invoke('create-xendit-payment', {
+          body: {
+            order_id: data.order_id,
+            order_number: data.order_number,
+            amount: data.total,
+            customer_email: formData.customerEmail,
+            customer_name: formData.customerName,
+            payment_method: formData.paymentMethod,
+            items: items.map(item => ({
+              name: item.product.name,
+              quantity: item.quantity,
+              price: item.product.price,
+            })),
+          },
+        });
+
+        if (paymentError || !paymentData?.redirect_url) {
+          throw new Error(paymentData?.error || 'Failed to create payment session');
+        }
+
+        // Clear cart and redirect to Xendit payment page
+        clearCart();
+        window.location.href = paymentData.redirect_url;
+        return;
+      }
+
+      // For COD/Bank Transfer, go to confirmation page
       clearCart();
       toast({
         title: 'Order placed successfully!',
@@ -342,16 +372,22 @@ const Checkout = () => {
                           Cash on Delivery (COD)
                         </Label>
                       </div>
-                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                      <div className="flex items-center space-x-2 p-3 border rounded-lg bg-primary/5">
                         <RadioGroupItem value="gcash" id="gcash" />
                         <Label htmlFor="gcash" className="flex-1 cursor-pointer">
-                          GCash
+                          <span className="flex items-center gap-2">
+                            GCash
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Online</span>
+                          </span>
                         </Label>
                       </div>
-                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                      <div className="flex items-center space-x-2 p-3 border rounded-lg bg-primary/5">
                         <RadioGroupItem value="maya" id="maya" />
                         <Label htmlFor="maya" className="flex-1 cursor-pointer">
-                          Maya
+                          <span className="flex items-center gap-2">
+                            Maya
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Online</span>
+                          </span>
                         </Label>
                       </div>
                       <div className="flex items-center space-x-2 p-3 border rounded-lg">
@@ -361,6 +397,11 @@ const Checkout = () => {
                         </Label>
                       </div>
                     </RadioGroup>
+                    {(formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        You'll be redirected to {formData.paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </div>
