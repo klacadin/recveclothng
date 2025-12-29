@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-forwarded-for, x-real-ip',
 };
 
 interface OrderItem {
@@ -28,6 +28,28 @@ interface OrderRequest {
   items: OrderItem[];
 }
 
+interface ReservedItem {
+  product_id: string;
+  product_name: string;
+  product_sku: string | null;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+}
+
+// Extract client IP from request headers
+function getClientIP(req: Request): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  const realIP = req.headers.get('x-real-ip');
+  if (realIP) {
+    return realIP;
+  }
+  return 'unknown';
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -38,11 +60,18 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Use service role to bypass RLS
+    // Use service role to bypass RLS for order operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const orderData: OrderRequest = await req.json();
-    console.log('Received order data:', JSON.stringify(orderData, null, 2));
+    const clientIP = getClientIP(req);
+    console.log('Received order from IP:', clientIP);
+    console.log('Received order data:', JSON.stringify({
+      customer_name: orderData.customer_name,
+      customer_email: orderData.customer_email,
+      items_count: orderData.items?.length,
+      total: orderData.total
+    }));
 
     // Validate required fields
     if (!orderData.customer_name || !orderData.customer_email || !orderData.shipping_address) {
@@ -53,12 +82,28 @@ serve(async (req) => {
       );
     }
 
+    // Validate customer name length
+    if (orderData.customer_name.length > 255) {
+      return new Response(
+        JSON.stringify({ error: 'Customer name too long' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(orderData.customer_email)) {
+    if (!emailRegex.test(orderData.customer_email) || orderData.customer_email.length > 320) {
       console.error('Invalid email format');
       return new Response(
         JSON.stringify({ error: 'Invalid email format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate shipping address
+    if (orderData.shipping_address.length > 1000) {
+      return new Response(
+        JSON.stringify({ error: 'Shipping address too long' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -72,22 +117,69 @@ serve(async (req) => {
       );
     }
 
-    // Validate quantities and prices
+    // Limit items per order to prevent abuse
+    if (orderData.items.length > 50) {
+      return new Response(
+        JSON.stringify({ error: 'Too many items in order (max 50)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate quantities
     for (const item of orderData.items) {
-      if (item.quantity <= 0) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 100) {
         console.error('Invalid quantity:', item);
         return new Response(
-          JSON.stringify({ error: 'Item quantity must be positive' }),
+          JSON.stringify({ error: 'Item quantity must be between 1 and 100' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (item.unit_price < 0 || item.total_price < 0) {
-        console.error('Invalid price:', item);
+      // Validate product_id is a valid UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!item.product_id || !uuidRegex.test(item.product_id)) {
         return new Response(
-          JSON.stringify({ error: 'Prices cannot be negative' }),
+          JSON.stringify({ error: 'Invalid product ID' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+    }
+
+    // SECURITY: Check rate limits
+    const { data: rateLimitResult, error: rateLimitError } = await supabase
+      .rpc('check_order_rate_limit', {
+        _ip_address: clientIP,
+        _customer_email: orderData.customer_email,
+        _max_orders_per_hour: 5
+      });
+
+    if (rateLimitError) {
+      console.error('Rate limit check error:', rateLimitError);
+      // Continue anyway - don't block orders if rate limit check fails
+    } else if (rateLimitResult && rateLimitResult.length > 0 && !rateLimitResult[0].allowed) {
+      console.warn('Rate limit exceeded:', { ip: clientIP, email: orderData.customer_email, count: rateLimitResult[0].orders_in_last_hour });
+      return new Response(
+        JSON.stringify({ error: 'Too many orders. Please wait before placing another order.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // SECURITY: Check for duplicate orders
+    const { data: duplicateResult, error: duplicateError } = await supabase
+      .rpc('check_duplicate_order', {
+        _customer_email: orderData.customer_email,
+        _total: orderData.total,
+        _minutes: 5
+      });
+
+    if (duplicateError) {
+      console.error('Duplicate check error:', duplicateError);
+      // Continue anyway
+    } else if (duplicateResult === true) {
+      console.warn('Duplicate order detected:', { email: orderData.customer_email, total: orderData.total });
+      return new Response(
+        JSON.stringify({ error: 'A similar order was recently placed. Please wait a few minutes before ordering again.' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Generate order number
@@ -95,32 +187,107 @@ serve(async (req) => {
     const orderNumber = `ORD-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
     console.log('Generated order number:', orderNumber);
 
-    // Check stock availability
+    // SECURITY: Reserve stock atomically and validate prices from database
+    const reservedItems: ReservedItem[] = [];
+    let serverSubtotal = 0;
+
     for (const item of orderData.items) {
-      const { data: product, error: stockError } = await supabase
-        .from('products')
-        .select('stock_quantity, name')
-        .eq('id', item.product_id)
-        .single();
+      const { data: stockResult, error: stockError } = await supabase
+        .rpc('reserve_product_stock', {
+          _product_id: item.product_id,
+          _quantity: item.quantity
+        });
 
       if (stockError) {
-        console.error('Error checking stock:', stockError);
+        console.error('Error reserving stock:', stockError);
+        // Rollback previously reserved items
+        for (const reserved of reservedItems) {
+          await supabase.rpc('restore_product_stock', {
+            _product_id: reserved.product_id,
+            _quantity: reserved.quantity
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: `Failed to process order: ${stockError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const result = stockResult?.[0];
+      if (!result) {
+        // Rollback previously reserved items
+        for (const reserved of reservedItems) {
+          await supabase.rpc('restore_product_stock', {
+            _product_id: reserved.product_id,
+            _quantity: reserved.quantity
+          });
+        }
         return new Response(
           JSON.stringify({ error: `Product not found: ${item.product_name}` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      if (product.stock_quantity < item.quantity) {
-        console.error('Insufficient stock:', { product: product.name, available: product.stock_quantity, requested: item.quantity });
+      if (!result.is_active) {
+        // Rollback previously reserved items
+        for (const reserved of reservedItems) {
+          await supabase.rpc('restore_product_stock', {
+            _product_id: reserved.product_id,
+            _quantity: reserved.quantity
+          });
+        }
         return new Response(
-          JSON.stringify({ error: `Insufficient stock for ${product.name}. Only ${product.stock_quantity} available.` }),
+          JSON.stringify({ error: `Product is no longer available: ${result.product_name || item.product_name}` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      if (!result.success) {
+        // Rollback previously reserved items
+        for (const reserved of reservedItems) {
+          await supabase.rpc('restore_product_stock', {
+            _product_id: reserved.product_id,
+            _quantity: reserved.quantity
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: `Insufficient stock for ${result.product_name || item.product_name}. Only ${result.available_stock} available.` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // SECURITY: Use database price, not client-sent price
+      const serverPrice = Number(result.product_price);
+      const itemTotal = serverPrice * item.quantity;
+      serverSubtotal += itemTotal;
+
+      reservedItems.push({
+        product_id: item.product_id,
+        product_name: result.product_name || item.product_name,
+        product_sku: result.product_sku || item.product_sku,
+        quantity: item.quantity,
+        unit_price: serverPrice,
+        total_price: itemTotal,
+      });
+
+      console.log(`Reserved ${item.quantity} of ${result.product_name} at ${serverPrice} each`);
     }
 
-    // Create order
+    // SECURITY: Calculate server-side total
+    const shippingFee = Math.max(0, Math.min(orderData.shipping_fee, 10000)); // Cap shipping fee
+    const serverTotal = serverSubtotal + shippingFee;
+
+    console.log('Server-calculated totals:', { subtotal: serverSubtotal, shipping: shippingFee, total: serverTotal });
+
+    // Record rate limit entry
+    await supabase
+      .from('order_rate_limits')
+      .insert({
+        ip_address: clientIP,
+        customer_email: orderData.customer_email,
+      });
+
+    // Create order with SERVER-CALCULATED values
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -131,9 +298,9 @@ serve(async (req) => {
         shipping_address: orderData.shipping_address.substring(0, 1000),
         notes: orderData.notes?.substring(0, 500) || null,
         payment_method: orderData.payment_method,
-        subtotal: Math.max(0, orderData.subtotal),
-        shipping_fee: Math.max(0, orderData.shipping_fee),
-        total: Math.max(0, orderData.total),
+        subtotal: serverSubtotal,
+        shipping_fee: shippingFee,
+        total: serverTotal,
         status: 'new',
       })
       .select()
@@ -141,23 +308,30 @@ serve(async (req) => {
 
     if (orderError) {
       console.error('Error creating order:', orderError);
+      // Rollback reserved stock
+      for (const reserved of reservedItems) {
+        await supabase.rpc('restore_product_stock', {
+          _product_id: reserved.product_id,
+          _quantity: reserved.quantity
+        });
+      }
       return new Response(
-        JSON.stringify({ error: 'Failed to create order', details: orderError.message }),
+        JSON.stringify({ error: 'Failed to create order' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     console.log('Order created:', order.id);
 
-    // Create order items
-    const orderItems = orderData.items.map(item => ({
+    // Create order items with SERVER-VALIDATED values
+    const orderItems = reservedItems.map(item => ({
       order_id: order.id,
       product_id: item.product_id,
       product_name: item.product_name.substring(0, 255),
       product_sku: item.product_sku?.substring(0, 100) || null,
-      quantity: Math.max(1, item.quantity),
-      unit_price: Math.max(0, item.unit_price),
-      total_price: Math.max(0, item.total_price),
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total_price: item.total_price,
     }));
 
     const { error: itemsError } = await supabase
@@ -166,39 +340,21 @@ serve(async (req) => {
 
     if (itemsError) {
       console.error('Error creating order items:', itemsError);
-      // Rollback order
+      // Rollback order and restore stock
       await supabase.from('orders').delete().eq('id', order.id);
+      for (const reserved of reservedItems) {
+        await supabase.rpc('restore_product_stock', {
+          _product_id: reserved.product_id,
+          _quantity: reserved.quantity
+        });
+      }
       return new Response(
-        JSON.stringify({ error: 'Failed to create order items', details: itemsError.message }),
+        JSON.stringify({ error: 'Failed to create order items' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Order items created');
-
-    // Update stock quantities
-    for (const item of orderData.items) {
-      const { error: updateError } = await supabase
-        .from('products')
-        .update({ stock_quantity: supabase.rpc('decrement_stock', { product_id: item.product_id, amount: item.quantity }) })
-        .eq('id', item.product_id);
-      
-      // Simple stock decrement
-      const { data: product } = await supabase
-        .from('products')
-        .select('stock_quantity')
-        .eq('id', item.product_id)
-        .single();
-      
-      if (product) {
-        await supabase
-          .from('products')
-          .update({ stock_quantity: product.stock_quantity - item.quantity })
-          .eq('id', item.product_id);
-      }
-    }
-
-    console.log('Stock quantities updated');
+    console.log('Order items created successfully');
 
     // Send confirmation email (non-blocking)
     try {
@@ -208,10 +364,10 @@ serve(async (req) => {
         customer_email: orderData.customer_email,
         customer_name: orderData.customer_name,
         order_number: orderNumber,
-        items: orderData.items,
-        subtotal: orderData.subtotal,
-        shipping_fee: orderData.shipping_fee,
-        total: orderData.total,
+        items: reservedItems, // Use server-validated items
+        subtotal: serverSubtotal,
+        shipping_fee: shippingFee,
+        total: serverTotal,
         payment_method: orderData.payment_method,
         shipping_address: orderData.shipping_address,
       };
@@ -239,16 +395,16 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         order_id: order.id, 
-        order_number: orderNumber 
+        order_number: orderNumber,
+        total: serverTotal // Return server-calculated total
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: unknown) {
     console.error('Unexpected error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: errorMessage }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -136,6 +136,27 @@ export type Database = {
           },
         ]
       }
+      order_rate_limits: {
+        Row: {
+          created_at: string
+          customer_email: string | null
+          id: string
+          ip_address: string
+        }
+        Insert: {
+          created_at?: string
+          customer_email?: string | null
+          id?: string
+          ip_address: string
+        }
+        Update: {
+          created_at?: string
+          customer_email?: string | null
+          id?: string
+          ip_address?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           created_at: string
@@ -261,12 +282,42 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_duplicate_order: {
+        Args: { _customer_email: string; _minutes?: number; _total: number }
+        Returns: boolean
+      }
+      check_order_rate_limit: {
+        Args: {
+          _customer_email: string
+          _ip_address: string
+          _max_orders_per_hour?: number
+        }
+        Returns: {
+          allowed: boolean
+          orders_in_last_hour: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      reserve_product_stock: {
+        Args: { _product_id: string; _quantity: number }
+        Returns: {
+          available_stock: number
+          is_active: boolean
+          product_name: string
+          product_price: number
+          product_sku: string
+          success: boolean
+        }[]
+      }
+      restore_product_stock: {
+        Args: { _product_id: string; _quantity: number }
+        Returns: undefined
       }
     }
     Enums: {
