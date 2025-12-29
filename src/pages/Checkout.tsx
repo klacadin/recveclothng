@@ -132,7 +132,15 @@ const Checkout = () => {
         body: orderData,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Try to extract error message from the response
+        const errorMessage = data?.error || error.message || 'Failed to place order';
+        throw new Error(errorMessage);
+      }
+
+      if (!data?.order_id) {
+        throw new Error(data?.error || 'Failed to create order');
+      }
 
       // For e-wallet payments (GCash/Maya), redirect to Xendit
       if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') {
