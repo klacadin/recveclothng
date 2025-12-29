@@ -1,30 +1,52 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Mail, RefreshCw } from 'lucide-react';
+import { Loader2, Mail, Phone, RefreshCw } from 'lucide-react';
+
+type VerificationMethod = 'email' | 'sms';
 
 interface OTPVerificationProps {
   email: string;
+  phone?: string;
   customerName: string;
   onVerified: () => void;
   onBack: () => void;
 }
 
-const OTPVerification = ({ email, customerName, onVerified, onBack }: OTPVerificationProps) => {
+const OTPVerification = ({ email, phone, customerName, onVerified, onBack }: OTPVerificationProps) => {
   const [otp, setOtp] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [method, setMethod] = useState<VerificationMethod>('email');
+  const [currentIdentifier, setCurrentIdentifier] = useState(email);
   const { toast } = useToast();
 
-  const sendOTP = async () => {
+  const hasPhone = phone && phone.trim().length >= 10;
+
+  const sendOTP = async (selectedMethod: VerificationMethod = method) => {
     setIsSending(true);
     try {
+      const body: Record<string, string> = {
+        customer_name: customerName,
+        method: selectedMethod,
+      };
+
+      if (selectedMethod === 'email') {
+        body.email = email;
+        setCurrentIdentifier(email);
+      } else {
+        body.phone = phone!;
+        setCurrentIdentifier(phone!);
+      }
+
       const { data, error } = await supabase.functions.invoke('send-otp', {
-        body: { email, customer_name: customerName },
+        body,
       });
 
       if (error) throw error;
@@ -32,7 +54,9 @@ const OTPVerification = ({ email, customerName, onVerified, onBack }: OTPVerific
       setOtpSent(true);
       toast({
         title: 'Code Sent!',
-        description: `We sent a verification code to ${email}`,
+        description: selectedMethod === 'email' 
+          ? `We sent a verification code to ${email}`
+          : `We sent a verification code to ${phone}`,
       });
     } catch (error: any) {
       console.error('Error sending OTP:', error);
@@ -59,7 +83,7 @@ const OTPVerification = ({ email, customerName, onVerified, onBack }: OTPVerific
     setIsVerifying(true);
     try {
       const { data, error } = await supabase.functions.invoke('verify-otp', {
-        body: { email, code: otp },
+        body: { identifier: currentIdentifier, code: otp },
       });
 
       if (error) throw error;
@@ -84,34 +108,75 @@ const OTPVerification = ({ email, customerName, onVerified, onBack }: OTPVerific
     }
   };
 
+  const handleMethodChange = (newMethod: VerificationMethod) => {
+    setMethod(newMethod);
+    setOtp('');
+    setOtpSent(false);
+  };
+
   const resendOTP = async () => {
     setOtp('');
-    await sendOTP();
+    await sendOTP(method);
   };
 
   // Auto-send OTP on mount
-  useState(() => {
+  useEffect(() => {
     if (!otpSent) {
       sendOTP();
     }
-  });
+  }, []);
 
   return (
     <Card className="max-w-md mx-auto">
       <CardHeader className="text-center">
         <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-          <Mail className="h-6 w-6 text-primary" />
+          {method === 'email' ? (
+            <Mail className="h-6 w-6 text-primary" />
+          ) : (
+            <Phone className="h-6 w-6 text-primary" />
+          )}
         </div>
-        <CardTitle>Verify Your Email</CardTitle>
+        <CardTitle>Verify Your Order</CardTitle>
         <CardDescription>
           {otpSent ? (
-            <>We sent a 6-digit code to <strong>{email}</strong></>
+            method === 'email' ? (
+              <>We sent a 6-digit code to <strong>{email}</strong></>
+            ) : (
+              <>We sent a 6-digit code to <strong>{phone}</strong></>
+            )
           ) : (
             'Sending verification code...'
           )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Method Selection - only show if phone is available */}
+        {hasPhone && !otpSent && (
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Send code via:</Label>
+            <RadioGroup
+              value={method}
+              onValueChange={(value) => handleMethodChange(value as VerificationMethod)}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="email" id="method-email" />
+                <Label htmlFor="method-email" className="cursor-pointer flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Email
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="sms" id="method-sms" />
+                <Label htmlFor="method-sms" className="cursor-pointer flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  SMS
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+        )}
+
         {isSending && !otpSent ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -174,10 +239,31 @@ const OTPVerification = ({ email, customerName, onVerified, onBack }: OTPVerific
                   Resend
                 </Button>
               </div>
+
+              {/* Switch method after OTP sent */}
+              {hasPhone && otpSent && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newMethod = method === 'email' ? 'sms' : 'email';
+                    setMethod(newMethod);
+                    setOtp('');
+                    setOtpSent(false);
+                    sendOTP(newMethod);
+                  }}
+                  className="w-full text-sm text-primary hover:underline"
+                  disabled={isSending || isVerifying}
+                >
+                  {method === 'email' 
+                    ? "Didn't receive email? Try SMS instead" 
+                    : "Didn't receive SMS? Try email instead"}
+                </button>
+              )}
             </div>
 
             <p className="text-xs text-center text-muted-foreground">
-              Code expires in 10 minutes. Check your spam folder if you don't see the email.
+              Code expires in 10 minutes. 
+              {method === 'email' && ' Check your spam folder if you don\'t see the email.'}
             </p>
           </>
         )}

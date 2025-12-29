@@ -40,12 +40,12 @@ serve(async (req) => {
       );
     }
 
-    const { email, code } = await req.json();
+    const { identifier, code } = await req.json();
     
-    if (!email || !code) {
+    if (!identifier || !code) {
       console.error("Missing required fields");
       return new Response(
-        JSON.stringify({ error: "Missing email or code" }),
+        JSON.stringify({ error: "Missing identifier or code" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -59,12 +59,12 @@ serve(async (req) => {
       );
     }
 
-    // Find the OTP
+    // Find the OTP - email field stores both email and phone
     const { data: otpRecord, error: fetchError } = await supabase
       .from("checkout_otps")
       .select("*")
       .eq("user_id", user.id)
-      .eq("email", email)
+      .eq("email", identifier)
       .eq("code", code)
       .eq("verified", false)
       .gt("expires_at", new Date().toISOString())
@@ -102,7 +102,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("OTP verified successfully for:", email);
+    console.log("OTP verified successfully for:", identifier);
 
     return new Response(
       JSON.stringify({ success: true, verified: true }),
