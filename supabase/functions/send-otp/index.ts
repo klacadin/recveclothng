@@ -58,7 +58,7 @@ const sendEmailOTP = async (email: string, code: string, customerName: string): 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "REVE <onboarding@resend.dev>",
+      from: "REVE <shop@reveclothingxnobody.com>",
       to: [email],
       subject: "Your Order Verification Code",
       html: generateOTPEmail(code, customerName),
