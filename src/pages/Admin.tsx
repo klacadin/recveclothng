@@ -22,7 +22,8 @@ import {
   ToggleLeft,
   ToggleRight,
   Tag,
-  X
+  X,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -229,6 +230,39 @@ const Admin = () => {
     return { label: "In Stock", color: "bg-green-100 text-green-800" };
   };
 
+  const exportInventoryCSV = () => {
+    const headers = ['Name', 'SKU', 'Category', 'Price', 'Stock Quantity', 'Low Stock Threshold', 'Status', 'Active'];
+    const csvRows = [headers.join(',')];
+
+    filteredProducts.forEach(product => {
+      const status = getStockStatus(product);
+      const row = [
+        `"${product.name.replace(/"/g, '""')}"`,
+        `"${(product.sku || '').replace(/"/g, '""')}"`,
+        `"${(product.category || '').replace(/"/g, '""')}"`,
+        product.price,
+        product.stock_quantity,
+        product.low_stock_threshold,
+        `"${status.label}"`,
+        product.is_active ? 'Yes' : 'No'
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `inventory-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: 'Export complete', description: `Exported ${filteredProducts.length} products to CSV.` });
+  };
+
   return (
     <div className="min-h-screen bg-secondary flex">
       {/* Sidebar */}
@@ -300,10 +334,16 @@ const Admin = () => {
                 </div>
               )}
               {activeTab === "inventory" && (
-                <Button variant="red" size="sm" onClick={() => setShowProductForm(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Product
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={exportInventoryCSV}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Button variant="red" size="sm" onClick={() => setShowProductForm(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Product
+                  </Button>
+                </>
               )}
               {activeTab === "orders" && (
                 <Button variant="red" size="sm" onClick={() => setShowOrderForm(true)}>
