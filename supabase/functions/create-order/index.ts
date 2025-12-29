@@ -26,6 +26,7 @@ interface OrderRequest {
   shipping_fee: number;
   total: number;
   items: OrderItem[];
+  user_id?: string; // Optional user ID for logged-in customers
 }
 
 interface ReservedItem {
@@ -302,6 +303,7 @@ serve(async (req) => {
         shipping_fee: shippingFee,
         total: serverTotal,
         status: 'new',
+        user_id: orderData.user_id || null, // Link order to authenticated user
       })
       .select()
       .single();

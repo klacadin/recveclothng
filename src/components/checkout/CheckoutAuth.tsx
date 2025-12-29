@@ -26,6 +26,62 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const { toast } = useToast();
 
+  const attemptLogin = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    toast({
+      title: 'Logged in!',
+      description: 'Proceeding to checkout...',
+    });
+    onAuthenticated();
+  };
+
+  const attemptSignup = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/checkout`,
+      },
+    });
+
+    if (error) {
+      // If user already exists, try logging in with the same credentials
+      if (error.message?.includes('User already registered')) {
+        toast({
+          title: 'Account exists',
+          description: 'Trying to log you in...',
+        });
+        try {
+          await attemptLogin(email, password);
+          return;
+        } catch (loginError: any) {
+          // Login failed, show appropriate message
+          if (loginError.message?.includes('Invalid login credentials')) {
+            throw new Error('An account with this email already exists. Please use your existing password to log in.');
+          }
+          throw loginError;
+        }
+      }
+      throw error;
+    }
+
+    // Check if email confirmation is required
+    if (data.user && !data.session) {
+      toast({
+        title: 'Check your email',
+        description: 'Please verify your email address to continue.',
+      });
+      return;
+    }
+
+    toast({
+      title: 'Account created!',
+      description: 'Proceeding to checkout...',
+    });
+    onAuthenticated();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -45,35 +101,18 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        toast({
-          title: 'Logged in!',
-          description: 'Proceeding to checkout...',
-        });
+        await attemptLogin(email, password);
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/checkout`,
-          },
-        });
-        if (error) throw error;
-        toast({
-          title: 'Account created!',
-          description: 'Proceeding to checkout...',
-        });
+        await attemptSignup(email, password);
       }
-      onAuthenticated();
     } catch (error: any) {
       console.error('Auth error:', error);
       let message = error.message || 'Authentication failed. Please try again.';
       
       if (error.message?.includes('Invalid login credentials')) {
         message = 'Invalid email or password. Please try again.';
-      } else if (error.message?.includes('User already registered')) {
-        message = 'An account with this email already exists. Please login instead.';
+      } else if (error.message?.includes('already exists')) {
+        message = error.message;
         setIsLogin(true);
       }
       
@@ -96,8 +135,8 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
         <CardTitle>{isLogin ? 'Login to Continue' : 'Create Account'}</CardTitle>
         <CardDescription>
           {isLogin 
-            ? 'Sign in to your account to complete your order' 
-            : 'Create an account to track your orders'}
+            ? 'Sign in to your account to complete your order and track it later' 
+            : 'Create an account to track your orders and checkout faster next time'}
         </CardDescription>
       </CardHeader>
       <CardContent>

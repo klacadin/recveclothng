@@ -116,6 +116,7 @@ const Checkout = () => {
         subtotal,
         shipping_fee: SHIPPING_FEE,
         total,
+        user_id: user?.id || null, // Link order to authenticated user
         items: items.map(item => ({
           product_id: item.product.id,
           product_name: item.product.name,
