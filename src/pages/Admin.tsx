@@ -17,7 +17,8 @@ import {
   LogOut,
   AlertTriangle,
   Eye,
-  AlertCircle
+  AlertCircle,
+  Copy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -127,6 +128,27 @@ const Admin = () => {
       await deleteProduct.mutateAsync(id);
       toast({ title: "Product deleted", description: "The product has been removed." });
       setDeleteConfirmId(null);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleDuplicateProduct = async (product: Product) => {
+    try {
+      const duplicatedProduct = {
+        name: `${product.name} (Copy)`,
+        description: product.description,
+        price: Number(product.price),
+        sku: product.sku ? `${product.sku}-COPY` : null,
+        category: product.category,
+        image_url: product.image_url,
+        images: product.images || [],
+        stock_quantity: 0, // Start with 0 stock for duplicates
+        low_stock_threshold: product.low_stock_threshold,
+        is_active: false, // Duplicates start as inactive
+      };
+      await createProduct.mutateAsync(duplicatedProduct);
+      toast({ title: "Product duplicated", description: "A copy of the product has been created." });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -522,8 +544,19 @@ const Admin = () => {
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => setEditingProduct(product)}
+                                title="Edit"
                               >
                                 <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleDuplicateProduct(product)}
+                                disabled={createProduct.isPending}
+                                title="Duplicate"
+                              >
+                                <Copy className="h-4 w-4" />
                               </Button>
                               {deleteConfirmId === product.id ? (
                                 <div className="flex items-center gap-1">
@@ -549,6 +582,7 @@ const Admin = () => {
                                   size="icon"
                                   className="h-8 w-8 text-destructive hover:text-destructive"
                                   onClick={() => setDeleteConfirmId(product.id)}
+                                  title="Delete"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
