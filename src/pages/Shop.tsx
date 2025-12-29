@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
-import { Filter, ChevronDown, Package } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Filter, ChevronDown, Package, Search, X } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 
 // Import images for fallback
@@ -30,16 +31,29 @@ const Shop = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [inStockOnly, setInStockOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: products = [], isLoading, error } = useProducts();
 
-  const filteredProducts = products
-    .filter(p => p.is_active)
-    .filter((product) => {
-      if (selectedCategory !== "All" && product.category !== selectedCategory) return false;
-      if (inStockOnly && product.stock_quantity === 0) return false;
-      return true;
-    });
+  const filteredProducts = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    return products
+      .filter(p => p.is_active)
+      .filter((product) => {
+        // Search filter
+        if (query) {
+          const matchesName = product.name.toLowerCase().includes(query);
+          const matchesCategory = product.category?.toLowerCase().includes(query);
+          const matchesDescription = product.description?.toLowerCase().includes(query);
+          if (!matchesName && !matchesCategory && !matchesDescription) return false;
+        }
+        // Category filter
+        if (selectedCategory !== "All" && product.category !== selectedCategory) return false;
+        // Stock filter
+        if (inStockOnly && product.stock_quantity === 0) return false;
+        return true;
+      });
+  }, [products, searchQuery, selectedCategory, inStockOnly]);
 
   const getProductImage = (imageUrl: string | null) => {
     if (!imageUrl) return nobodyJersey;
@@ -68,6 +82,26 @@ const Shop = () => {
         </div>
 
         <div className="container py-8">
+          {/* Search Bar */}
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             {/* Category Tabs */}
@@ -192,6 +226,7 @@ const Shop = () => {
                 setSelectedCategory("All");
                 setSelectedSizes([]);
                 setInStockOnly(false);
+                setSearchQuery("");
               }}>
                 Clear Filters
               </Button>
