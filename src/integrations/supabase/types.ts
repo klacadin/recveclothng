@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       checkout_otps: {
         Row: {
+          attempts: number
           code: string
           created_at: string
           email: string
@@ -25,6 +26,7 @@ export type Database = {
           verified: boolean
         }
         Insert: {
+          attempts?: number
           code: string
           created_at?: string
           email: string
@@ -34,6 +36,7 @@ export type Database = {
           verified?: boolean
         }
         Update: {
+          attempts?: number
           code?: string
           created_at?: string
           email?: string
