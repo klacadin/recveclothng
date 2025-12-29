@@ -100,6 +100,16 @@ export const useUpdateOrderStatus = () => {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Order['status'] }) => {
+      // First get the order details for email
+      const { data: orderData, error: fetchError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update the status
       const { data, error } = await supabase
         .from('orders')
         .update({ status })
@@ -108,6 +118,30 @@ export const useUpdateOrderStatus = () => {
         .single();
 
       if (error) throw error;
+
+      // Send status update email (non-blocking)
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        await fetch(`${supabaseUrl}/functions/v1/send-order-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            type: 'status_update',
+            order_id: id,
+            customer_email: orderData.customer_email,
+            customer_name: orderData.customer_name,
+            order_number: orderData.order_number,
+            new_status: status,
+          }),
+        });
+      } catch (emailError) {
+        console.error('Failed to send status update email:', emailError);
+        // Don't fail the status update if email fails
+      }
+
       return data as Order;
     },
     onSuccess: () => {
