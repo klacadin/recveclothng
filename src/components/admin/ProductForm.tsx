@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2, Upload, Loader2 } from 'lucide-react';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import type { Product, ProductInsert } from '@/hooks/useProducts';
 
 interface ProductFormProps {
@@ -28,6 +29,9 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
     is_active: true,
   });
   const [newImageUrl, setNewImageUrl] = useState('');
+  const mainImageInputRef = useRef<HTMLInputElement>(null);
+  const additionalImagesInputRef = useRef<HTMLInputElement>(null);
+  const { uploadImage, isUploading } = useImageUpload();
 
   useEffect(() => {
     if (product) {
@@ -45,6 +49,37 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
       });
     }
   }, [product]);
+
+  const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const url = await uploadImage(file);
+    if (url) {
+      setFormData({ ...formData, image_url: url });
+    }
+    // Reset input
+    if (mainImageInputRef.current) {
+      mainImageInputRef.current.value = '';
+    }
+  };
+
+  const handleAdditionalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const url = await uploadImage(file);
+    if (url) {
+      setFormData({
+        ...formData,
+        images: [...(formData.images || []), url],
+      });
+    }
+    // Reset input
+    if (additionalImagesInputRef.current) {
+      additionalImagesInputRef.current.value = '';
+    }
+  };
 
   const addImage = () => {
     if (newImageUrl.trim()) {
@@ -136,14 +171,53 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
             </div>
           </div>
 
+          {/* Main Image Upload */}
           <div className="space-y-2">
-            <Label htmlFor="image_url">Main Image URL</Label>
-            <Input
-              id="image_url"
-              value={formData.image_url || ''}
-              onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-              placeholder="/assets/product-image.jpg"
-            />
+            <Label>Main Image</Label>
+            <div className="flex gap-2">
+              <Input
+                id="image_url"
+                value={formData.image_url || ''}
+                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                placeholder="Image URL or upload"
+                className="flex-1"
+              />
+              <input
+                ref={mainImageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleMainImageUpload}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => mainImageInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            {formData.image_url && (
+              <div className="relative w-32 h-32 mt-2">
+                <img
+                  src={formData.image_url}
+                  alt="Main product"
+                  className="w-full h-full object-cover rounded border border-border"
+                />
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, image_url: '' })}
+                  className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Additional Images */}
@@ -155,13 +229,33 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
                 onChange={(e) => setNewImageUrl(e.target.value)}
                 placeholder="Enter image URL"
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addImage())}
+                className="flex-1"
               />
               <Button type="button" variant="outline" onClick={addImage} size="icon">
                 <Plus className="h-4 w-4" />
               </Button>
+              <input
+                ref={additionalImagesInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAdditionalImageUpload}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => additionalImagesInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+              </Button>
             </div>
             {formData.images && formData.images.length > 0 && (
-              <div className="grid grid-cols-3 gap-2 mt-2">
+              <div className="grid grid-cols-4 gap-2 mt-2">
                 {formData.images.map((img, idx) => (
                   <div key={idx} className="relative group">
                     <img 
@@ -220,7 +314,7 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
             <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
+            <Button type="submit" disabled={isSubmitting || isUploading} className="flex-1">
               {isSubmitting ? 'Saving...' : product ? 'Update Product' : 'Add Product'}
             </Button>
           </div>
