@@ -86,7 +86,21 @@ const OTPVerification = ({ email, phone, customerName, onVerified, onBack }: OTP
         body: { identifier: currentIdentifier, code: otp },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Try to extract the actual error message from the response
+        let errorMessage = 'Invalid or expired code. Please try again.';
+        if (error.context?.body) {
+          try {
+            const errorBody = await error.context.body.json();
+            if (errorBody?.error) {
+              errorMessage = errorBody.error;
+            }
+          } catch {
+            // Use default message if parsing fails
+          }
+        }
+        throw new Error(errorMessage);
+      }
 
       if (data.verified) {
         toast({
