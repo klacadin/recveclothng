@@ -2,6 +2,9 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
+const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
+const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -47,6 +50,80 @@ const generateOTPEmail = (code: string, customerName: string): string => {
   `;
 };
 
+const sendEmailOTP = async (email: string, code: string, customerName: string): Promise<boolean> => {
+  const emailResponse = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "REVE <onboarding@resend.dev>",
+      to: [email],
+      subject: "Your Order Verification Code",
+      html: generateOTPEmail(code, customerName),
+    }),
+  });
+
+  const result = await emailResponse.json();
+  
+  if (!emailResponse.ok) {
+    console.error("Resend API error:", result);
+    return false;
+  }
+  
+  console.log("Email OTP sent successfully to:", email);
+  return true;
+};
+
+const sendSMSOTP = async (phone: string, code: string): Promise<boolean> => {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
+    console.error("Twilio credentials not configured");
+    return false;
+  }
+
+  // Format phone number - ensure it starts with +
+  let formattedPhone = phone.trim();
+  if (!formattedPhone.startsWith("+")) {
+    // Assume Philippine number if no country code
+    if (formattedPhone.startsWith("0")) {
+      formattedPhone = "+63" + formattedPhone.substring(1);
+    } else if (formattedPhone.startsWith("9")) {
+      formattedPhone = "+63" + formattedPhone;
+    } else {
+      formattedPhone = "+" + formattedPhone;
+    }
+  }
+
+  const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
+  const authHeader = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+
+  const body = new URLSearchParams({
+    To: formattedPhone,
+    From: TWILIO_PHONE_NUMBER,
+    Body: `Your REVE order verification code is: ${code}. This code expires in 10 minutes.`,
+  });
+
+  const response = await fetch(twilioUrl, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${authHeader}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    console.error("Twilio API error:", result);
+    return false;
+  }
+
+  console.log("SMS OTP sent successfully to:", formattedPhone);
+  return true;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -78,22 +155,54 @@ serve(async (req) => {
       );
     }
 
-    const { email, customer_name } = await req.json();
+    const { email, phone, customer_name, method = "email" } = await req.json();
     
-    if (!email || !customer_name) {
-      console.error("Missing required fields");
+    if (!customer_name) {
+      console.error("Missing customer name");
       return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
+        JSON.stringify({ error: "Missing customer name" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      console.error("Invalid email format");
+    // Validate based on method
+    if (method === "email") {
+      if (!email) {
+        console.error("Missing email");
+        return new Response(
+          JSON.stringify({ error: "Missing email" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        console.error("Invalid email format");
+        return new Response(
+          JSON.stringify({ error: "Invalid email format" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else if (method === "sms") {
+      if (!phone) {
+        console.error("Missing phone number");
+        return new Response(
+          JSON.stringify({ error: "Missing phone number" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // Basic phone validation - at least 10 digits
+      const digitsOnly = phone.replace(/\D/g, "");
+      if (digitsOnly.length < 10) {
+        console.error("Invalid phone number format");
+        return new Response(
+          JSON.stringify({ error: "Invalid phone number. Please enter at least 10 digits." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      console.error("Invalid method:", method);
       return new Response(
-        JSON.stringify({ error: "Invalid email format" }),
+        JSON.stringify({ error: "Invalid verification method" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -107,7 +216,7 @@ serve(async (req) => {
       .from("checkout_otps")
       .insert({
         user_id: user.id,
-        email: email,
+        email: method === "email" ? email : phone, // Store phone in email field for SMS
         code: otpCode,
         expires_at: expiresAt.toISOString(),
         verified: false,
@@ -121,35 +230,32 @@ serve(async (req) => {
       );
     }
 
-    // Send OTP email
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "REVE <onboarding@resend.dev>",
-        to: [email],
-        subject: "Your Order Verification Code",
-        html: generateOTPEmail(otpCode, customer_name),
-      }),
-    });
+    // Send OTP based on method
+    let success = false;
+    if (method === "email") {
+      success = await sendEmailOTP(email, otpCode, customer_name);
+    } else {
+      success = await sendSMSOTP(phone, otpCode);
+    }
 
-    const emailResult = await emailResponse.json();
-
-    if (!emailResponse.ok) {
-      console.error("Resend API error:", emailResult);
+    if (!success) {
       return new Response(
-        JSON.stringify({ error: "Failed to send OTP email" }),
+        JSON.stringify({ error: `Failed to send OTP via ${method}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("OTP sent successfully to:", email);
+    const destination = method === "email" ? email : phone;
+    console.log(`OTP sent successfully via ${method} to:`, destination);
 
     return new Response(
-      JSON.stringify({ success: true, message: "OTP sent to your email" }),
+      JSON.stringify({ 
+        success: true, 
+        message: method === "email" 
+          ? "OTP sent to your email" 
+          : "OTP sent to your phone",
+        method,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {

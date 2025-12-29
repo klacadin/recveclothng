@@ -227,6 +227,7 @@ const Checkout = () => {
         {step === 'otp' && (
           <OTPVerification
             email={formData.customerEmail}
+            phone={formData.customerPhone}
             customerName={formData.customerName}
             onVerified={handleOTPVerified}
             onBack={() => setStep('details')}
