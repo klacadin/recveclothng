@@ -1,9 +1,17 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, ShoppingBag, Heart, ChevronDown } from "lucide-react";
+import { Menu, X, ShoppingBag, Heart, ChevronDown, User, Package, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import reveLogo from "@/assets/reve-logo.jpg";
 
 const Header = () => {
@@ -12,6 +20,7 @@ const Header = () => {
   const location = useLocation();
   const { totalItems: cartItems, setIsCartOpen } = useCart();
   const { totalItems: wishlistItems } = useWishlist();
+  const { user, signOut } = useAuth();
 
   const navLinks = [
     { name: "Shop", href: "/shop" },
@@ -94,6 +103,45 @@ const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          {/* User Account */}
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="hidden md:flex">
+                  <User className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-medium truncate">{user.email}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/my-orders" className="cursor-pointer">
+                    <Package className="h-4 w-4 mr-2" />
+                    My Orders
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer text-destructive">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="hidden md:flex"
+              asChild
+            >
+              <Link to="/admin/login">
+                <User className="h-5 w-5" />
+              </Link>
+            </Button>
+          )}
+          
           <Button 
             variant="ghost" 
             size="icon" 
@@ -174,6 +222,22 @@ const Header = () => {
                 </span>
               )}
             </Link>
+
+            {/* Mobile My Orders Link (if logged in) */}
+            {user && (
+              <Link
+                to="/my-orders"
+                onClick={() => setIsMenuOpen(false)}
+                className={`py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors flex items-center gap-2 ${
+                  isActive('/my-orders')
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                <Package className="h-4 w-4" />
+                My Orders
+              </Link>
+            )}
             
             {/* Mobile Collections */}
             <div className="pt-2 border-t border-border mt-2">
@@ -194,6 +258,36 @@ const Header = () => {
                   {collection.name}
                 </Link>
               ))}
+            </div>
+
+            {/* Mobile Account Section */}
+            <div className="pt-2 border-t border-border mt-2">
+              {user ? (
+                <>
+                  <p className="px-4 py-2 text-xs text-muted-foreground truncate">
+                    {user.email}
+                  </p>
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors text-left flex items-center gap-2 text-destructive hover:bg-secondary"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/admin/login"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors flex items-center gap-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                >
+                  <User className="h-4 w-4" />
+                  Sign In
+                </Link>
+              )}
             </div>
           </nav>
         </div>
