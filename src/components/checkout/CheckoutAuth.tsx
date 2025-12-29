@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -183,6 +184,16 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
             </div>
             {errors.password && (
               <p className="text-sm text-destructive mt-1">{errors.password}</p>
+            )}
+            {isLogin && (
+              <div className="text-right">
+                <Link 
+                  to="/forgot-password" 
+                  className="text-sm text-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             )}
           </div>
 

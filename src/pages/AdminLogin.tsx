@@ -175,6 +175,16 @@ const AdminLogin = () => {
               {errors.password && (
                 <p className="text-xs text-destructive">{errors.password}</p>
               )}
+              {isLogin && (
+                <div className="text-right">
+                  <Link 
+                    to="/forgot-password" 
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
             </div>
 
             <Button
