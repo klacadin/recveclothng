@@ -13,7 +13,7 @@ import { useWishlist } from "@/contexts/WishlistContext";
 import type { Database } from "@/integrations/supabase/types";
 
 type ProductSize = Database['public']['Enums']['product_size'];
-const SIZES: ProductSize[] = ['S', 'M', 'L', 'XL'];
+const SIZES: ProductSize[] = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
