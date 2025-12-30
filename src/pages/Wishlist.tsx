@@ -12,20 +12,9 @@ const Wishlist = () => {
   const { addToCart } = useCart();
   const { toast } = useToast();
 
-  const handleAddToCart = (product: typeof items[0]) => {
-    if (product.stock_quantity <= 0) {
-      toast({
-        title: 'Out of stock',
-        description: 'This product is currently unavailable.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    addToCart(product, 1);
-    toast({
-      title: 'Added to cart',
-      description: `${product.name} has been added to your cart.`,
-    });
+  const handleAddToCart = (productId: string) => {
+    // Redirect to product page for size selection
+    window.location.href = `/product/${productId}`;
   };
 
   const handleRemove = (productId: string, productName: string) => {
@@ -129,7 +118,7 @@ const Wishlist = () => {
                     <div className="flex flex-col gap-2 justify-center">
                       <Button
                         size="sm"
-                        onClick={() => handleAddToCart(product)}
+                        onClick={() => handleAddToCart(product.id)}
                         disabled={product.stock_quantity <= 0}
                       >
                         <ShoppingBag className="h-4 w-4 mr-2" />

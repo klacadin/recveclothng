@@ -32,8 +32,8 @@ export const CartDrawer = () => {
         ) : (
           <>
             <div className="flex-1 overflow-y-auto py-4 space-y-4">
-              {items.map(({ product, quantity }) => (
-                <div key={product.id} className="flex gap-4 p-4 border rounded-lg">
+              {items.map(({ product, quantity, size }) => (
+                <div key={`${product.id}-${size}`} className="flex gap-4 p-4 border rounded-lg">
                   <div className="w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0">
                     {product.image_url ? (
                       <img
@@ -51,13 +51,14 @@ export const CartDrawer = () => {
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium truncate">{product.name}</h4>
                     <p className="text-sm text-muted-foreground">₱{product.price.toFixed(2)}</p>
+                    <p className="text-xs font-medium text-accent mt-0.5">Size: {size}</p>
                     
                     <div className="flex items-center gap-2 mt-2">
                       <Button
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => updateQuantity(product.id, quantity - 1)}
+                        onClick={() => updateQuantity(product.id, size, quantity - 1)}
                       >
                         <Minus className="h-4 w-4" />
                       </Button>
@@ -66,8 +67,7 @@ export const CartDrawer = () => {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => updateQuantity(product.id, quantity + 1)}
-                        disabled={quantity >= product.stock_quantity}
+                        onClick={() => updateQuantity(product.id, size, quantity + 1)}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
@@ -75,7 +75,7 @@ export const CartDrawer = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 ml-auto text-destructive hover:text-destructive"
-                        onClick={() => removeFromCart(product.id)}
+                        onClick={() => removeFromCart(product.id, size)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

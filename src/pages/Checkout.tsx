@@ -124,6 +124,7 @@ const Checkout = () => {
           quantity: item.quantity,
           unit_price: item.product.price,
           total_price: item.product.price * item.quantity,
+          size: item.size, // Include size for variant stock reservation
         })),
       };
 
