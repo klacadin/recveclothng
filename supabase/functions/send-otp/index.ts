@@ -207,6 +207,26 @@ serve(async (req) => {
       );
     }
 
+    // Per-recipient rate limiting - max 5 OTPs per email/phone per hour
+    const recipient = method === "email" ? email : phone;
+    const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
+    
+    const { count, error: countError } = await supabase
+      .from("checkout_otps")
+      .select("*", { count: "exact", head: true })
+      .eq("email", recipient)
+      .gt("created_at", oneHourAgo);
+
+    if (countError) {
+      console.error("Error checking rate limit:", countError);
+    } else if (count && count >= 5) {
+      console.log(`Rate limit exceeded for recipient: ${recipient}`);
+      return new Response(
+        JSON.stringify({ error: "Too many verification codes sent. Please try again in an hour." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Generate OTP
     const otpCode = generateOTP();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
