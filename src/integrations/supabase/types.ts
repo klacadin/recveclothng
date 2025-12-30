@@ -97,6 +97,7 @@ export type Database = {
           product_name: string
           product_sku: string | null
           quantity: number
+          size: string | null
           total_price: number
           unit_price: number
         }
@@ -108,6 +109,7 @@ export type Database = {
           product_name: string
           product_sku?: string | null
           quantity?: number
+          size?: string | null
           total_price: number
           unit_price: number
         }
@@ -119,6 +121,7 @@ export type Database = {
           product_name?: string
           product_sku?: string | null
           quantity?: number
+          size?: string | null
           total_price?: number
           unit_price?: number
         }
@@ -219,6 +222,47 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      product_variants: {
+        Row: {
+          created_at: string
+          id: string
+          low_stock_threshold: number
+          product_id: string
+          size: Database["public"]["Enums"]["product_size"]
+          sku_suffix: string | null
+          stock_quantity: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          low_stock_threshold?: number
+          product_id: string
+          size: Database["public"]["Enums"]["product_size"]
+          sku_suffix?: string | null
+          stock_quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          low_stock_threshold?: number
+          product_id?: string
+          size?: Database["public"]["Enums"]["product_size"]
+          sku_suffix?: string | null
+          stock_quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {
@@ -327,8 +371,32 @@ export type Database = {
           success: boolean
         }[]
       }
+      reserve_variant_stock: {
+        Args: {
+          _product_id: string
+          _quantity: number
+          _size: Database["public"]["Enums"]["product_size"]
+        }
+        Returns: {
+          available_stock: number
+          is_active: boolean
+          product_name: string
+          product_price: number
+          product_sku: string
+          success: boolean
+          variant_sku_suffix: string
+        }[]
+      }
       restore_product_stock: {
         Args: { _product_id: string; _quantity: number }
+        Returns: undefined
+      }
+      restore_variant_stock: {
+        Args: {
+          _product_id: string
+          _quantity: number
+          _size: Database["public"]["Enums"]["product_size"]
+        }
         Returns: undefined
       }
     }
@@ -342,6 +410,7 @@ export type Database = {
         | "completed"
         | "cancelled"
       payment_method: "cod" | "gcash" | "maya" | "bank_transfer"
+      product_size: "S" | "M" | "L" | "XL"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -479,6 +548,7 @@ export const Constants = {
         "cancelled",
       ],
       payment_method: ["cod", "gcash", "maya", "bank_transfer"],
+      product_size: ["S", "M", "L", "XL"],
     },
   },
 } as const
