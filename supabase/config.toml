@@ -1,5 +1,8 @@
 project_id = "mcvnceiugqyvgfmgnizf"
 
+[functions.notify-payment-proof]
+verify_jwt = true
+
 [functions.create-order]
 verify_jwt = false
 
