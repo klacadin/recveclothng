@@ -196,7 +196,7 @@ const Admin = () => {
       // Create variants with 0 stock for the duplicated product
       await createVariants.mutateAsync({ 
         productId: newProduct.id, 
-        sizeStocks: { S: 0, M: 0, L: 0, XL: 0 } 
+        sizeStocks: { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 } 
       });
       toast({ title: "Product duplicated", description: "A copy of the product has been created." });
     } catch (error: any) {

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export type ProductSize = 'S' | 'M' | 'L' | 'XL';
+export type ProductSize = 'XS' | 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 
 export interface ProductVariant {
   id: string;
@@ -29,13 +29,16 @@ export interface ProductVariantUpdate {
 }
 
 export interface SizeStock {
+  XS: number;
   S: number;
   M: number;
   L: number;
   XL: number;
+  '2XL': number;
+  '3XL': number;
 }
 
-export const SIZES: ProductSize[] = ['S', 'M', 'L', 'XL'];
+export const SIZES: ProductSize[] = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
 
 export const useProductVariants = (productId?: string) => {
   return useQuery({
@@ -169,7 +172,7 @@ export const useCreateVariantsForProduct = () => {
 
 // Helper to convert variants array to SizeStock object
 export const variantsToSizeStock = (variants: ProductVariant[]): SizeStock => {
-  const sizeStock: SizeStock = { S: 0, M: 0, L: 0, XL: 0 };
+  const sizeStock: SizeStock = { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 };
   variants.forEach(v => {
     if (v.size in sizeStock) {
       sizeStock[v.size as ProductSize] = v.stock_quantity;

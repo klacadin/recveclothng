@@ -18,7 +18,7 @@ const SizeStockUpdateDialog = ({ product, variants, onUpdate, onCancel, isSubmit
   const [selectedSize, setSelectedSize] = useState<ProductSize>('M');
   const [stockChange, setStockChange] = useState(0);
   const [changeType, setChangeType] = useState<'add' | 'subtract' | 'set'>('add');
-  const [sizeStocks, setSizeStocks] = useState<SizeStock>({ S: 0, M: 0, L: 0, XL: 0 });
+  const [sizeStocks, setSizeStocks] = useState<SizeStock>({ XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 });
 
   useEffect(() => {
     if (variants.length > 0) {

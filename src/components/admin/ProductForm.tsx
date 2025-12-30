@@ -31,7 +31,7 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
     low_stock_threshold: 10,
     is_active: true,
   });
-  const [sizeStocks, setSizeStocks] = useState<SizeStock>({ S: 0, M: 0, L: 0, XL: 0 });
+  const [sizeStocks, setSizeStocks] = useState<SizeStock>({ XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 });
   const [newImageUrl, setNewImageUrl] = useState('');
   const mainImageInputRef = useRef<HTMLInputElement>(null);
   const additionalImagesInputRef = useRef<HTMLInputElement>(null);
