@@ -21,7 +21,7 @@ const HeroSection = () => {
           {/* Brand Tag */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-secondary/80 backdrop-blur-sm rounded-sm animate-fade-up">
             <span className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
-              GAWANG BUKID
+              TIMING IS EVERYTHING
             </span>
           </div>
 
