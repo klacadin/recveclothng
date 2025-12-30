@@ -7,15 +7,18 @@ import { Switch } from '@/components/ui/switch';
 import { X, Plus, Trash2, Upload, Loader2 } from 'lucide-react';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import type { Product, ProductInsert } from '@/hooks/useProducts';
+import SizeStockInput from './SizeStockInput';
+import { type SizeStock, type ProductVariant, variantsToSizeStock } from '@/hooks/useProductVariants';
 
 interface ProductFormProps {
   product?: Product | null;
-  onSubmit: (data: ProductInsert) => void;
+  productVariants?: ProductVariant[];
+  onSubmit: (data: ProductInsert, sizeStocks: SizeStock) => void;
   onCancel: () => void;
   isSubmitting: boolean;
 }
 
-const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormProps) => {
+const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmitting }: ProductFormProps) => {
   const [formData, setFormData] = useState<ProductInsert>({
     name: '',
     description: '',
@@ -28,6 +31,7 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
     low_stock_threshold: 10,
     is_active: true,
   });
+  const [sizeStocks, setSizeStocks] = useState<SizeStock>({ S: 0, M: 0, L: 0, XL: 0 });
   const [newImageUrl, setNewImageUrl] = useState('');
   const mainImageInputRef = useRef<HTMLInputElement>(null);
   const additionalImagesInputRef = useRef<HTMLInputElement>(null);
@@ -49,6 +53,12 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
       });
     }
   }, [product]);
+
+  useEffect(() => {
+    if (productVariants && productVariants.length > 0) {
+      setSizeStocks(variantsToSizeStock(productVariants));
+    }
+  }, [productVariants]);
 
   const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,7 +110,9 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    // Calculate total stock from size stocks
+    const totalStock = Object.values(sizeStocks).reduce((sum, qty) => sum + qty, 0);
+    onSubmit({ ...formData, stock_quantity: totalStock }, sizeStocks);
   };
 
   return (
@@ -276,29 +288,22 @@ const ProductForm = ({ product, onSubmit, onCancel, isSubmitting }: ProductFormP
             )}
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="stock_quantity">Stock Quantity *</Label>
-              <Input
-                id="stock_quantity"
-                type="number"
-                min="0"
-                value={formData.stock_quantity}
-                onChange={(e) => setFormData({ ...formData, stock_quantity: parseInt(e.target.value) || 0 })}
-                required
-              />
-            </div>
+          {/* Size Stock Inputs */}
+          <SizeStockInput 
+            sizeStocks={sizeStocks} 
+            onChange={setSizeStocks} 
+            disabled={isSubmitting}
+          />
 
-            <div className="space-y-2">
-              <Label htmlFor="low_stock_threshold">Low Stock Threshold</Label>
-              <Input
-                id="low_stock_threshold"
-                type="number"
-                min="0"
-                value={formData.low_stock_threshold}
-                onChange={(e) => setFormData({ ...formData, low_stock_threshold: parseInt(e.target.value) || 10 })}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="low_stock_threshold">Low Stock Threshold (per size)</Label>
+            <Input
+              id="low_stock_threshold"
+              type="number"
+              min="0"
+              value={formData.low_stock_threshold}
+              onChange={(e) => setFormData({ ...formData, low_stock_threshold: parseInt(e.target.value) || 10 })}
+            />
           </div>
 
           <div className="flex items-center gap-3">

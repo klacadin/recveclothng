@@ -32,10 +32,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useUpdateStock, type Product, type ProductInsert } from "@/hooks/useProducts";
 import { useOrders, useCreateOrder, useUpdateOrderStatus, useDeleteOrder, type Order, type OrderWithItems } from "@/hooks/useOrders";
+import { useAllProductVariants, useCreateVariantsForProduct, useBulkUpdateVariants, type SizeStock, type ProductVariant, variantsToSizeStock, SIZES } from "@/hooks/useProductVariants";
 import { useBulkProductActions } from "@/hooks/useBulkProductActions";
 import { useToast } from "@/hooks/use-toast";
 import ProductForm from "@/components/admin/ProductForm";
-import StockUpdateDialog from "@/components/admin/StockUpdateDialog";
+import SizeStockUpdateDialog from "@/components/admin/SizeStockUpdateDialog";
 import OrderForm from "@/components/admin/OrderForm";
 import AdminSettings from "@/components/admin/AdminSettings";
 
@@ -75,6 +76,7 @@ const Admin = () => {
   
   const { data: products = [], isLoading: productsLoading } = useProducts();
   const { data: orders = [], isLoading: ordersLoading } = useOrders();
+  const { data: allVariants = [] } = useAllProductVariants();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -82,6 +84,15 @@ const Admin = () => {
   const createOrder = useCreateOrder();
   const updateOrderStatus = useUpdateOrderStatus();
   const deleteOrder = useDeleteOrder();
+  const createVariants = useCreateVariantsForProduct();
+  const bulkUpdateVariants = useBulkUpdateVariants();
+
+  // Group variants by product ID for quick lookup
+  const variantsByProduct = allVariants.reduce((acc, v) => {
+    if (!acc[v.product_id]) acc[v.product_id] = [];
+    acc[v.product_id].push(v);
+    return acc;
+  }, {} as Record<string, ProductVariant[]>);
 
   const {
     selectedIds,
@@ -127,9 +138,11 @@ const Admin = () => {
     .filter(o => o.status !== 'cancelled' && new Date(o.created_at).toDateString() === new Date().toDateString())
     .reduce((sum, o) => sum + Number(o.total), 0);
 
-  const handleCreateProduct = async (data: ProductInsert) => {
+  const handleCreateProduct = async (data: ProductInsert, sizeStocks: SizeStock) => {
     try {
-      await createProduct.mutateAsync(data);
+      const product = await createProduct.mutateAsync(data);
+      // Create variants for the new product
+      await createVariants.mutateAsync({ productId: product.id, sizeStocks });
       toast({ title: "Product created", description: "The product has been added successfully." });
       setShowProductForm(false);
     } catch (error: any) {
@@ -137,10 +150,17 @@ const Admin = () => {
     }
   };
 
-  const handleUpdateProduct = async (data: ProductInsert) => {
+  const handleUpdateProduct = async (data: ProductInsert, sizeStocks: SizeStock) => {
     if (!editingProduct) return;
     try {
       await updateProduct.mutateAsync({ id: editingProduct.id, updates: data });
+      // Update variants for the product
+      const variants = SIZES.map(size => ({
+        size,
+        stock_quantity: sizeStocks[size],
+        low_stock_threshold: data.low_stock_threshold || 5,
+      }));
+      await bulkUpdateVariants.mutateAsync({ productId: editingProduct.id, variants });
       toast({ title: "Product updated", description: "The product has been updated successfully." });
       setEditingProduct(null);
     } catch (error: any) {
@@ -172,7 +192,12 @@ const Admin = () => {
         low_stock_threshold: product.low_stock_threshold,
         is_active: false, // Duplicates start as inactive
       };
-      await createProduct.mutateAsync(duplicatedProduct);
+      const newProduct = await createProduct.mutateAsync(duplicatedProduct);
+      // Create variants with 0 stock for the duplicated product
+      await createVariants.mutateAsync({ 
+        productId: newProduct.id, 
+        sizeStocks: { S: 0, M: 0, L: 0, XL: 0 } 
+      });
       toast({ title: "Product duplicated", description: "A copy of the product has been created." });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -720,12 +745,23 @@ const Admin = () => {
                           <td className="p-4 text-sm text-muted-foreground">{product.category || '-'}</td>
                           <td className="p-4 text-sm font-medium text-foreground">₱{Number(product.price).toLocaleString()}</td>
                           <td className="p-4">
-                            <button
-                              onClick={() => setStockUpdateProduct(product)}
-                              className="text-sm font-medium text-foreground hover:underline"
-                            >
-                              {product.stock_quantity}
-                            </button>
+                            <div className="space-y-1">
+                              <button
+                                onClick={() => setStockUpdateProduct(product)}
+                                className="text-sm font-medium text-foreground hover:underline"
+                              >
+                                {product.stock_quantity} total
+                              </button>
+                              {variantsByProduct[product.id] && (
+                                <div className="flex gap-1 text-xs text-muted-foreground">
+                                  {variantsByProduct[product.id].map(v => (
+                                    <span key={v.size} className="bg-secondary px-1 rounded">
+                                      {v.size}:{v.stock_quantity}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4">
                             <span className={`px-2 py-1 text-xs font-medium rounded ${status.color}`}>
@@ -838,22 +874,36 @@ const Admin = () => {
       {(showProductForm || editingProduct) && (
         <ProductForm
           product={editingProduct}
+          productVariants={editingProduct ? variantsByProduct[editingProduct.id] : undefined}
           onSubmit={editingProduct ? handleUpdateProduct : handleCreateProduct}
           onCancel={() => {
             setShowProductForm(false);
             setEditingProduct(null);
           }}
-          isSubmitting={createProduct.isPending || updateProduct.isPending}
+          isSubmitting={createProduct.isPending || updateProduct.isPending || createVariants.isPending || bulkUpdateVariants.isPending}
         />
       )}
 
       {/* Stock Update Modal */}
       {stockUpdateProduct && (
-        <StockUpdateDialog
+        <SizeStockUpdateDialog
           product={stockUpdateProduct}
-          onUpdate={handleStockUpdate}
+          variants={variantsByProduct[stockUpdateProduct.id] || []}
+          onUpdate={async (sizeStocks) => {
+            try {
+              const variants = SIZES.map(size => ({
+                size,
+                stock_quantity: sizeStocks[size],
+              }));
+              await bulkUpdateVariants.mutateAsync({ productId: stockUpdateProduct.id, variants });
+              toast({ title: "Stock updated", description: "Inventory has been updated successfully." });
+              setStockUpdateProduct(null);
+            } catch (error: any) {
+              toast({ title: "Error", description: error.message, variant: "destructive" });
+            }
+          }}
           onCancel={() => setStockUpdateProduct(null)}
-          isSubmitting={updateStock.isPending}
+          isSubmitting={bulkUpdateVariants.isPending}
         />
       )}
 
