@@ -16,6 +16,8 @@ import {
   PackageCheck,
   XCircle
 } from 'lucide-react';
+import OrderStatusTracker from '@/components/orders/OrderStatusTracker';
+import ProofOfPaymentUpload from '@/components/orders/ProofOfPaymentUpload';
 
 interface OrderItem {
   id: string;
@@ -35,8 +37,11 @@ interface Order {
   shipping_fee: number;
   total: number;
   shipping_address: string;
+  customer_name: string;
+  customer_email: string;
   created_at: string;
   updated_at: string;
+  proof_of_payment_url: string | null;
   order_items: OrderItem[];
 }
 
@@ -86,8 +91,11 @@ const MyOrders = () => {
             shipping_fee,
             total,
             shipping_address,
+            customer_name,
+            customer_email,
             created_at,
             updated_at,
+            proof_of_payment_url,
             order_items (
               id,
               product_name,
@@ -218,12 +226,27 @@ const MyOrders = () => {
                       <p className="font-medium">{selectedOrder.order_number}</p>
                     </div>
 
-                    <div>
-                      <p className="text-sm text-muted-foreground">Status</p>
-                      <Badge className={statusConfig[selectedOrder.status]?.color || ''}>
-                        {statusConfig[selectedOrder.status]?.label || selectedOrder.status}
-                      </Badge>
-                    </div>
+                    {/* Order Status Tracker */}
+                    <OrderStatusTracker status={selectedOrder.status} />
+
+                    {/* Proof of Payment Upload - Show for unpaid orders with bank_transfer/gcash/maya */}
+                    {selectedOrder.status === 'new' && ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) && (
+                      <ProofOfPaymentUpload
+                        orderId={selectedOrder.id}
+                        orderNumber={selectedOrder.order_number}
+                        customerName={selectedOrder.customer_name}
+                        customerEmail={selectedOrder.customer_email}
+                        total={selectedOrder.total}
+                        userId={user.id}
+                        existingProofUrl={selectedOrder.proof_of_payment_url}
+                        onUploadComplete={(url) => {
+                          setSelectedOrder({ ...selectedOrder, proof_of_payment_url: url });
+                          setOrders(orders.map(o => 
+                            o.id === selectedOrder.id ? { ...o, proof_of_payment_url: url } : o
+                          ));
+                        }}
+                      />
+                    )}
 
                     <div>
                       <p className="text-sm text-muted-foreground mb-2">Items</p>
