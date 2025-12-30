@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import SEO from "@/components/SEO";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,6 +87,11 @@ const Shop = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO 
+        title="Shop"
+        description="Shop premium running shirts, singlets, shorts, and longsleeves from REVE Clothing. Sizes S to 3XL. Nationwide delivery via J&T. COD, GCash, Maya accepted."
+        url="/shop"
+      />
       <Header />
       <main className="pt-20">
         {/* Page Header */}

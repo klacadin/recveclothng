@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import SEO from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Heart, Truck, RotateCcw, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -124,6 +125,14 @@ const ProductDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO 
+        title={product.name}
+        description={product.description || `Shop ${product.name} from REVE Clothing. Premium quality athletic wear. ₱${Number(product.price).toLocaleString()}. Sizes S-XL. Nationwide delivery.`}
+        url={`/product/${product.id}`}
+        type="product"
+        price={Number(product.price)}
+        image={product.image_url || undefined}
+      />
       <Header />
       <main className="pt-20">
         {/* Breadcrumb */}

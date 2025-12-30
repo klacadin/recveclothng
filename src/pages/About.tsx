@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import SEO from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Target, Users, Heart, Mountain } from "lucide-react";
 import nobodyMission from "@/assets/nobody-mission.png";
@@ -31,6 +32,11 @@ const About = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO 
+        title="About Us"
+        description="REVE Clothing was born during the pandemic in Maramag, Bukidnon. Founded by Jing and Ever Lopez. From Nobody to Somebody. Premium quality athletic wear at affordable prices."
+        url="/about"
+      />
       <Header />
       <main className="pt-20">
         {/* Hero */}
