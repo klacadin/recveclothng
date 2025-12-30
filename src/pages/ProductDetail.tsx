@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -6,37 +6,68 @@ import { Button } from "@/components/ui/button";
 import { ShoppingBag, Heart, Truck, RotateCcw, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProduct } from "@/hooks/useProducts";
+import { useProductVariants } from "@/hooks/useProductVariants";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
+import type { Database } from "@/integrations/supabase/types";
+
+type ProductSize = Database['public']['Enums']['product_size'];
+const SIZES: ProductSize[] = ['S', 'M', 'L', 'XL'];
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const { data: product, isLoading, error } = useProduct(id || '');
+  const { data: variants, isLoading: variantsLoading } = useProductVariants(id || '');
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
 
   const isWishlisted = product ? isInWishlist(product.id) : false;
+
+  // Get stock for selected size
+  const getStockForSize = (size: ProductSize): number => {
+    if (!variants) return 0;
+    const variant = variants.find(v => v.size === size);
+    return variant?.stock_quantity || 0;
+  };
+
+  const selectedSizeStock = selectedSize ? getStockForSize(selectedSize) : 0;
+  const totalStock = variants?.reduce((sum, v) => sum + v.stock_quantity, 0) || 0;
+
+  // Reset quantity when size changes
+  useEffect(() => {
+    setQuantity(1);
+  }, [selectedSize]);
 
   const handleAddToCart = () => {
     if (!product) return;
     
-    if (product.stock_quantity < quantity) {
+    if (!selectedSize) {
       toast({
-        title: "Insufficient stock",
-        description: `Only ${product.stock_quantity} items available.`,
+        title: "Select a size",
+        description: "Please select a size before adding to cart.",
         variant: "destructive",
       });
       return;
     }
     
-    addToCart(product, quantity);
+    if (selectedSizeStock < quantity) {
+      toast({
+        title: "Insufficient stock",
+        description: `Only ${selectedSizeStock} items available in size ${selectedSize}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    addToCart(product, selectedSize, quantity);
     toast({
       title: "Added to cart",
-      description: `${product.name} x${quantity} added to your cart.`,
+      description: `${product.name} (${selectedSize}) x${quantity} added to your cart.`,
     });
   };
 
@@ -52,7 +83,7 @@ const ProductDetail = () => {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || variantsLoading) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -89,7 +120,7 @@ const ProductDetail = () => {
     });
   }
   const images = allImages;
-  const inStock = product.stock_quantity > 0;
+  const inStock = totalStock > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -186,7 +217,7 @@ const ProductDetail = () => {
                 
                 {/* Stock indicator */}
                 <p className={`text-sm mt-2 ${inStock ? 'text-green-600' : 'text-destructive'}`}>
-                  {inStock ? `${product.stock_quantity} in stock` : 'Out of stock'}
+                  {inStock ? `${totalStock} total in stock` : 'Out of stock'}
                 </p>
               </div>
 
@@ -196,8 +227,46 @@ const ProductDetail = () => {
                 </p>
               )}
 
-              {/* Quantity */}
+              {/* Size Selector */}
               {inStock && (
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-3">
+                    Size {selectedSize && <span className="text-muted-foreground font-normal">({selectedSizeStock} available)</span>}
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {SIZES.map((size) => {
+                      const stock = getStockForSize(size);
+                      const isAvailable = stock > 0;
+                      const isSelected = selectedSize === size;
+                      
+                      return (
+                        <button
+                          key={size}
+                          onClick={() => isAvailable && setSelectedSize(size)}
+                          disabled={!isAvailable}
+                          className={`
+                            w-12 h-12 border rounded flex items-center justify-center text-sm font-medium transition-all
+                            ${isSelected 
+                              ? 'border-foreground bg-foreground text-background' 
+                              : isAvailable 
+                                ? 'border-border hover:border-foreground' 
+                                : 'border-border/50 text-muted-foreground/50 cursor-not-allowed line-through'
+                            }
+                          `}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!selectedSize && (
+                    <p className="text-xs text-muted-foreground mt-2">Please select a size</p>
+                  )}
+                </div>
+              )}
+
+              {/* Quantity */}
+              {inStock && selectedSize && (
                 <div>
                   <h3 className="text-sm font-semibold text-foreground mb-3">Quantity</h3>
                   <div className="flex items-center gap-2">
@@ -209,9 +278,9 @@ const ProductDetail = () => {
                     </button>
                     <span className="w-12 text-center font-medium">{quantity}</span>
                     <button
-                      onClick={() => setQuantity((q) => Math.min(product.stock_quantity, q + 1))}
+                      onClick={() => setQuantity((q) => Math.min(selectedSizeStock, q + 1))}
                       className="w-10 h-10 border border-border rounded flex items-center justify-center hover:bg-secondary"
-                      disabled={quantity >= product.stock_quantity}
+                      disabled={quantity >= selectedSizeStock}
                     >
                       +
                     </button>
@@ -226,10 +295,10 @@ const ProductDetail = () => {
                   size="xl" 
                   className="flex-1" 
                   onClick={handleAddToCart}
-                  disabled={!inStock}
+                  disabled={!inStock || !selectedSize}
                 >
                   <ShoppingBag className="h-5 w-5 mr-2" />
-                  {inStock ? 'Add to Cart' : 'Sold Out'}
+                  {!inStock ? 'Sold Out' : !selectedSize ? 'Select Size' : 'Add to Cart'}
                 </Button>
                 <Button 
                   variant={isWishlisted ? "default" : "outline"} 

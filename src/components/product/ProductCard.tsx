@@ -43,11 +43,12 @@ const ProductCard = ({
     e.preventDefault();
     e.stopPropagation();
     
+    // For quick add from card, we don't add to cart - redirect to product page for size selection
+    // This is intentional UX - size selection is required
     if (product) {
-      addToCart(product, 1);
       toast({
-        title: "Added to cart",
-        description: `${name} has been added to your cart.`,
+        title: "Select a size",
+        description: "Please visit the product page to select your size.",
       });
     }
   };

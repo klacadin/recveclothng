@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-forwarded-for, x-real-ip',
 };
 
+type ProductSize = 'S' | 'M' | 'L' | 'XL';
+
 interface OrderItem {
   product_id: string;
   product_name: string;
@@ -13,6 +15,7 @@ interface OrderItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  size: ProductSize; // Size is now required
 }
 
 interface OrderRequest {
@@ -26,7 +29,7 @@ interface OrderRequest {
   shipping_fee: number;
   total: number;
   items: OrderItem[];
-  user_id?: string; // Optional user ID for logged-in customers
+  user_id?: string;
 }
 
 interface ReservedItem {
@@ -36,6 +39,7 @@ interface ReservedItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  size: ProductSize;
 }
 
 // Extract client IP from request headers
@@ -126,7 +130,8 @@ serve(async (req) => {
       );
     }
 
-    // Validate quantities
+    // Validate quantities and sizes
+    const validSizes: ProductSize[] = ['S', 'M', 'L', 'XL'];
     for (const item of orderData.items) {
       if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 100) {
         console.error('Invalid quantity:', item);
@@ -140,6 +145,14 @@ serve(async (req) => {
       if (!item.product_id || !uuidRegex.test(item.product_id)) {
         return new Response(
           JSON.stringify({ error: 'Invalid product ID' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      // Validate size
+      if (!item.size || !validSizes.includes(item.size)) {
+        console.error('Invalid or missing size:', item);
+        return new Response(
+          JSON.stringify({ error: `Invalid size for ${item.product_name}. Size must be S, M, L, or XL.` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -188,23 +201,26 @@ serve(async (req) => {
     const orderNumber = `ORD-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
     console.log('Generated order number:', orderNumber);
 
-    // SECURITY: Reserve stock atomically and validate prices from database
+    // SECURITY: Reserve stock atomically using SIZE VARIANTS and validate prices from database
     const reservedItems: ReservedItem[] = [];
     let serverSubtotal = 0;
 
     for (const item of orderData.items) {
+      // Use reserve_variant_stock for size-specific reservation
       const { data: stockResult, error: stockError } = await supabase
-        .rpc('reserve_product_stock', {
+        .rpc('reserve_variant_stock', {
           _product_id: item.product_id,
+          _size: item.size,
           _quantity: item.quantity
         });
 
       if (stockError) {
-        console.error('Error reserving stock:', stockError);
+        console.error('Error reserving variant stock:', stockError);
         // Rollback previously reserved items
         for (const reserved of reservedItems) {
-          await supabase.rpc('restore_product_stock', {
+          await supabase.rpc('restore_variant_stock', {
             _product_id: reserved.product_id,
+            _size: reserved.size,
             _quantity: reserved.quantity
           });
         }
@@ -218,8 +234,9 @@ serve(async (req) => {
       if (!result) {
         // Rollback previously reserved items
         for (const reserved of reservedItems) {
-          await supabase.rpc('restore_product_stock', {
+          await supabase.rpc('restore_variant_stock', {
             _product_id: reserved.product_id,
+            _size: reserved.size,
             _quantity: reserved.quantity
           });
         }
@@ -232,8 +249,9 @@ serve(async (req) => {
       if (!result.is_active) {
         // Rollback previously reserved items
         for (const reserved of reservedItems) {
-          await supabase.rpc('restore_product_stock', {
+          await supabase.rpc('restore_variant_stock', {
             _product_id: reserved.product_id,
+            _size: reserved.size,
             _quantity: reserved.quantity
           });
         }
@@ -246,13 +264,14 @@ serve(async (req) => {
       if (!result.success) {
         // Rollback previously reserved items
         for (const reserved of reservedItems) {
-          await supabase.rpc('restore_product_stock', {
+          await supabase.rpc('restore_variant_stock', {
             _product_id: reserved.product_id,
+            _size: reserved.size,
             _quantity: reserved.quantity
           });
         }
         return new Response(
-          JSON.stringify({ error: `Insufficient stock for ${result.product_name || item.product_name}. Only ${result.available_stock} available.` }),
+          JSON.stringify({ error: `Insufficient stock for ${result.product_name || item.product_name} (Size ${item.size}). Only ${result.available_stock} available.` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -262,16 +281,22 @@ serve(async (req) => {
       const itemTotal = serverPrice * item.quantity;
       serverSubtotal += itemTotal;
 
+      // Build SKU with variant suffix if available
+      const fullSku = result.variant_sku_suffix 
+        ? `${result.product_sku}-${result.variant_sku_suffix}`
+        : result.product_sku;
+
       reservedItems.push({
         product_id: item.product_id,
         product_name: result.product_name || item.product_name,
-        product_sku: result.product_sku || item.product_sku,
+        product_sku: fullSku || item.product_sku,
         quantity: item.quantity,
         unit_price: serverPrice,
         total_price: itemTotal,
+        size: item.size,
       });
 
-      console.log(`Reserved ${item.quantity} of ${result.product_name} at ${serverPrice} each`);
+      console.log(`Reserved ${item.quantity} of ${result.product_name} (${item.size}) at ${serverPrice} each`);
     }
 
     // SECURITY: Calculate server-side total
@@ -303,7 +328,7 @@ serve(async (req) => {
         shipping_fee: shippingFee,
         total: serverTotal,
         status: 'new',
-        user_id: orderData.user_id || null, // Link order to authenticated user
+        user_id: orderData.user_id || null,
       })
       .select()
       .single();
@@ -312,8 +337,9 @@ serve(async (req) => {
       console.error('Error creating order:', orderError);
       // Rollback reserved stock
       for (const reserved of reservedItems) {
-        await supabase.rpc('restore_product_stock', {
+        await supabase.rpc('restore_variant_stock', {
           _product_id: reserved.product_id,
+          _size: reserved.size,
           _quantity: reserved.quantity
         });
       }
@@ -325,7 +351,7 @@ serve(async (req) => {
 
     console.log('Order created:', order.id);
 
-    // Create order items with SERVER-VALIDATED values
+    // Create order items with SERVER-VALIDATED values including size
     const orderItems = reservedItems.map(item => ({
       order_id: order.id,
       product_id: item.product_id,
@@ -334,6 +360,7 @@ serve(async (req) => {
       quantity: item.quantity,
       unit_price: item.unit_price,
       total_price: item.total_price,
+      size: item.size, // Include size in order items
     }));
 
     const { error: itemsError } = await supabase
@@ -345,8 +372,9 @@ serve(async (req) => {
       // Rollback order and restore stock
       await supabase.from('orders').delete().eq('id', order.id);
       for (const reserved of reservedItems) {
-        await supabase.rpc('restore_product_stock', {
+        await supabase.rpc('restore_variant_stock', {
           _product_id: reserved.product_id,
+          _size: reserved.size,
           _quantity: reserved.quantity
         });
       }
@@ -366,7 +394,10 @@ serve(async (req) => {
         customer_email: orderData.customer_email,
         customer_name: orderData.customer_name,
         order_number: orderNumber,
-        items: reservedItems, // Use server-validated items
+        items: reservedItems.map(item => ({
+          ...item,
+          size: item.size, // Include size in email
+        })),
         subtotal: serverSubtotal,
         shipping_fee: shippingFee,
         total: serverTotal,
@@ -398,7 +429,7 @@ serve(async (req) => {
         success: true, 
         order_id: order.id, 
         order_number: orderNumber,
-        total: serverTotal // Return server-calculated total
+        total: serverTotal
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
