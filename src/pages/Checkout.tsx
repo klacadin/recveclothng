@@ -26,7 +26,7 @@ const checkoutSchema = z.object({
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
-const SHIPPING_FEE = 100;
+const SHIPPING_FEE = 130;
 
 type CheckoutStep = 'auth' | 'details' | 'otp' | 'processing';
 

@@ -5,7 +5,8 @@ import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Filter, ChevronDown, Package, Search, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Filter, ChevronDown, Package, Search, X, ArrowUpDown } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 
 // Import images for fallback
@@ -26,18 +27,21 @@ const imageMap: Record<string, string> = {
 const categories = ["All", "NOBODY", "Event", "Trail"];
 const sizes = ["XS", "S", "M", "L", "XL", "2XL"];
 
+type SortOption = "newest" | "price-low" | "price-high" | "name-asc";
+
 const Shop = () => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [inStockOnly, setInStockOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
 
   const { data: products = [], isLoading, error } = useProducts();
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
-    return products
+    let filtered = products
       .filter(p => p.is_active)
       .filter((product) => {
         // Search filter
@@ -53,7 +57,27 @@ const Shop = () => {
         if (inStockOnly && product.stock_quantity === 0) return false;
         return true;
       });
-  }, [products, searchQuery, selectedCategory, inStockOnly]);
+
+    // Sort products
+    switch (sortBy) {
+      case "newest":
+        filtered = [...filtered].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        break;
+      case "price-low":
+        filtered = [...filtered].sort((a, b) => Number(a.price) - Number(b.price));
+        break;
+      case "price-high":
+        filtered = [...filtered].sort((a, b) => Number(b.price) - Number(a.price));
+        break;
+      case "name-asc":
+        filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+        break;
+    }
+
+    return filtered;
+  }, [products, searchQuery, selectedCategory, inStockOnly, sortBy]);
 
   const getProductImage = (imageUrl: string | null) => {
     if (!imageUrl) return nobodyJersey;
@@ -118,17 +142,32 @@ const Shop = () => {
               ))}
             </div>
 
-            {/* Filter Toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="self-start sm:self-auto"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-              <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showFilters ? "rotate-180" : ""}`} />
-            </Button>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              {/* Sort Dropdown */}
+              <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+                <SelectTrigger className="w-[160px] h-9">
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="price-low">Price: Low to High</SelectItem>
+                  <SelectItem value="price-high">Price: High to Low</SelectItem>
+                  <SelectItem value="name-asc">Name: A to Z</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Filter Toggle */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showFilters ? "rotate-180" : ""}`} />
+              </Button>
+            </div>
           </div>
 
           {/* Expanded Filters */}

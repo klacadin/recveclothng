@@ -41,11 +41,12 @@ const About = () => {
                 Our Story
               </p>
               <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] mb-6">
-                Born in the Mountains. Built for Athletes.
+                From Nobody to Somebody
               </h1>
               <p className="text-xl text-primary-foreground/80 leading-relaxed">
-                REVE Clothing started during the pandemic in Bukidnon—when races stopped 
-                but the passion for running never did.
+                REVE Clothing was born during the pandemic in Bukidnon—a time of uncertainty, 
+                fear, and survival. From a small step to provide for family, to a brand built 
+                on resilience and faith.
               </p>
             </div>
           </div>
@@ -61,32 +62,34 @@ const About = () => {
                 </h2>
                 <div className="space-y-4 text-muted-foreground leading-relaxed">
                   <p>
-                    In 2020, when the world stopped and races were cancelled, two runners 
-                    in Bukidnon found themselves with nothing but time and a question: 
-                    <em className="text-foreground"> why is it so hard to find quality running 
-                    gear that's actually made for Philippine conditions?</em>
+                    REVE Clothing was born during the pandemic, a time of uncertainty, fear, 
+                    and survival. Instead of waiting for help, we chose to stand up. We chose 
+                    to create. We chose to provide for our family with our own hands and determination.
                   </p>
                   <p>
-                    What started as frustration became a mission. Armed with a sewing machine, 
-                    a lot of YouTube tutorials, and an obsession with getting the fabric right, 
-                    REVE Clothing was born—literally in our living room.
+                    Founded by <span className="text-foreground font-medium">Jing and Ever Lopez</span> in 
+                    Maramag, Bukidnon, REVE started as a solution to cope with daily needs—to put food 
+                    on the table and move forward despite the challenges. What began as a small step 
+                    during the hardest times became the foundation of a dream built on hard work, 
+                    resilience, and faith.
                   </p>
                   <p>
-                    We tested every prototype on mountain trails and provincial roads. 
-                    We asked friends to run in our samples and tell us the truth. 
-                    We failed. A lot. But we kept iterating until athletes started asking 
-                    where to buy what we were wearing.
+                    REVE is not just a business—it is our leap of faith. A dream we once whispered 
+                    in prayer, now slowly becoming reality. This journey is for our family, for our 
+                    future, and for the sacrifices behind every step.
                   </p>
                   <p className="font-medium text-foreground">
-                    GAWANG BUKID isn't just a tagline—it's our identity. Made in the province. 
-                    Made with pride. Made for real athletes.
+                    This brand is more than clothing. It is a symbol of perseverance. A reminder 
+                    that even in crisis, growth is possible. From survival to purpose. From vision 
+                    to reality. TIMING IS EVERYTHING.
                   </p>
                 </div>
               </div>
               <div className="aspect-square bg-secondary rounded-sm flex items-center justify-center">
                 <div className="text-center space-y-4 p-8">
                   <div className="font-display text-6xl font-bold text-foreground/10">2020</div>
-                  <p className="text-sm text-muted-foreground">Bukidnon, Philippines</p>
+                  <p className="text-sm text-muted-foreground">Maramag, Bukidnon</p>
+                  <p className="text-xs text-muted-foreground/70">Jing & Ever Lopez</p>
                 </div>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Facebook, Instagram, Mail, MapPin } from "lucide-react";
+import { Facebook, Mail, MapPin, Phone } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -14,13 +14,16 @@ const Footer = () => {
                 Clothing
               </p>
             </div>
+            <p className="text-sm font-semibold text-accent uppercase tracking-wider">
+              TIMING IS EVERYTHING
+            </p>
             <p className="text-primary-foreground/70 text-sm leading-relaxed max-w-sm">
-              Performance apparel born in Bukidnon. GAWANG BUKID—crafted for 
-              athletes who push beyond limits on trail, road, and endurance events.
+              From Nobody to Somebody. Performance apparel born in Bukidnon—crafted 
+              with premium quality at affordable prices.
             </p>
             <div className="flex items-center gap-4 pt-2">
               <a 
-                href="https://facebook.com/reveclothing" 
+                href="https://www.facebook.com/profile.php?id=61551403173498" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
@@ -28,18 +31,16 @@ const Footer = () => {
                 <Facebook className="h-5 w-5" />
               </a>
               <a 
-                href="https://instagram.com/reveclothing" 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
-              >
-                <Instagram className="h-5 w-5" />
-              </a>
-              <a 
-                href="mailto:hello@reveclothing.ph"
+                href="mailto:reveclothing214@gmail.com"
                 className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
               >
                 <Mail className="h-5 w-5" />
+              </a>
+              <a 
+                href="tel:09554465207"
+                className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
+              >
+                <Phone className="h-5 w-5" />
               </a>
             </div>
           </div>
@@ -53,11 +54,11 @@ const Footer = () => {
               <Link to="/shop" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
                 All Products
               </Link>
-              <Link to="/collections" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
-                Collections
+              <Link to="/shop?category=running" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
+                Running Shirts
               </Link>
-              <Link to="/shop?category=jerseys" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
-                Trail Jerseys
+              <Link to="/shop?category=singlets" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
+                Running Singlets
               </Link>
               <Link to="/shop?category=shorts" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
                 Running Shorts
@@ -74,16 +75,14 @@ const Footer = () => {
               <Link to="/about" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
                 About Us
               </Link>
-              <Link to="/size-guide" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
-                Size Guide
-              </Link>
-              <Link to="/shipping" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
-                Shipping Info
-              </Link>
-              <Link to="/contact" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
-                Contact
+              <Link to="/my-orders" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
+                Track Order
               </Link>
             </nav>
+            <div className="pt-2 space-y-1 text-sm text-primary-foreground/70">
+              <p>Email: reveclothing214@gmail.com</p>
+              <p>Phone: 0955 446 5207</p>
+            </div>
           </div>
         </div>
 
@@ -91,17 +90,17 @@ const Footer = () => {
         <div className="mt-12 pt-8 border-t border-primary-foreground/10 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2 text-primary-foreground/50">
             <MapPin className="h-4 w-4" />
-            <span className="text-xs">Bukidnon, Philippines</span>
+            <span className="text-xs">P5 North Poblacion, Maramag, Bukidnon</span>
           </div>
           <div className="flex items-center gap-6 text-xs text-primary-foreground/50">
             <span>COD Available</span>
             <span>•</span>
             <span>GCash / Maya</span>
             <span>•</span>
-            <span>Nationwide Shipping</span>
+            <span>Nationwide via J&T</span>
           </div>
           <p className="text-primary-foreground/50 text-xs">
-            © 2024 REVE Clothing. GAWANG BUKID.
+            © 2024 REVE Clothing. Timing is Everything.
           </p>
         </div>
       </div>
