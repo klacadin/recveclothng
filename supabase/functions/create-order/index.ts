@@ -271,7 +271,7 @@ serve(async (req) => {
           });
         }
         return new Response(
-          JSON.stringify({ error: `Insufficient stock for ${result.product_name || item.product_name} (Size ${item.size}). Only ${result.available_stock} available.` }),
+          JSON.stringify({ error: `Insufficient stock for ${result.product_name || item.product_name} (Size ${item.size}). Please reduce quantity or choose another size.` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
