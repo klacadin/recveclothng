@@ -410,7 +410,7 @@ export type Database = {
         | "completed"
         | "cancelled"
       payment_method: "cod" | "gcash" | "maya" | "bank_transfer"
-      product_size: "S" | "M" | "L" | "XL"
+      product_size: "XS" | "S" | "M" | "L" | "XL" | "2XL" | "3XL"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -548,7 +548,7 @@ export const Constants = {
         "cancelled",
       ],
       payment_method: ["cod", "gcash", "maya", "bank_transfer"],
-      product_size: ["S", "M", "L", "XL"],
+      product_size: ["XS", "S", "M", "L", "XL", "2XL", "3XL"],
     },
   },
 } as const
