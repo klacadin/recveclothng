@@ -177,6 +177,15 @@ const ResetPassword = () => {
               {errors.password && (
                 <p className="text-sm text-destructive mt-1">{errors.password}</p>
               )}
+              <div className="bg-muted/50 border border-border rounded-sm p-3 mt-2">
+                <p className="text-xs font-medium text-foreground mb-1.5">Password tips:</p>
+                <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
+                  <li>Use a password manager to generate strong passwords</li>
+                  <li>Don't reuse passwords across sites</li>
+                  <li>Avoid personal info (names, birthdays)</li>
+                  <li>Enable Multi-Factor Authentication when available</li>
+                </ul>
+              </div>
             </div>
 
             <div>
