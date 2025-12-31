@@ -5,7 +5,7 @@ const Footer = () => {
   return (
     <footer className="bg-primary text-primary-foreground">
       <div className="container py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-8">
           {/* Brand */}
           <div className="md:col-span-2 space-y-4">
             <div>
@@ -78,8 +78,32 @@ const Footer = () => {
               <Link to="/contact" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
                 Contact Us
               </Link>
+              <Link to="/size-guide" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
+                Size Guide
+              </Link>
+              <Link to="/shipping" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
+                Shipping Info
+              </Link>
+              <Link to="/returns" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
+                Returns & Refunds
+              </Link>
               <Link to="/my-orders" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
                 Track Order
+              </Link>
+            </nav>
+          </div>
+          
+          {/* Legal */}
+          <div className="space-y-4 md:col-span-1 lg:col-span-1">
+            <h4 className="font-display text-sm font-semibold uppercase tracking-wider">
+              Legal
+            </h4>
+            <nav className="flex flex-col gap-2">
+              <Link to="/terms" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
+                Terms of Service
+              </Link>
+              <Link to="/privacy" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
+                Privacy Policy
               </Link>
             </nav>
             <div className="pt-2 space-y-1 text-sm text-primary-foreground/70">
@@ -103,7 +127,7 @@ const Footer = () => {
             <span>Nationwide via J&T</span>
           </div>
           <p className="text-primary-foreground/50 text-xs">
-            © 2024 REVE Clothing. Timing is Everything.
+            © 2025 REVE Clothing. Timing is Everything.
           </p>
         </div>
       </div>
