@@ -13,6 +13,31 @@ serve(async (req) => {
   }
 
   try {
+    // =====================================================
+    // SECURITY: Verify Xendit webhook signature
+    // =====================================================
+    const webhookToken = Deno.env.get('XENDIT_WEBHOOK_TOKEN');
+    const callbackToken = req.headers.get('x-callback-token');
+    
+    if (!webhookToken) {
+      console.error('XENDIT_WEBHOOK_TOKEN not configured');
+      return new Response(
+        JSON.stringify({ error: 'Webhook verification not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    if (!callbackToken || callbackToken !== webhookToken) {
+      console.error('Invalid webhook signature - request rejected');
+      return new Response(
+        JSON.stringify({ error: 'Invalid webhook signature' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log('Webhook signature verified successfully');
+    // =====================================================
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
