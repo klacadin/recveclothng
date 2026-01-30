@@ -1,27 +1,47 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { NOBODY_PRODUCTS, getProductsByCategory } from "@/data/products";
 
 import nobodyLogo from "@/assets/nobody-logo.png";
 import nobodyMission from "@/assets/nobody-mission.png";
-import nobodyJersey from "@/assets/product-nobody-jersey.jpg";
-import heroTee from "@/assets/product-hero-tee.jpg";
-import athleteEvent from "@/assets/athlete-event.jpg";
 
-// NOBODY products
-const nobodyProducts = [
-  { id: "1", name: "NOBODY Jersey - Red/Black Graffiti", price: 1299, image: nobodyJersey, category: "Jersey", isNew: true, inStock: true },
-  { id: "2", name: "Be Your Own Hero Tee - Pink", price: 899, image: heroTee, category: "Tee", isNew: true, inStock: true },
-  { id: "6", name: "NOBODY Jersey - Teal/Black", price: 1299, image: nobodyJersey, category: "Jersey", isNew: false, inStock: true },
-  { id: "7", name: "Be Your Own Hero Tee - Black", price: 899, image: heroTee, category: "Tee", isNew: false, inStock: true },
-  { id: "9", name: "NOBODY Singlet - Gradient", price: 799, image: heroTee, category: "Singlet", isNew: true, inStock: true },
-  { id: "10", name: "NOBODY Long Sleeve - Black", price: 1499, image: nobodyJersey, category: "Long Sleeve", isNew: false, inStock: true },
-];
+const placeholderSvg = "/placeholder.svg";
+
+// Sub-categories under NOBODY (match Header nav)
+const NOBODY_SUB_CATEGORIES = [
+  { label: "All", value: "" },
+  { label: "Running Shirt", value: "Running Shirt" },
+  { label: "Running Shorts", value: "Running Shorts" },
+  { label: "Running Singlets", value: "Running Singlets" },
+  { label: "Running Long Sleeves", value: "Running Long Sleeves" },
+] as const;
 
 const NobodyCollection = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get("category") ?? "";
+  const selectedSubCategory = NOBODY_SUB_CATEGORIES.some((c) => c.value === categoryParam)
+    ? categoryParam
+    : "";
+
+  const filteredProducts = selectedSubCategory
+    ? getProductsByCategory(selectedSubCategory)
+    : NOBODY_PRODUCTS;
+
+  const setSubCategory = (value: string) => {
+    if (!value) {
+      searchParams.delete("category");
+    } else {
+      searchParams.set("category", value);
+    }
+    setSearchParams(searchParams, { replace: true });
+  };
+
+  const showComingSoon = selectedSubCategory !== "" && filteredProducts.length === 0;
+
   return (
     <div className="min-h-screen bg-primary">
       <Header />
@@ -31,9 +51,9 @@ const NobodyCollection = () => {
           {/* Background Image */}
           <div className="absolute inset-0">
             <img 
-              src={athleteEvent} 
-              alt="NOBODY athletes at trail running event" 
-              className="w-full h-full object-cover"
+              src={placeholderSvg} 
+              alt="NOBODY collection background" 
+              className="w-full h-full object-cover opacity-30"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/90 to-primary/60" />
           </div>
@@ -99,14 +119,14 @@ const NobodyCollection = () => {
 
                 <div className="space-y-4 text-muted-foreground leading-relaxed">
                   <p>
-                    NOBODY is for athletes who don't chase podiums—but chase personal bests. 
+                    NOBODY is for anyone who doesn't chase podiums—but chases personal bests. 
                     Performance gear for those who understand that the real competition is 
                     with yourself.
                   </p>
                   <p>
                     Our apparel is a tribute to the unsung heroes of the track and trail—those 
-                    who run not for applause, but for the love of the journey. The 5AM starters. 
-                    The back-of-the-pack finishers who show up anyway.
+                    who push not for applause, but for the love of the journey. The 5AM starters. 
+                    The ones who show up anyway.
                   </p>
                   <p className="font-medium text-foreground">
                     No sponsors. No glory. Just the work.
@@ -137,7 +157,7 @@ const NobodyCollection = () => {
         <section id="products" className="py-16 md:py-24 bg-secondary scroll-mt-20">
           <div className="container">
             {/* Section Header */}
-            <div className="text-center mb-12">
+            <div className="text-center mb-8">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent mb-2">
                 Performance Collection
               </p>
@@ -145,22 +165,55 @@ const NobodyCollection = () => {
                 NOBODY Apparel
               </h2>
               <p className="text-muted-foreground mt-3 max-w-lg mx-auto">
-                Technical performance gear designed for athletes who train when nobody's watching.
+                Technical performance gear for anyone pursuing their personal best.
               </p>
             </div>
 
-            {/* Products Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-              {nobodyProducts.map((product, index) => (
-                <div 
-                  key={product.id} 
-                  className="animate-fade-up"
-                  style={{ animationDelay: `${index * 0.1}s` }}
+            {/* Sub-category tabs */}
+            <div className="flex flex-wrap justify-center gap-2 mb-10">
+              {NOBODY_SUB_CATEGORIES.map((sub) => (
+                <Button
+                  key={sub.value || "all"}
+                  variant={selectedSubCategory === sub.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSubCategory(sub.value)}
+                  className="rounded-sm"
                 >
-                  <ProductCard {...product} />
-                </div>
+                  {sub.label}
+                </Button>
               ))}
             </div>
+
+            {/* Products Grid or Coming Soon */}
+            {showComingSoon ? (
+              <div className="text-center py-16 px-4 bg-background/50 rounded-sm border border-dashed border-border">
+                <p className="font-display text-xl font-semibold text-foreground">{selectedSubCategory}</p>
+                <p className="text-muted-foreground mt-2">Coming soon.</p>
+                <Button variant="outline" size="sm" className="mt-4" onClick={() => setSubCategory("")}>
+                  View all NOBODY
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                {filteredProducts.map((product, index) => (
+                  <div 
+                    key={product.id} 
+                    className="animate-fade-up"
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    <ProductCard
+                      id={product.id}
+                      name={product.name}
+                      price={product.price}
+                      image={product.image}
+                      category={product.category}
+                      isNew={false}
+                      inStock={true}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
