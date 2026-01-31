@@ -25,16 +25,21 @@ const HeroSection = () => {
             </span>
           </div>
 
-          {/* Headline */}
-          <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-[1.1] animate-fade-up stagger-1">
-            Performance Built for
-            <span className="text-accent block">Real Athletes</span>
+          {/* Headline: one H1 for SEO, visual hierarchy via smaller tagline */}
+          <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight animate-fade-up stagger-1">
+            Performance Built for{" "}
+            <span className="text-accent block">
+              Unsung Heroes
+              <span className="block text-2xl md:text-3xl lg:text-4xl font-semibold mt-0.5 opacity-90">
+                of the track and trail
+              </span>
+            </span>
           </h1>
 
-          {/* Subhead */}
+          {/* Subhead: keyword-rich for SEO, inclusive of everyone pursuing personal best */}
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed max-w-md animate-fade-up stagger-2">
-            Trail. Road. Endurance. Technical apparel designed and crafted in Bukidnon 
-            for athletes who demand more from their gear.
+            <span className="font-medium text-foreground/90">Trail. Road. Endurance.</span>{" "}
+            Technical performance apparel designed and crafted in Bukidnon for anyone pursuing their personal best—in sport, life, or wherever you push.
           </p>
 
           {/* CTAs */}
@@ -53,16 +58,16 @@ const HeroSection = () => {
           {/* Trust Signals */}
           <div className="flex flex-wrap gap-6 pt-4 animate-fade-up stagger-4">
             <div className="text-center">
-              <div className="font-display text-2xl font-bold text-foreground">50+</div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Events</div>
-            </div>
-            <div className="text-center">
               <div className="font-display text-2xl font-bold text-foreground">2K+</div>
               <div className="text-xs uppercase tracking-wide text-muted-foreground">Athletes</div>
             </div>
             <div className="text-center">
               <div className="font-display text-2xl font-bold text-foreground">PH</div>
               <div className="text-xs uppercase tracking-wide text-muted-foreground">Made</div>
+            </div>
+            <div className="text-center">
+              <div className="font-display text-2xl font-bold text-foreground">100%</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Quality</div>
             </div>
           </div>
         </div>

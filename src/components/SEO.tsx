@@ -12,9 +12,11 @@ interface SEOProps {
 
 const DEFAULT_TITLE = 'REVE Clothing | Performance Apparel from Bukidnon';
 const DEFAULT_DESCRIPTION = 'Premium quality running and athletic wear at affordable prices. From Nobody to Somebody. Timing is Everything. Shop running shirts, singlets, shorts, and more. Nationwide delivery via J&T.';
+import { BASE_URL as CONFIG_BASE_URL } from '@/config/constants';
+
 const DEFAULT_IMAGE = '/og-image.jpg';
 const SITE_NAME = 'REVE Clothing';
-const BASE_URL = 'https://reveclothingxnobody.com';
+const BASE_URL = CONFIG_BASE_URL;
 
 const SEO = ({
   title,
@@ -65,6 +67,48 @@ const SEO = ({
       <meta name="author" content="REVE Clothing" />
       <meta name="geo.region" content="PH-BUK" />
       <meta name="geo.placename" content="Maramag, Bukidnon" />
+
+      {/* Structured Data (JSON-LD) */}
+      {type === 'product' && price && (
+        <script type="application/ld+json">
+          {JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Product',
+            name: title,
+            description: description,
+            image: imageUrl,
+            offers: {
+              '@type': 'Offer',
+              price: price,
+              priceCurrency: currency,
+              availability: 'https://schema.org/InStock',
+              url: pageUrl,
+            },
+            brand: {
+              '@type': 'Brand',
+              name: SITE_NAME,
+            },
+          })}
+        </script>
+      )}
+      {type === 'website' && (
+        <script type="application/ld+json">
+          {JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            name: SITE_NAME,
+            url: BASE_URL,
+            logo: `${BASE_URL}/reve-logo.jpg`,
+            description: DEFAULT_DESCRIPTION,
+            address: {
+              '@type': 'PostalAddress',
+              addressLocality: 'Maramag',
+              addressRegion: 'Bukidnon',
+              addressCountry: 'PH',
+            },
+          })}
+        </script>
+      )}
     </Helmet>
   );
 };

@@ -13,7 +13,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <SEO />
       <Header />
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <HeroSection />
         <TrustBar />
         <FeaturedProducts />

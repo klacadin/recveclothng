@@ -7,7 +7,7 @@ Use these as the single source of truth for products and imagery.
 - **File:** `C:\Documents\Reve\REVE CLOTHING - Spreadsheet3.xlsx`
 - **Sheet:** Sheet1
 - **Contents:** Categories (Running Shirt, Running Shorts, Running Singlets, Running Long Sleeves), product names, codes, prices, specs, sizes, convenience fee.
-- **Sync to app:** Run `node scripts/read-product-spreadsheet.js` to regenerate `src/data/products-from-spreadsheet.json`. The app uses this JSON plus the image map to build the NOBODY product list.
+- **Sync to app:** Run `npm run products:sync` to regenerate `src/data/products-from-spreadsheet.json`. The script reads category-level **SPECS**, **WHY Customers Buy**, per-size stock (e.g. 10 for XS–XL, 5 for XXL/XXXL), and **Convenience Fee** (₱38) from the spreadsheet and attaches them to each product in that category.
 
 ## Product images (batch 1)
 
@@ -30,6 +30,18 @@ npm run products:sync
 
 This writes `src/data/products-from-spreadsheet.json`. The NOBODY collection and `@/data/products` use this file plus `src/data/productImageMap.ts` for images.
 
+## Supabase sync (database)
+
+The app and Supabase are synced with the canonical 36 NOBODY products:
+
+- **Migration:** `supabase/migrations/20260130000000_sync_canonical_nobody_products.sql`
+  - Deactivates products in old categories (Sports & Performance Jerseys, etc.).
+  - Upserts the 36 products by `sku` (e.g. SHRT-HLDL, SING-PCH) with name, category, price, image_url.
+  - Inserts/updates `product_variants` (XS–3XL) and syncs `stock_quantity`.
+- **Product detail:** `/product/:id` accepts either a UUID or a product code (e.g. `SHRT-YY`). `useProduct(id)` resolves by `sku` when `id` is not a UUID, so links from Shop and NOBODY collection work.
+
+After changing the spreadsheet, run `npm run products:sync`, then re-run the migration (or apply equivalent SQL) if you want Supabase to match.
+
 ## Summary
 
 | What            | Path |
@@ -37,5 +49,6 @@ This writes `src/data/products-from-spreadsheet.json`. The NOBODY collection and
 | Product DB      | `C:\Documents\Reve\REVE CLOTHING - Spreadsheet3.xlsx` |
 | Product images  | `src/assets/reve-clothing-products-batch1/` |
 | Customer journey| `src/assets/reve-customer-journey.jpg` |
+| Supabase sync   | `supabase/migrations/20260130000000_sync_canonical_nobody_products.sql` |
 
-**Note:** NOBODY product cards link to `/product/:id` (id = product code, e.g. `SHRT-YY`). The product detail page currently loads from Supabase; to show NOBODY products there, add a fallback in `ProductDetail` using `getProductById(id)` from `@/data/products`.
+**Checkout:** `src/config/constants.ts` defines `SHIPPING_FEE` (₱130) and `CONVENIENCE_FEE` (₱38). Total = subtotal + shipping + convenience fee. Product detail shows **Specs** and **Why customers buy** when `description` contains that text (set by the migration per category).

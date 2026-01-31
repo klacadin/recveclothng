@@ -9,23 +9,37 @@ export const useImageUpload = () => {
   const uploadImage = async (file: File): Promise<string | null> => {
     if (!file) return null;
 
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!validTypes.includes(file.type)) {
+    // Validate file type - support common image formats
+    const validTypes = [
+      'image/jpeg', 
+      'image/jpg', 
+      'image/png', 
+      'image/webp', 
+      'image/gif',
+      'image/svg+xml',
+      'image/bmp',
+      'image/tiff'
+    ];
+    
+    // Also check file extension as fallback
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.bmp', '.tiff'];
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    
+    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
       toast({
         title: 'Invalid file type',
-        description: 'Please upload a JPEG, PNG, WebP, or GIF image.',
+        description: 'Please upload a JPEG, PNG, WebP, GIF, SVG, BMP, or TIFF image.',
         variant: 'destructive',
       });
       return null;
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024;
+    // Validate file size (max 10MB for better quality images)
+    const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       toast({
         title: 'File too large',
-        description: 'Please upload an image smaller than 5MB.',
+        description: 'Please upload an image smaller than 10MB.',
         variant: 'destructive',
       });
       return null;

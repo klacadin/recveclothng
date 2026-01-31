@@ -1,4 +1,4 @@
-project_id = "mcvnceiugqyvgfmgnizf"
+project_id = "txiwvjfdlxgwjtaibbpb"
 
 [functions.notify-payment-proof]
 verify_jwt = true

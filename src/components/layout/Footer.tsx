@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Facebook, Mail, MapPin, Phone } from "lucide-react";
+import { Facebook, Instagram, Mail, MapPin, Phone } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -23,22 +23,34 @@ const Footer = () => {
             </p>
             <div className="flex items-center gap-4 pt-2">
               <a 
-                href="https://www.facebook.com/profile.php?id=61551403173498" 
+                href="https://www.facebook.com/ReveClothingBukidnon/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
+                aria-label="Visit our Facebook page"
               >
                 <Facebook className="h-5 w-5" />
               </a>
               <a 
+                href="https://www.instagram.com/jingjing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
+                aria-label="Visit our Instagram"
+              >
+                <Instagram className="h-5 w-5" />
+              </a>
+              <a 
                 href="mailto:reveclothing214@gmail.com"
                 className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
+                aria-label="Send us an email"
               >
                 <Mail className="h-5 w-5" />
               </a>
               <a 
                 href="tel:09554465207"
                 className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
+                aria-label="Call us"
               >
                 <Phone className="h-5 w-5" />
               </a>

@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import SEO from "@/components/SEO";
@@ -7,93 +7,97 @@ import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter, ChevronDown, Package, Search, X, ArrowUpDown } from "lucide-react";
-import { useProducts } from "@/hooks/useProducts";
+import { Filter, ChevronDown, Search, X, ArrowUpDown, ArrowRight } from "lucide-react";
+import { NOBODY_PRODUCTS, getProductsByCategory } from "@/data/products";
 
-// Import images for fallback
-import nobodyJersey from "@/assets/product-nobody-jersey.jpg";
-import heroTee from "@/assets/product-hero-tee.jpg";
-import conquerors3km from "@/assets/product-conquerors-3km.jpg";
-import conquerors10km from "@/assets/product-conquerors-10km.jpg";
-import tabukVest from "@/assets/product-tabuk-vest.jpg";
+// Running apparel categories under NOBODY
+const categories = [
+  "All",
+  "Running Shirt",
+  "Running Shorts",
+  "Running Singlets",
+  "Running Long Sleeves",
+] as const;
 
-const imageMap: Record<string, string> = {
-  '/assets/product-nobody-jersey.jpg': nobodyJersey,
-  '/assets/product-hero-tee.jpg': heroTee,
-  '/assets/product-conquerors-3km.jpg': conquerors3km,
-  '/assets/product-conquerors-10km.jpg': conquerors10km,
-  '/assets/product-tabuk-vest.jpg': tabukVest,
-};
-
-const categories = ["All", "NOBODY", "Event", "Trail"];
-const sizes = ["XS", "S", "M", "L", "XL", "2XL"];
+const SHOP_CATEGORY_BOXES = [
+  { name: "Running Shirt", slug: "Running Shirt", code: "SHRT" },
+  { name: "Running Shorts", slug: "Running Shorts", code: "SHORT" },
+  { name: "Running Singlets", slug: "Running Singlets", code: "SING" },
+  { name: "Running Long Sleeves", slug: "Running Long Sleeves", code: "LSLV" },
+];
+const sizes = ["XS", "S", "M", "L", "XL", "2XL", "XXL", "XXXL"];
 
 type SortOption = "newest" | "price-low" | "price-high" | "name-asc";
 
 const Shop = () => {
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryFromUrl = searchParams.get("category");
+  const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl || "All");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
-  const [inStockOnly, setInStockOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
-  const { data: products = [], isLoading, error } = useProducts();
+  // Only display available products (canonical NOBODY list)
+  const baseProducts = useMemo(() => {
+    if (selectedCategory === "All") return NOBODY_PRODUCTS;
+    return getProductsByCategory(selectedCategory);
+  }, [selectedCategory]);
+
+  // Update category from URL params on mount
+  useEffect(() => {
+    const categoryParam = searchParams.get("category");
+    if (categoryParam && categories.includes(categoryParam)) {
+      setSelectedCategory(categoryParam);
+    }
+  }, [searchParams]);
+
+  // Update URL when category changes
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    if (category === "All") {
+      searchParams.delete("category");
+    } else {
+      searchParams.set("category", category);
+    }
+    setSearchParams(searchParams, { replace: true });
+  };
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
-    let filtered = products
-      .filter(p => p.is_active)
-      .filter((product) => {
-        // Search filter
-        if (query) {
-          const matchesName = product.name.toLowerCase().includes(query);
-          const matchesCategory = product.category?.toLowerCase().includes(query);
-          const matchesDescription = product.description?.toLowerCase().includes(query);
-          if (!matchesName && !matchesCategory && !matchesDescription) return false;
-        }
-        // Category filter
-        if (selectedCategory !== "All" && product.category !== selectedCategory) return false;
-        // Stock filter
-        if (inStockOnly && product.stock_quantity === 0) return false;
-        return true;
-      });
+    let filtered = baseProducts.filter((product) => {
+      if (!query) return true;
+      const matchesName = product.name.toLowerCase().includes(query);
+      const matchesCategory = product.category?.toLowerCase().includes(query);
+      return matchesName || matchesCategory;
+    });
 
-    // Sort products
     switch (sortBy) {
       case "newest":
-        filtered = [...filtered].sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
+        filtered = [...filtered];
         break;
       case "price-low":
-        filtered = [...filtered].sort((a, b) => Number(a.price) - Number(b.price));
+        filtered = [...filtered].sort((a, b) => a.price - b.price);
         break;
       case "price-high":
-        filtered = [...filtered].sort((a, b) => Number(b.price) - Number(a.price));
+        filtered = [...filtered].sort((a, b) => b.price - a.price);
         break;
       case "name-asc":
         filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
         break;
     }
-
     return filtered;
-  }, [products, searchQuery, selectedCategory, inStockOnly, sortBy]);
-
-  const getProductImage = (imageUrl: string | null) => {
-    if (!imageUrl) return nobodyJersey;
-    return imageMap[imageUrl] || imageUrl;
-  };
+  }, [baseProducts, searchQuery, sortBy]);
 
   return (
     <div className="min-h-screen bg-background">
-      <SEO 
+      <SEO
         title="Shop"
         description="Shop premium running shirts, singlets, shorts, and longsleeves from REVE Clothing. Sizes S to 3XL. Nationwide delivery via J&T. COD, GCash, Maya accepted."
         url="/shop"
       />
       <Header />
-      <main className="pt-20">
+      <main id="main-content" className="pt-20" tabIndex={-1}>
         {/* Page Header */}
         <div className="bg-secondary border-b border-border">
           <div className="container py-8">
@@ -106,12 +110,54 @@ const Shop = () => {
               All Products
             </h1>
             <p className="text-muted-foreground mt-2">
-              {isLoading ? 'Loading...' : `${filteredProducts.length} products`}
+              {filteredProducts.length} products
             </p>
           </div>
         </div>
 
         <div className="container py-8">
+          {/* Big Category Boxes */}
+          <section className="mb-12">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+              Shop by Category
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5">
+              {[
+                { slug: "All", name: "All Products", code: "ALL", sub: "Browse everything" },
+                ...SHOP_CATEGORY_BOXES.map((c) => ({ ...c, sub: null })),
+              ].map((cat) => {
+                const isSelected = selectedCategory === cat.slug;
+                return (
+                  <button
+                    key={cat.slug}
+                    onClick={() => handleCategoryChange(cat.slug)}
+                    className={`group relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all duration-300 text-left ${
+                      isSelected
+                        ? "border-foreground ring-2 ring-foreground/20"
+                        : "border-border hover:border-foreground/50 hover:shadow-lg"
+                    }`}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-secondary to-secondary" />
+                    <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-5 min-h-0">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                        {cat.code}
+                      </span>
+                      <h3 className="font-display text-base md:text-lg font-bold text-foreground mt-1 line-clamp-2">
+                        {cat.name}
+                      </h3>
+                      {cat.sub && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                          {cat.sub}
+                        </p>
+                      )}
+                      <ArrowRight className="h-4 w-4 md:h-5 md:w-5 mt-2 text-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
           {/* Search Bar */}
           <div className="relative mb-6">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -141,7 +187,7 @@ const Shop = () => {
                   key={cat}
                   variant={selectedCategory === cat ? "default" : "secondary"}
                   size="sm"
-                  onClick={() => setSelectedCategory(cat)}
+                  onClick={() => handleCategoryChange(cat)}
                 >
                   {cat}
                 </Button>
@@ -194,11 +240,10 @@ const Shop = () => {
                               : [...prev, size]
                           );
                         }}
-                        className={`px-3 py-1.5 text-xs font-medium border rounded transition-colors ${
-                          selectedSizes.includes(size)
+                        className={`px-3 py-1.5 text-xs font-medium border rounded transition-colors ${selectedSizes.includes(size)
                             ? "bg-foreground text-background border-foreground"
                             : "bg-background text-foreground border-border hover:border-foreground"
-                        }`}
+                          }`}
                       >
                         {size}
                       </button>
@@ -206,21 +251,7 @@ const Shop = () => {
                   </div>
                 </div>
 
-                {/* Availability */}
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-3">Availability</h4>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={inStockOnly}
-                      onChange={(e) => setInStockOnly(e.target.checked)}
-                      className="w-4 h-4 accent-accent"
-                    />
-                    <span className="text-sm text-foreground">In Stock Only</span>
-                  </label>
-                </div>
-
-                {/* Price Range (placeholder) */}
+                {/* Price Range */}
                 <div>
                   <h4 className="text-sm font-semibold text-foreground mb-3">Price Range</h4>
                   <p className="text-sm text-muted-foreground">₱0 - ₱2,000</p>
@@ -229,48 +260,38 @@ const Shop = () => {
             </div>
           )}
 
-          {/* Loading State */}
-          {isLoading && (
-            <div className="text-center py-16">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-muted-foreground mt-4">Loading products...</p>
+          {/* Featured / Products Listing */}
+          <section>
+            <div className="flex items-baseline justify-between gap-4 mb-6">
+              <h2 className="font-display text-xl md:text-2xl font-bold text-foreground">
+                {selectedCategory === "All" ? "All Products" : selectedCategory}
+              </h2>
+              <span className="text-sm text-muted-foreground">
+                {filteredProducts.length} {filteredProducts.length === 1 ? "item" : "items"}
+              </span>
             </div>
-          )}
-
-          {/* Error State */}
-          {error && (
-            <div className="text-center py-16">
-              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Failed to load products. Please try again.</p>
-            </div>
-          )}
-
-          {/* Products Grid */}
-          {!isLoading && !error && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  id={product.id}
-                  name={product.name}
-                  price={Number(product.price)}
-                  image={getProductImage(product.image_url)}
-                  category={product.category || undefined}
-                  isNew={new Date(product.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000}
-                  inStock={product.stock_quantity > 0}
-                  product={product}
-                />
-              ))}
+            {filteredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                id={product.id}
+                name={product.name}
+                price={product.price}
+                image={product.image}
+                category={product.category}
+                isNew={false}
+                inStock={true}
+              />
+            ))}
             </div>
-          )}
+          </section>
 
-          {!isLoading && !error && filteredProducts.length === 0 && (
+          {filteredProducts.length === 0 && (
             <div className="text-center py-16">
               <p className="text-muted-foreground">No products found matching your filters.</p>
               <Button variant="outline" className="mt-4" onClick={() => {
                 setSelectedCategory("All");
                 setSelectedSizes([]);
-                setInStockOnly(false);
                 setSearchQuery("");
               }}>
                 Clear Filters

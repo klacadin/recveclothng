@@ -4,11 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Plus, Trash2, Upload, Loader2 } from 'lucide-react';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import type { Product, ProductInsert } from '@/hooks/useProducts';
 import SizeStockInput from './SizeStockInput';
 import { type SizeStock, type ProductVariant, variantsToSizeStock } from '@/hooks/useProductVariants';
+import { useProductCategories } from '@/hooks/useCategories';
 
 interface ProductFormProps {
   product?: Product | null;
@@ -35,7 +37,8 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
   const [newImageUrl, setNewImageUrl] = useState('');
   const mainImageInputRef = useRef<HTMLInputElement>(null);
   const additionalImagesInputRef = useRef<HTMLInputElement>(null);
-  const { uploadImage, isUploading } = useImageUpload();
+  const { uploadImage, uploadMultipleImages, isUploading } = useImageUpload();
+  const { data: categories = [] } = useProductCategories();
 
   useEffect(() => {
     if (product) {
@@ -75,16 +78,21 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
   };
 
   const handleAdditionalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     
-    const url = await uploadImage(file);
-    if (url) {
+    // Upload multiple files
+    const fileArray = Array.from(files);
+    const urls = await uploadMultipleImages(fileArray);
+    
+    // Add all successfully uploaded images
+    if (urls.length > 0) {
       setFormData({
         ...formData,
-        images: [...(formData.images || []), url],
+        images: [...(formData.images || []), ...urls],
       });
     }
+    
     // Reset input
     if (additionalImagesInputRef.current) {
       additionalImagesInputRef.current.value = '';
@@ -175,11 +183,29 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
 
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
+              <Select
                 value={formData.category || ''}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              />
+                onValueChange={(value) => setFormData({ ...formData, category: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="other">Other / Custom</SelectItem>
+                </SelectContent>
+              </Select>
+              {formData.category === 'other' && (
+                <Input
+                  placeholder="Enter custom category"
+                  className="mt-2"
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                />
+              )}
             </div>
           </div>
 
@@ -197,7 +223,7 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
               <input
                 ref={mainImageInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/svg+xml"
                 onChange={handleMainImageUpload}
                 className="hidden"
               />
@@ -219,7 +245,7 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
                 <img
                   src={formData.image_url}
                   alt="Main product"
-                  className="w-full h-full object-cover rounded border border-border"
+                  className="w-full h-full object-contain bg-secondary rounded border border-border"
                 />
                 <button
                   type="button"
@@ -249,7 +275,8 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
               <input
                 ref={additionalImagesInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/svg+xml"
+                multiple
                 onChange={handleAdditionalImageUpload}
                 className="hidden"
               />
@@ -273,7 +300,7 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
                     <img 
                       src={img} 
                       alt={`Product ${idx + 1}`} 
-                      className="w-full h-20 object-cover rounded border border-border"
+                      className="w-full h-20 object-contain bg-secondary rounded border border-border"
                     />
                     <button
                       type="button"

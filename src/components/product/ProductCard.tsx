@@ -74,13 +74,14 @@ const ProductCard = ({
       {product && (
         <button
           onClick={handleToggleWishlist}
+          aria-label={isWishlisted ? `Remove ${name} from wishlist` : `Add ${name} to wishlist`}
           className={`absolute top-3 right-3 z-10 p-2 rounded-full transition-all duration-200 ${
             isWishlisted 
               ? 'bg-red-500 text-white' 
               : 'bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground'
           }`}
         >
-          <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
+          <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} aria-hidden="true" />
         </button>
       )}
 
@@ -89,7 +90,7 @@ const ProductCard = ({
         <img 
           src={image} 
           alt={name} 
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-contain bg-secondary group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
 

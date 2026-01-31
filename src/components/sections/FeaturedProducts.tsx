@@ -2,51 +2,18 @@ import { Link } from "react-router-dom";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { NOBODY_PRODUCTS } from "@/data/products";
 
-import nobodyJersey from "@/assets/product-nobody-jersey.jpg";
-import heroTee from "@/assets/product-hero-tee.jpg";
-import conquerors3km from "@/assets/product-conquerors-3km.jpg";
-import conquerors10km from "@/assets/product-conquerors-10km.jpg";
-
-// Featured products
-const featuredProducts = [
-  { 
-    id: "1", 
-    name: "NOBODY Jersey - Red/Black Graffiti", 
-    price: 1299, 
-    image: nobodyJersey, 
-    category: "NOBODY", 
-    isNew: true,
-    inStock: true,
-  },
-  { 
-    id: "2", 
-    name: "Be Your Own Hero Tee - Pink", 
-    price: 899, 
-    image: heroTee, 
-    category: "NOBODY", 
-    isNew: true,
-    inStock: true,
-  },
-  { 
-    id: "3", 
-    name: "Conquerors Mix Terrain - 3KM Finisher", 
-    price: 1199, 
-    image: conquerors3km, 
-    category: "Event", 
-    isNew: false,
-    inStock: true,
-  },
-  { 
-    id: "4", 
-    name: "Conquerors Mix Terrain - 10KM Finisher", 
-    price: 1199, 
-    image: conquerors10km, 
-    category: "Event", 
-    isNew: false,
-    inStock: true,
-  },
-];
+// First 4 canonical NOBODY products as featured
+const featuredProducts = NOBODY_PRODUCTS.slice(0, 4).map((p) => ({
+  id: p.id,
+  name: p.name,
+  price: p.price,
+  image: p.image,
+  category: p.category,
+  isNew: false,
+  inStock: true,
+}));
 
 const FeaturedProducts = () => {
   return (
@@ -78,7 +45,15 @@ const FeaturedProducts = () => {
               className="animate-fade-up"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <ProductCard {...product} />
+              <ProductCard
+                id={product.id}
+                name={product.name}
+                price={product.price}
+                image={product.image}
+                category={product.category}
+                isNew={product.isNew}
+                inStock={product.inStock}
+              />
             </div>
           ))}
         </div>

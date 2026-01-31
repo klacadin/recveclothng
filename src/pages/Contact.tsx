@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { MapPin, Phone, Mail, Clock, Facebook, Send, Loader2 } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Facebook, Instagram, Send, Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
 const contactSchema = z.object({
@@ -106,8 +106,14 @@ const Contact = () => {
     {
       icon: Facebook,
       label: 'Facebook',
-      value: 'REVE Clothing',
-      href: 'https://www.facebook.com/profile.php?id=61551403173498',
+      value: 'REVE Clothing Bukidnon',
+      href: 'https://www.facebook.com/ReveClothingBukidnon/',
+    },
+    {
+      icon: Instagram,
+      label: 'Instagram',
+      value: '@jingjing',
+      href: 'https://www.instagram.com/jingjing',
     },
   ];
 
@@ -119,7 +125,7 @@ const Contact = () => {
         url="/contact"
       />
       <Header />
-      <main className="pt-20">
+      <main id="main-content" className="pt-20" tabIndex={-1}>
         {/* Hero */}
         <section className="bg-primary text-primary-foreground py-16">
           <div className="container">

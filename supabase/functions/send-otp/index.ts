@@ -14,7 +14,11 @@ const corsHeaders = {
 };
 
 const generateOTP = (): string => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // Use cryptographically secure random number generation
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  // Generate 6-digit code (100000 to 999999)
+  return (100000 + (array[0] % 900000)).toString();
 };
 
 const generateOTPEmail = (code: string, customerName: string): string => {

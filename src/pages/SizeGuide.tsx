@@ -157,7 +157,7 @@ const SizeGuide = () => {
               <ul className="text-sm text-muted-foreground space-y-2">
                 <li>• <strong>Athletic Fit:</strong> Our jerseys and singlets are designed for an athletic fit—close to the body for performance.</li>
                 <li>• <strong>Between Sizes?</strong> If you're between sizes, we recommend sizing up for a more relaxed fit or sizing down for compression.</li>
-                <li>• <strong>Still Unsure?</strong> Message us on <a href="https://www.facebook.com/profile.php?id=61551403173498" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Facebook</a> with your measurements and we'll help you find the right size.</li>
+                <li>• <strong>Still Unsure?</strong> Message us on <a href="https://www.facebook.com/ReveClothingBukidnon/" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Facebook</a> or <a href="https://www.instagram.com/jingjing" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Instagram</a> with your measurements and we'll help you find the right size.</li>
               </ul>
             </CardContent>
           </Card>

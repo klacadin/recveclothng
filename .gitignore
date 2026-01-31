@@ -10,7 +10,16 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+cpanel-deploy
 *.local
+*-build.zip
+cpanel-deploy.zip
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
 
 # Editor directories and files
 .vscode/*

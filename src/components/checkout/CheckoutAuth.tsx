@@ -28,8 +28,23 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
   const { toast } = useToast();
 
   const attemptLogin = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    
+    // Check approval status
+    if (data.user) {
+      const { data: approval } = await supabase
+        .from('user_approvals')
+        .select('status')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+      
+      if (approval && approval.status !== 'approved') {
+        await supabase.auth.signOut();
+        throw new Error('Your account is pending admin approval. Please wait for an admin to approve your account before logging in.');
+      }
+    }
+    
     toast({
       title: 'Logged in!',
       description: 'Proceeding to checkout...',
@@ -38,11 +53,12 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
   };
 
   const attemptSignup = async (email: string, password: string) => {
+    const { BASE_URL } = await import('@/config/constants');
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/checkout`,
+        emailRedirectTo: `${BASE_URL}/checkout`,
       },
     });
 
@@ -78,9 +94,10 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
 
     toast({
       title: 'Account created!',
-      description: 'Proceeding to checkout...',
+      description: 'Your account is pending admin approval. You will be notified once approved. For now, you can continue as a guest.',
     });
-    onAuthenticated();
+    // Don't authenticate yet - they need approval first
+    // onAuthenticated();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

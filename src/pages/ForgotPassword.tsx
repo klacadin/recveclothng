@@ -33,8 +33,9 @@ const ForgotPassword = () => {
     setIsSubmitting(true);
 
     try {
+      const { BASE_URL } = await import('@/config/constants');
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${BASE_URL}/reset-password`,
       });
       
       if (error) throw error;

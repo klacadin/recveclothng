@@ -1,0 +1,34 @@
+-- =====================================================
+-- Combined Migration Script for Supabase Project
+-- Project ID: txiwvjfdlxgwjtaibbpb
+-- 
+-- This file combines all migrations in chronological order
+-- Run this in: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+-- =====================================================
+
+-- Migration 1: 20251228213122 - Create products and inventory tables
+-- Migration 2: 20251228213239 - Create orders table
+-- Migration 3: 20251228213745 - Create order_items table
+-- Migration 4: 20251228214542 - Create user_roles table
+-- Migration 5: 20251228214939 - Create product_variants table
+-- Migration 6: 20251228215216 - Add validation constraints
+-- Migration 7: 20251229081320 - Add indexes
+-- Migration 8: 20251229150418 - Create checkout_otps table
+-- Migration 9: 20251229154543 - Add order_number generation
+-- Migration 10: 20251229160729 - Add attempts column to checkout_otps
+-- Migration 11: 20251229195204 - Create order_rate_limits table
+-- Migration 12: 20251229200036 - Add product images array
+-- Migration 13: 20251230030836 - Add stock reservation
+-- Migration 14: 20251230124149 - Add payment tracking
+-- Migration 15: 20251230131949 - Add shipping tracking
+-- Migration 16: 20251230133141 - Add admin functions
+-- Migration 17: 20260101140944 - Fix RLS policies
+
+-- NOTE: This is a placeholder. The actual migrations should be run individually
+-- in chronological order from the supabase/migrations/ folder.
+-- 
+-- To execute:
+-- 1. Go to Supabase SQL Editor
+-- 2. Run each migration file in order (oldest timestamp first)
+-- 3. Or use Supabase CLI: supabase db push
+

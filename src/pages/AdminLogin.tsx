@@ -58,13 +58,21 @@ const AdminLogin = () => {
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        const { error, approvalError } = await signIn(email, password);
         if (error) {
-          toast({
-            title: 'Login failed',
-            description: error.message || 'Invalid credentials',
-            variant: 'destructive',
-          });
+          if (approvalError) {
+            toast({
+              title: 'Account pending approval',
+              description: error.message || 'Your account is pending admin approval. Please wait for an admin to approve your account.',
+              variant: 'destructive',
+            });
+          } else {
+            toast({
+              title: 'Login failed',
+              description: error.message || 'Invalid credentials',
+              variant: 'destructive',
+            });
+          }
         } else {
           toast({
             title: 'Welcome back!',
@@ -90,7 +98,7 @@ const AdminLogin = () => {
         } else {
           toast({
             title: 'Account created!',
-            description: 'Your account has been created. Contact an admin to get admin access.',
+            description: 'Your account has been created and is pending admin approval. You will be notified once approved.',
           });
           setIsLogin(true);
         }

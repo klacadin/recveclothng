@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-forwarded-for, x-real-ip',
 };
 
-type ProductSize = 'S' | 'M' | 'L' | 'XL';
+type ProductSize = 'XS' | 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 
 interface OrderItem {
   product_id: string;
@@ -131,7 +131,7 @@ serve(async (req) => {
     }
 
     // Validate quantities and sizes
-    const validSizes: ProductSize[] = ['S', 'M', 'L', 'XL'];
+    const validSizes: ProductSize[] = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
     for (const item of orderData.items) {
       if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 100) {
         console.error('Invalid quantity:', item);
@@ -152,7 +152,7 @@ serve(async (req) => {
       if (!item.size || !validSizes.includes(item.size)) {
         console.error('Invalid or missing size:', item);
         return new Response(
-          JSON.stringify({ error: `Invalid size for ${item.product_name}. Size must be S, M, L, or XL.` }),
+          JSON.stringify({ error: `Invalid size for ${item.product_name}. Size must be one of: XS, S, M, L, XL, 2XL, 3XL.` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

@@ -21,18 +21,33 @@ export const useProducts = () => {
   });
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const useProduct = (id: string) => {
   return useQuery({
     queryKey: ['products', id],
     queryFn: async () => {
+      // If id looks like a UUID, query by id (avoids Postgres UUID cast error)
+      if (UUID_REGEX.test(id)) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) return data as Product;
+        return null;
+      }
+
+      // Otherwise treat as product code (sku), e.g. SHRT-YY
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('id', id)
+        .eq('sku', id)
+        .eq('is_active', true)
         .maybeSingle();
-
       if (error) throw error;
-      return data as Product | null;
+      return (data as Product) || null;
     },
     enabled: !!id,
   });

@@ -1,0 +1,1010 @@
+[
+  {
+    "category": "Running Shirt",
+    "name": "Healthy Living - Dirty Lifestyle",
+    "code": "SHRT-HLDL",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "Yin & Yang",
+    "code": "SHRT-YY",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "Black",
+    "code": "SHRT-BLK",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "Kru-Kru",
+    "code": "SHRT-KRU",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "NBDY",
+    "code": "SHRT-NBDY",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "Orange",
+    "code": "SHRT-ORNG",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "Pink Floral",
+    "code": "SHRT-PNKF",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "Punk",
+    "code": "SHRT-PUNK",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "Black Crack",
+    "code": "SHRT-BCRK",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "Jelly Fish",
+    "code": "SHRT-JLLYF",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "Peach",
+    "code": "SHRT-PCH",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shirt",
+    "name": "Mandala Pink",
+    "code": "SHRT-MNPNK",
+    "price": 400,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shorts",
+    "name": "Pink",
+    "code": "SHORT-PNK",
+    "price": 900,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Shorts",
+    "name": "Black",
+    "code": "SHORT-BLK",
+    "price": 900,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Avocado",
+    "code": "SING-AVC",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Yin & Yang",
+    "code": "SING-YINY",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Color Splash",
+    "code": "SING-CLRSP",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Teal Blue",
+    "code": "SING-TLB",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Peach",
+    "code": "SING-PCH",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Black-Green",
+    "code": "SING-BLKGR",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Black Tribal",
+    "code": "SING-BLKTRB",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Crush Colored",
+    "code": "SING-CRSHC",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Faith Over Fear",
+    "code": "SING-FAITH",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Green Ombre",
+    "code": "SING-GRNOM",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Jellyfish",
+    "code": "SING-JLLY",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Orange",
+    "code": "SING-ORNG",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Pink Floral 1",
+    "code": "SING-PNKF1",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Pink Floral 2",
+    "code": "SING-PNKF2",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Pink Green",
+    "code": "SING-PNKGRN",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Pink Purple",
+    "code": "SING-PNKPRP",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Punk",
+    "code": "SING-PUNK",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Purple",
+    "code": "SING-PRPL",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Mandala Pink",
+    "code": "SING-MNDLP",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Singlets",
+    "name": "Denim",
+    "code": "SING-DNM",
+    "price": 350,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Long Sleeves",
+    "name": "Tribal Grey",
+    "code": "LSLV-TRBG",
+    "price": 600,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  },
+  {
+    "category": "Running Long Sleeves",
+    "name": "Black",
+    "code": "LSLV-BLK",
+    "price": 600,
+    "description": "",
+    "specs": "",
+    "whyCustomersBuy": "",
+    "convenienceFee": null,
+    "sizeStocks": {
+      "XS": 10,
+      "S": 10,
+      "M": 10,
+      "L": 10,
+      "XL": 10,
+      "XXL": 5,
+      "XXXL": 5
+    },
+    "sizes": {
+      "XS": "",
+      "S": "",
+      "M": "",
+      "L": "",
+      "XL": "",
+      "XXL": "",
+      "XXXL": ""
+    }
+  }
+]

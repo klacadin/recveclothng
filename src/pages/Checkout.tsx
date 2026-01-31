@@ -14,6 +14,7 @@ import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 import CheckoutAuth from '@/components/checkout/CheckoutAuth';
 import OTPVerification from '@/components/checkout/OTPVerification';
+import { SHIPPING_FEE, CONVENIENCE_FEE } from '@/config/constants';
 
 const checkoutSchema = z.object({
   customerName: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
@@ -25,8 +26,6 @@ const checkoutSchema = z.object({
 });
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
-
-const SHIPPING_FEE = 130;
 
 type CheckoutStep = 'auth' | 'details' | 'otp' | 'processing';
 
@@ -48,7 +47,7 @@ const Checkout = () => {
   });
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
 
-  const total = subtotal + SHIPPING_FEE;
+  const total = subtotal + SHIPPING_FEE + CONVENIENCE_FEE;
 
   // Initialize step based on auth state
   useEffect(() => {
@@ -134,8 +133,36 @@ const Checkout = () => {
       });
 
       if (error) {
-        // Try to extract error message from the response
-        const errorMessage = data?.error || error.message || 'Failed to place order';
+        console.error('Order creation error:', error);
+        // Try to extract detailed error message from the response
+        let errorMessage = 'Failed to place order';
+        
+        // Check if error has context with response body (FunctionsHttpError)
+        if (error.context) {
+          try {
+            // For FunctionsHttpError, the context might have different structures
+            if (typeof error.context.json === 'function') {
+              const errorBody = await error.context.json();
+              console.error('Error body (json):', errorBody);
+              errorMessage = errorBody?.error || errorMessage;
+            } else if (error.context.body) {
+              // Try to read body as text
+              const reader = error.context.body.getReader?.();
+              if (reader) {
+                const { value } = await reader.read();
+                const text = new TextDecoder().decode(value);
+                console.error('Error body (text):', text);
+                const parsed = JSON.parse(text);
+                errorMessage = parsed?.error || errorMessage;
+              }
+            }
+          } catch (e) {
+            console.error('Could not parse error body:', e);
+          }
+        }
+        
+        // Fallback to error message or data.error
+        errorMessage = data?.error || error.message || errorMessage;
         throw new Error(errorMessage);
       }
 
@@ -143,15 +170,16 @@ const Checkout = () => {
         throw new Error(data?.error || 'Failed to create order');
       }
 
-      // For e-wallet payments (GCash/Maya), redirect to Xendit
+      // For e-wallet payments (GCash/Maya), redirect to HitPay
       if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') {
-        const { data: paymentData, error: paymentError } = await supabase.functions.invoke('create-xendit-payment', {
+        const { data: paymentData, error: paymentError } = await supabase.functions.invoke('create-hitpay-payment', {
           body: {
             order_id: data.order_id,
             order_number: data.order_number,
             amount: data.total,
             customer_email: formData.customerEmail,
             customer_name: formData.customerName,
+            customer_phone: formData.customerPhone,
             payment_method: formData.paymentMethod,
             items: items.map(item => ({
               name: item.product.name,
@@ -165,7 +193,7 @@ const Checkout = () => {
           throw new Error(paymentData?.error || 'Failed to create payment session');
         }
 
-        // Clear cart and redirect to Xendit payment page
+        // Clear cart and redirect to HitPay payment page
         clearCart();
         window.location.href = paymentData.redirect_url;
         return;
@@ -178,11 +206,11 @@ const Checkout = () => {
         description: `Your order number is ${data.order_number}. We'll contact you soon.`,
       });
       navigate('/order-confirmation', { state: { orderNumber: data.order_number } });
-    } catch (error: any) {
-      console.error('Checkout error:', error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to place order. Please try again.';
       toast({
         title: 'Order failed',
-        description: error.message || 'Failed to place order. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
       setStep('details');
@@ -430,7 +458,7 @@ const Checkout = () => {
                             <img
                               src={product.image_url}
                               alt={product.name}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain bg-secondary"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
@@ -456,6 +484,10 @@ const Checkout = () => {
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Shipping</span>
                         <span>₱{SHIPPING_FEE.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Convenience fee</span>
+                        <span>₱{CONVENIENCE_FEE.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-lg font-bold border-t pt-2">
                         <span>Total</span>

@@ -60,9 +60,17 @@ const OTPVerification = ({ email, phone, customerName, onVerified, onBack }: OTP
       });
     } catch (error: any) {
       console.error('Error sending OTP:', error);
+      const msg = error?.message ?? '';
+      const isEdgeFunctionError =
+        msg.includes('Edge Function') ||
+        msg.includes('Failed to send a request') ||
+        msg.includes('fetch failed');
+      const description = isEdgeFunctionError
+        ? 'Verification service is unavailable. Please check your connection or try again later. If you run this site, deploy the send-otp Edge Function in your Supabase project.'
+        : msg || 'Please try again.';
       toast({
         title: 'Failed to send code',
-        description: error.message || 'Please try again.',
+        description,
         variant: 'destructive',
       });
     } finally {

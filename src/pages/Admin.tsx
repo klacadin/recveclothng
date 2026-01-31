@@ -23,7 +23,8 @@ import {
   ToggleRight,
   Tag,
   X,
-  Download
+  Download,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,14 +32,18 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useUpdateStock, type Product, type ProductInsert } from "@/hooks/useProducts";
+import { useProductCategories } from "@/hooks/useCategories";
 import { useOrders, useCreateOrder, useUpdateOrderStatus, useDeleteOrder, type Order, type OrderWithItems } from "@/hooks/useOrders";
 import { useAllProductVariants, useCreateVariantsForProduct, useBulkUpdateVariants, type SizeStock, type ProductVariant, variantsToSizeStock, SIZES } from "@/hooks/useProductVariants";
 import { useBulkProductActions } from "@/hooks/useBulkProductActions";
+import { usePendingUsers } from "@/hooks/useUserApprovals";
 import { useToast } from "@/hooks/use-toast";
 import ProductForm from "@/components/admin/ProductForm";
 import SizeStockUpdateDialog from "@/components/admin/SizeStockUpdateDialog";
 import OrderForm from "@/components/admin/OrderForm";
 import AdminSettings from "@/components/admin/AdminSettings";
+import UserApprovals from "@/components/admin/UserApprovals";
+import CategoryManagement from "@/components/admin/CategoryManagement";
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   new: { label: "New", color: "bg-blue-100 text-blue-800", icon: AlertCircle },
@@ -75,8 +80,10 @@ const Admin = () => {
   const { toast } = useToast();
   
   const { data: products = [], isLoading: productsLoading } = useProducts();
+  const { data: categories = [] } = useProductCategories();
   const { data: orders = [], isLoading: ordersLoading } = useOrders();
   const { data: allVariants = [] } = useAllProductVariants();
+  const { data: pendingUsers = [] } = usePendingUsers();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -112,6 +119,8 @@ const Admin = () => {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "orders", label: "Orders", icon: ShoppingCart },
     { id: "inventory", label: "Inventory", icon: Package },
+    { id: "categories", label: "Categories", icon: Tag },
+    { id: "users", label: "User Approvals", icon: Users },
     { id: "shipping", label: "Shipping", icon: Truck },
     { id: "settings", label: "Settings", icon: Settings },
   ];
@@ -145,8 +154,9 @@ const Admin = () => {
       await createVariants.mutateAsync({ productId: product.id, sizeStocks });
       toast({ title: "Product created", description: "The product has been added successfully." });
       setShowProductForm(false);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -163,8 +173,9 @@ const Admin = () => {
       await bulkUpdateVariants.mutateAsync({ productId: editingProduct.id, variants });
       toast({ title: "Product updated", description: "The product has been updated successfully." });
       setEditingProduct(null);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -173,8 +184,9 @@ const Admin = () => {
       await deleteProduct.mutateAsync(id);
       toast({ title: "Product deleted", description: "The product has been removed." });
       setDeleteConfirmId(null);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -199,8 +211,19 @@ const Admin = () => {
         sizeStocks: { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 } 
       });
       toast({ title: "Product duplicated", description: "A copy of the product has been created." });
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+    }
+  };
+
+  const handleCategoryChange = async (productId: string, category: string) => {
+    try {
+      await updateProduct.mutateAsync({ id: productId, updates: { category } });
+      toast({ title: "Category updated", description: "Product category has been updated." });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -210,18 +233,20 @@ const Admin = () => {
       await updateStock.mutateAsync({ id: stockUpdateProduct.id, stockQuantity: newStock });
       toast({ title: "Stock updated", description: "Inventory has been updated successfully." });
       setStockUpdateProduct(null);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
-  const handleCreateOrder = async (order: any, items: any[]) => {
+  const handleCreateOrder = async (order: unknown, items: unknown[]) => {
     try {
       await createOrder.mutateAsync({ order, items });
       toast({ title: "Order created", description: "The order has been created successfully." });
       setShowOrderForm(false);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -229,8 +254,9 @@ const Admin = () => {
     try {
       await updateOrderStatus.mutateAsync({ id: orderId, status });
       toast({ title: "Status updated", description: `Order status changed to ${status}.` });
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -239,8 +265,9 @@ const Admin = () => {
       await deleteOrder.mutateAsync(id);
       toast({ title: "Order deleted", description: "The order has been removed." });
       setDeleteOrderId(null);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -312,6 +339,11 @@ const Admin = () => {
               {item.id === 'orders' && newOrders.length > 0 && (
                 <span className="ml-auto bg-accent text-accent-foreground text-xs px-1.5 py-0.5 rounded">
                   {newOrders.length}
+                </span>
+              )}
+              {item.id === 'users' && pendingUsers.length > 0 && (
+                <span className="ml-auto bg-accent text-accent-foreground text-xs px-1.5 py-0.5 rounded">
+                  {pendingUsers.length}
                 </span>
               )}
             </button>
@@ -521,8 +553,9 @@ const Admin = () => {
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => setSelectedOrder(order)}
+                                aria-label={`View order ${order.order_number}`}
                               >
-                                <Eye className="h-4 w-4" />
+                                <Eye className="h-4 w-4" aria-hidden="true" />
                               </Button>
                               {deleteOrderId === order.id ? (
                                 <div className="flex items-center gap-1">
@@ -548,8 +581,9 @@ const Admin = () => {
                                   size="icon"
                                   className="h-8 w-8 text-destructive hover:text-destructive"
                                   onClick={() => setDeleteOrderId(order.id)}
+                                  aria-label={`Delete order ${order.order_number}`}
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                                 </Button>
                               )}
                             </div>
@@ -608,23 +642,33 @@ const Admin = () => {
                   <div className="h-4 w-px bg-border" />
                   {showBulkCategoryInput ? (
                     <div className="flex items-center gap-2">
-                      <Input
-                        value={bulkCategoryInput}
-                        onChange={(e) => setBulkCategoryInput(e.target.value)}
-                        placeholder="Category name"
-                        className="h-8 w-40"
-                      />
+                      <Select
+                        value={bulkCategoryInput || '_select'}
+                        onValueChange={(v) => setBulkCategoryInput(v)}
+                      >
+                        <SelectTrigger className="h-8 w-48">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_select">Select category...</SelectItem>
+                          <SelectItem value="_none">— None —</SelectItem>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.name}>
+                              {cat.name} {cat.code && `(${cat.code})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          if (bulkCategoryInput.trim()) {
-                            bulkUpdateCategory.mutate({ ids: Array.from(selectedIds), category: bulkCategoryInput.trim() });
-                            setBulkCategoryInput("");
-                            setShowBulkCategoryInput(false);
-                          }
+                          const cat = (bulkCategoryInput === '_select' || bulkCategoryInput === '_none') ? '' : (bulkCategoryInput || '').trim();
+                          bulkUpdateCategory.mutate({ ids: Array.from(selectedIds), category: cat });
+                          setBulkCategoryInput("");
+                          setShowBulkCategoryInput(false);
                         }}
-                        disabled={bulkUpdateCategory.isPending || !bulkCategoryInput.trim()}
+                        disabled={bulkUpdateCategory.isPending || !bulkCategoryInput || bulkCategoryInput === '_select'}
                       >
                         Apply
                       </Button>
@@ -742,7 +786,24 @@ const Admin = () => {
                             </div>
                           </td>
                           <td className="p-4 text-sm font-mono text-muted-foreground">{product.sku || '-'}</td>
-                          <td className="p-4 text-sm text-muted-foreground">{product.category || '-'}</td>
+                          <td className="p-4">
+                            <Select
+                              value={product.category || '_none'}
+                              onValueChange={(value) => handleCategoryChange(product.id, value === '_none' ? '' : value)}
+                            >
+                              <SelectTrigger className="h-8 w-36 text-sm">
+                                <SelectValue placeholder="Category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_none">— None —</SelectItem>
+                                {categories.map((cat) => (
+                                  <SelectItem key={cat.id} value={cat.name}>
+                                    {cat.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
                           <td className="p-4 text-sm font-medium text-foreground">₱{Number(product.price).toLocaleString()}</td>
                           <td className="p-4">
                             <div className="space-y-1">
@@ -775,9 +836,10 @@ const Admin = () => {
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => setEditingProduct(product)}
+                                aria-label={`Edit ${product.name}`}
                                 title="Edit"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="h-4 w-4" aria-hidden="true" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -785,9 +847,10 @@ const Admin = () => {
                                 className="h-8 w-8"
                                 onClick={() => handleDuplicateProduct(product)}
                                 disabled={createProduct.isPending}
+                                aria-label={`Duplicate ${product.name}`}
                                 title="Duplicate"
                               >
-                                <Copy className="h-4 w-4" />
+                                <Copy className="h-4 w-4" aria-hidden="true" />
                               </Button>
                               {deleteConfirmId === product.id ? (
                                 <div className="flex items-center gap-1">
@@ -813,9 +876,10 @@ const Admin = () => {
                                   size="icon"
                                   className="h-8 w-8 text-destructive hover:text-destructive"
                                   onClick={() => setDeleteConfirmId(product.id)}
+                                  aria-label={`Delete ${product.name}`}
                                   title="Delete"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                                 </Button>
                               )}
                             </div>
@@ -865,6 +929,12 @@ const Admin = () => {
             </div>
           )}
 
+          {/* Categories Tab */}
+          {activeTab === "categories" && <CategoryManagement />}
+
+          {/* User Approvals Tab */}
+          {activeTab === "users" && <UserApprovals />}
+
           {/* Settings Tab */}
           {activeTab === "settings" && <AdminSettings />}
         </div>
@@ -898,8 +968,9 @@ const Admin = () => {
               await bulkUpdateVariants.mutateAsync({ productId: stockUpdateProduct.id, variants });
               toast({ title: "Stock updated", description: "Inventory has been updated successfully." });
               setStockUpdateProduct(null);
-            } catch (error: any) {
-              toast({ title: "Error", description: error.message, variant: "destructive" });
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+              toast({ title: "Error", description: errorMessage, variant: "destructive" });
             }
           }}
           onCancel={() => setStockUpdateProduct(null)}

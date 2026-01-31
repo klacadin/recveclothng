@@ -28,7 +28,7 @@ const Wishlist = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-20">
+      <main id="main-content" className="pt-20" tabIndex={-1}>
         <div className="container py-8">
           <div className="flex items-center gap-4 mb-8">
             <Button variant="ghost" size="icon" asChild>
@@ -87,7 +87,7 @@ const Wishlist = () => {
                         <img
                           src={product.image_url}
                           alt={product.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          className="w-full h-full object-contain bg-secondary hover:scale-105 transition-transform"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">

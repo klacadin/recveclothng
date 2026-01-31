@@ -7,7 +7,9 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   isAdmin: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  isApproved: boolean;
+  approvalStatus: 'pending' | 'approved' | 'rejected' | null;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; approvalError?: boolean }>;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -19,6 +21,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isApproved, setIsApproved] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
 
   const checkAdminRole = async (userId: string) => {
     try {
@@ -40,6 +44,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const checkApprovalStatus = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_approvals')
+        .select('status')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error checking approval status:', error);
+        return { status: null, isApproved: false };
+      }
+
+      const status = (data?.status as 'pending' | 'approved' | 'rejected') || null;
+      return { status, isApproved: status === 'approved' };
+    } catch (err) {
+      console.error('Error in checkApprovalStatus:', err);
+      return { status: null, isApproved: false };
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -47,13 +72,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Defer admin check to avoid deadlock
+        // Defer admin and approval checks to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
             checkAdminRole(session.user.id).then(setIsAdmin);
+            checkApprovalStatus(session.user.id).then(({ status, isApproved }) => {
+              setApprovalStatus(status);
+              setIsApproved(isApproved);
+            });
           }, 0);
         } else {
           setIsAdmin(false);
+          setIsApproved(false);
+          setApprovalStatus(null);
         }
       }
     );
@@ -64,8 +95,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        checkAdminRole(session.user.id).then((result) => {
-          setIsAdmin(result);
+        Promise.all([
+          checkAdminRole(session.user.id),
+          checkApprovalStatus(session.user.id)
+        ]).then(([adminResult, approvalResult]) => {
+          setIsAdmin(adminResult);
+          setApprovalStatus(approvalResult.status);
+          setIsApproved(approvalResult.isApproved);
           setIsLoading(false);
         });
       } else {
@@ -77,29 +113,56 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    return { error };
+
+    if (error) {
+      return { error };
+    }
+
+    // Check approval status after successful login
+    if (data.user) {
+      const approvalResult = await checkApprovalStatus(data.user.id);
+      if (!approvalResult.isApproved && !isAdmin) {
+        // Sign out the user if not approved (unless they're an admin)
+        await supabase.auth.signOut();
+        return { 
+          error: new Error('Your account is pending approval. Please wait for an admin to approve your account.') as any,
+          approvalError: true 
+        };
+      }
+      setApprovalStatus(approvalResult.status);
+      setIsApproved(approvalResult.isApproved);
+    }
+
+    return { error: null };
   };
 
   const signUp = async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    const { BASE_URL } = await import('@/config/constants');
+    const redirectUrl = `${BASE_URL}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
       },
     });
+
+    // The trigger will automatically create a pending approval record
+    // No need to do anything here - the database handles it
+    
     return { error };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setIsAdmin(false);
+    setIsApproved(false);
+    setApprovalStatus(null);
   };
 
   return (
@@ -109,6 +172,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         session,
         isLoading,
         isAdmin,
+        isApproved,
+        approvalStatus,
         signIn,
         signUp,
         signOut,

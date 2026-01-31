@@ -11,12 +11,12 @@ const About = () => {
     {
       icon: Target,
       title: "Performance First",
-      description: "Every piece is designed for function, tested on trails and roads before it reaches you.",
+      description: "Every piece is designed for function, tested on trail and road before it reaches you—for anyone who demands more.",
     },
     {
       icon: Users,
       title: "Community Driven",
-      description: "Built by athletes, for athletes. We listen to our community and design for real needs.",
+      description: "Built for everyone pursuing their personal best. We listen to our community and design for real needs.",
     },
     {
       icon: Heart,
@@ -26,7 +26,7 @@ const About = () => {
     {
       icon: Mountain,
       title: "Built for Terrain",
-      description: "Designed for Philippine conditions—the heat, the humidity, the mountains.",
+      description: "Designed for Philippine conditions—the heat, the humidity, the mountains. Trail. Road. Endurance.",
     },
   ];
 
@@ -34,11 +34,11 @@ const About = () => {
     <div className="min-h-screen bg-background">
       <SEO 
         title="About Us"
-        description="REVE Clothing was born during the pandemic in Maramag, Bukidnon. Founded by Jing and Ever Lopez. From Nobody to Somebody. Premium quality athletic wear at affordable prices."
+        description="REVE Clothing was born during the pandemic in Maramag, Bukidnon. Founded by Jing and Ever Lopez. From Nobody to Somebody. Technical performance apparel for anyone pursuing their personal best—trail, road, endurance."
         url="/about"
       />
       <Header />
-      <main className="pt-20">
+      <main id="main-content" className="pt-20" tabIndex={-1}>
         {/* Hero */}
         <section className="bg-primary text-primary-foreground py-20 md:py-32">
           <div className="container">
@@ -128,7 +128,7 @@ const About = () => {
                 </blockquote>
                 <p className="text-muted-foreground leading-relaxed">
                   Our apparel is a tribute to the unsung heroes of the track and trail—those 
-                  who run not for applause, but for the love of the journey.
+                  who push not for applause, but for the love of the journey and the pursuit of their personal best.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
                   NOBODY cares about your pace—but <span className="text-foreground font-medium">you</span> do. 
@@ -175,10 +175,10 @@ const About = () => {
         <section className="py-16 bg-primary text-primary-foreground">
           <div className="container text-center">
             <h2 className="font-display text-2xl md:text-3xl font-bold mb-4">
-              Ready to Gear Up?
+              Ready to Push Further?
             </h2>
             <p className="text-primary-foreground/70 mb-6">
-              Explore our collection of performance apparel.
+              Technical performance apparel for anyone pursuing their personal best.
             </p>
             <Button variant="red" size="lg" asChild>
               <Link to="/shop">

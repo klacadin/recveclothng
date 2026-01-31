@@ -207,7 +207,7 @@ const Returns = () => {
               </p>
               <div className="flex flex-wrap justify-center gap-4 text-sm">
                 <a 
-                  href="https://www.facebook.com/profile.php?id=61551403173498" 
+                  href="https://www.facebook.com/ReveClothingBukidnon/" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-accent hover:underline"

@@ -36,22 +36,35 @@ const ProofOfPaymentUpload = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) {
+    // Validate file type - support common image and document formats
+    const allowedTypes = [
+      'image/jpeg', 
+      'image/jpg', 
+      'image/png', 
+      'image/webp', 
+      'application/pdf',
+      'image/gif'
+    ];
+    
+    // Also check file extension as fallback
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.gif'];
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    
+    if (!allowedTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
       toast({
         title: 'Invalid file type',
-        description: 'Please upload a JPG, PNG, WebP image or PDF file.',
+        description: 'Please upload a JPG, PNG, WebP, GIF image or PDF file.',
         variant: 'destructive',
       });
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Validate file size (max 10MB for better quality)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
       toast({
         title: 'File too large',
-        description: 'Please upload a file smaller than 5MB.',
+        description: 'Please upload a file smaller than 10MB.',
         variant: 'destructive',
       });
       return;
@@ -176,7 +189,7 @@ const ProofOfPaymentUpload = ({
             <Input
               id="proof-upload"
               type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
+              accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,application/pdf"
               onChange={handleFileChange}
               disabled={isUploading}
               className="flex-1"
@@ -189,7 +202,7 @@ const ProofOfPaymentUpload = ({
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Accepted formats: JPG, PNG, WebP, PDF (max 5MB)
+            Accepted formats: JPG, PNG, WebP, GIF, PDF (max 10MB)
           </p>
         </div>
       </CardContent>
