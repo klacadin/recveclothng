@@ -4,6 +4,7 @@ import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useCart } from '@/contexts/CartContext';
+import { getProductDisplayImage } from '@/data/productImages';
 import { useToast } from '@/hooks/use-toast';
 import { Heart, ShoppingBag, Trash2, ArrowLeft } from 'lucide-react';
 
@@ -83,17 +84,11 @@ const Wishlist = () => {
                       to={`/product/${product.id}`}
                       className="w-24 h-24 md:w-32 md:h-32 bg-muted rounded-md overflow-hidden flex-shrink-0"
                     >
-                      {product.image_url ? (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          className="w-full h-full object-contain bg-secondary hover:scale-105 transition-transform"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                          No image
-                        </div>
-                      )}
+                      <img
+                        src={getProductDisplayImage(product)}
+                        alt={product.name}
+                        className="w-full h-full object-contain bg-secondary hover:scale-105 transition-transform"
+                      />
                     </Link>
 
                     <div className="flex-1 min-w-0">

@@ -56,7 +56,27 @@ Production build has been completed and all files are ready in the `dist/` folde
 
 ## 🚀 Upload Instructions
 
-### Option 1: cPanel File Manager
+### Option 1: Automated FTP Upload (recommended)
+
+1. Add FTP credentials to `.env` (never commit `.env`):
+   ```
+   FTP_HOST=ftp.reveclothingxnobody.com
+   FTP_USER=your_cpanel_username
+   FTP_PASSWORD=your_cpanel_password
+   FTP_REMOTE_PATH=public_html
+   ```
+2. Run:
+   ```
+   npm run deploy:cpanel
+   ```
+   This builds, prepares, and uploads via FTP.
+
+   Or upload only (after `npm run build:cpanel`):
+   ```
+   npm run deploy:ftp
+   ```
+
+### Option 2: cPanel File Manager
 
 1. **Log into cPanel**
 2. **Open File Manager**
@@ -68,7 +88,7 @@ Production build has been completed and all files are ready in the `dist/` folde
    - **IMPORTANT:** Enable "Show Hidden Files" to ensure `.htaccess` is uploaded
 6. **Verify `.htaccess` is in root** - Check that `.htaccess` is visible in `public_html/`
 
-### Option 2: FTP Client (FileZilla, WinSCP, etc.)
+### Option 3: FTP Client (FileZilla, WinSCP, etc.)
 
 1. **Connect to your server via FTP**
    - Host: `ftp.reveclothingxnobody.com` (or your server IP)

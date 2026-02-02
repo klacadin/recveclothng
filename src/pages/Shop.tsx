@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Filter, ChevronDown, Search, X, ArrowUpDown, ArrowRight } from "lucide-react";
-import { NOBODY_PRODUCTS, getProductsByCategory } from "@/data/products";
+import { useActiveProducts, isProductNew } from "@/hooks/useProducts";
+import { getProductDisplayImage } from "@/data/productImages";
 
 // Running apparel categories under NOBODY
 const categories = [
@@ -38,11 +39,13 @@ const Shop = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
-  // Only display available products (canonical NOBODY list)
+  const { data: allProducts = [], isLoading: productsLoading } = useActiveProducts();
+
+  // Filter by category — only active products
   const baseProducts = useMemo(() => {
-    if (selectedCategory === "All") return NOBODY_PRODUCTS;
-    return getProductsByCategory(selectedCategory);
-  }, [selectedCategory]);
+    if (selectedCategory === "All") return allProducts;
+    return allProducts.filter((p) => (p.category || "").toLowerCase() === selectedCategory.toLowerCase());
+  }, [allProducts, selectedCategory]);
 
   // Update category from URL params on mount
   useEffect(() => {
@@ -74,7 +77,9 @@ const Shop = () => {
 
     switch (sortBy) {
       case "newest":
-        filtered = [...filtered];
+        filtered = [...filtered].sort((a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
         break;
       case "price-low":
         filtered = [...filtered].sort((a, b) => a.price - b.price);
@@ -270,23 +275,31 @@ const Shop = () => {
                 {filteredProducts.length} {filteredProducts.length === 1 ? "item" : "items"}
               </span>
             </div>
+            {productsLoading ? (
+              <div className="py-16 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+                <p className="text-muted-foreground mt-2">Loading products...</p>
+              </div>
+            ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 id={product.id}
                 name={product.name}
-                price={product.price}
-                image={product.image}
-                category={product.category}
-                isNew={false}
-                inStock={true}
+                price={Number(product.price)}
+                image={getProductDisplayImage(product)}
+                category={product.category || undefined}
+                isNew={isProductNew(product.created_at)}
+                inStock={(product.stock_quantity ?? 0) > 0}
+                product={product}
               />
             ))}
             </div>
+            )}
           </section>
 
-          {filteredProducts.length === 0 && (
+          {!productsLoading && filteredProducts.length === 0 && (
             <div className="text-center py-16">
               <p className="text-muted-foreground">No products found matching your filters.</p>
               <Button variant="outline" className="mt-4" onClick={() => {

@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useProduct } from "@/hooks/useProducts";
 import { useProductVariants } from "@/hooks/useProductVariants";
 import { productCodeToImageFilename } from "@/data/productImageMap";
-import { getProductImageUrl } from "@/data/productImages";
+import { getProductImageUrl, resolveProductImageUrl } from "@/data/productImages";
 import { getProductById } from "@/data/products";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
@@ -131,16 +131,23 @@ const ProductDetail = () => {
   const primaryImageUrl = batch1Filename ? getProductImageUrl(batch1Filename) : null;
   const allImages: string[] = [];
   if (primaryImageUrl) allImages.push(primaryImageUrl);
-  if (product?.image_url && !allImages.includes(product.image_url)) allImages.push(product.image_url);
+  if (product?.image_url) {
+    const resolved = resolveProductImageUrl(product.image_url);
+    if (resolved && !allImages.includes(resolved)) allImages.push(resolved);
+  }
   if (product?.images && Array.isArray(product.images)) {
     product.images.forEach((img: string) => {
-      if (img && !allImages.includes(img)) allImages.push(img);
+      if (img) {
+        const resolved = resolveProductImageUrl(img);
+        if (resolved && !allImages.includes(resolved)) allImages.push(resolved);
+      }
     });
   }
   if (fallbackProduct && "image" in fallbackProduct && fallbackProduct.image && !allImages.includes(fallbackProduct.image)) {
-    allImages.push(fallbackProduct.image);
+    allImages.push(resolveProductImageUrl(fallbackProduct.image) || fallbackProduct.image);
   }
-  const images = allImages.length ? allImages : (product?.image_url ? [product.image_url] : (fallbackProduct && "image" in fallbackProduct && fallbackProduct.image ? [fallbackProduct.image] : []));
+  const fallbackImg = product?.image_url ? resolveProductImageUrl(product.image_url) : (fallbackProduct && "image" in fallbackProduct ? resolveProductImageUrl(fallbackProduct.image || "") || fallbackProduct.image : "");
+  const images = allImages.length ? allImages : (fallbackImg ? [fallbackImg] : []);
   const inStock = isFromSpreadsheet ? true : totalStock > 0;
 
   return (

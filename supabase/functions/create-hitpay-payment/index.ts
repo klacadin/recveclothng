@@ -42,28 +42,7 @@ serve(async (req) => {
       );
     }
 
-    // Get authorization header
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create Supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Verify user
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const body: PaymentRequest = await req.json();
     const { order_id, order_number, amount, customer_email, customer_name, customer_phone, items } = body;
 
@@ -71,6 +50,32 @@ serve(async (req) => {
     if (!order_id || !amount || !customer_email) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Guest checkout: verify order exists and customer_email matches (payment verifies the guest)
+    const { data: order } = await supabase
+      .from("orders")
+      .select("id, customer_email, total, status")
+      .eq("id", order_id)
+      .single();
+
+    if (!order) {
+      return new Response(
+        JSON.stringify({ error: "Order not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (order.customer_email.toLowerCase() !== customer_email.toLowerCase()) {
+      return new Response(
+        JSON.stringify({ error: "Order email mismatch" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (Math.abs(Number(order.total) - amount) > 0.01) {
+      return new Response(
+        JSON.stringify({ error: "Amount mismatch" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

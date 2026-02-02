@@ -74,7 +74,28 @@ Visit `http://localhost:4173` and verify:
 
 ## Step 4: Upload Files to cPanel
 
-### Option A: Using cPanel File Manager
+### Option A: Automated FTP (Recommended)
+
+1. Add to `.env`:
+   ```
+   FTP_HOST=ftp.reveclothingxnobody.com
+   FTP_USER=your_cpanel_username
+   FTP_PASSWORD=your_cpanel_password
+   FTP_REMOTE_PATH=public_html
+   ```
+2. Run:
+   ```bash
+   npm run deploy:cpanel
+   ```
+   Builds and uploads via FTP in one step.
+
+   Or upload only (after build):
+   ```bash
+   npm run build:cpanel
+   npm run deploy:ftp
+   ```
+
+### Option B: Using cPanel File Manager
 
 1. **Log into cPanel**
 2. **Open File Manager**
@@ -85,7 +106,7 @@ Visit `http://localhost:4173` and verify:
    - Upload to `public_html/`
    - Ensure `.htaccess` is uploaded (it may be hidden - enable "Show Hidden Files")
 
-### Option B: Using FTP Client (FileZilla, WinSCP, etc.)
+### Option C: Using FTP Client (FileZilla, WinSCP, etc.)
 
 1. **Connect to your server via FTP**
    - Host: `ftp.reveclothingxnobody.com` (or your server IP)

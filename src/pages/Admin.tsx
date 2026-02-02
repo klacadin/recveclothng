@@ -24,7 +24,9 @@ import {
   Tag,
   X,
   Download,
-  Users
+  Users,
+  LayoutGrid,
+  List
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +46,8 @@ import OrderForm from "@/components/admin/OrderForm";
 import AdminSettings from "@/components/admin/AdminSettings";
 import UserApprovals from "@/components/admin/UserApprovals";
 import CategoryManagement from "@/components/admin/CategoryManagement";
+import ProductCard from "@/components/product/ProductCard";
+import { getProductDisplayImage } from "@/data/productImages";
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   new: { label: "New", color: "bg-blue-100 text-blue-800", icon: AlertCircle },
@@ -74,6 +78,7 @@ const Admin = () => {
   const [bulkCategoryInput, setBulkCategoryInput] = useState("");
   const [showBulkCategoryInput, setShowBulkCategoryInput] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [inventoryView, setInventoryView] = useState<"table" | "preview">("table");
   
   const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -600,10 +605,30 @@ const Admin = () => {
           {/* Inventory Tab */}
           {activeTab === "inventory" && (
             <div className="bg-card rounded-sm border border-border overflow-hidden">
-              <div className="p-4 border-b border-border flex items-center justify-between">
+              <div className="p-4 border-b border-border flex items-center justify-between gap-4 flex-wrap">
                 <h3 className="font-semibold text-foreground">
                   Products ({filteredProducts.length})
                 </h3>
+                <div className="flex items-center gap-1 border border-border rounded-sm p-0.5">
+                  <Button
+                    variant={inventoryView === "table" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-8 px-3"
+                    onClick={() => setInventoryView("table")}
+                    aria-label="Table view"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={inventoryView === "preview" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-8 px-3"
+                    onClick={() => setInventoryView("preview")}
+                    aria-label="Preview product listing"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               {/* Bulk Actions Toolbar */}
@@ -738,6 +763,28 @@ const Admin = () => {
                 <div className="p-8 text-center">
                   <Package className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                   <p className="text-muted-foreground">No products found</p>
+                </div>
+              ) : inventoryView === "preview" ? (
+                <div className="p-6">
+                  <p className="text-xs text-muted-foreground mb-4">Preview how products appear on the shop — click to open product page</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {filteredProducts.map((product) => {
+                      const totalStock = (variantsByProduct[product.id] || []).reduce((s, v) => s + v.stock_quantity, 0);
+                      const inStock = totalStock > 0 && product.is_active;
+                      return (
+                        <ProductCard
+                          key={product.id}
+                          id={product.id}
+                          name={product.name}
+                          price={Number(product.price)}
+                          image={getProductDisplayImage(product)}
+                          category={product.category || undefined}
+                          isNew={false}
+                          inStock={inStock}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <table className="w-full">

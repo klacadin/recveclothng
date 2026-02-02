@@ -4,7 +4,8 @@ import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { NOBODY_PRODUCTS, getProductsByCategory } from "@/data/products";
+import { useActiveProducts, isProductNew } from "@/hooks/useProducts";
+import { getProductDisplayImage } from "@/data/productImages";
 
 import nobodyLogo from "@/assets/nobody-logo.png";
 import nobodyMission from "@/assets/nobody-mission.png";
@@ -27,9 +28,10 @@ const NobodyCollection = () => {
     ? categoryParam
     : "";
 
+  const { data: allProducts = [] } = useActiveProducts();
   const filteredProducts = selectedSubCategory
-    ? getProductsByCategory(selectedSubCategory)
-    : NOBODY_PRODUCTS;
+    ? allProducts.filter((p) => (p.category || "").toLowerCase() === selectedSubCategory.toLowerCase())
+    : allProducts;
 
   const setSubCategory = (value: string) => {
     if (!value) {
@@ -204,11 +206,12 @@ const NobodyCollection = () => {
                     <ProductCard
                       id={product.id}
                       name={product.name}
-                      price={product.price}
-                      image={product.image}
-                      category={product.category}
-                      isNew={false}
-                      inStock={true}
+                      price={Number(product.price)}
+                      image={getProductDisplayImage(product)}
+                      category={product.category || undefined}
+                      isNew={isProductNew(product.created_at)}
+                      inStock={(product.stock_quantity ?? 0) > 0}
+                      product={product}
                     />
                   </div>
                 ))}

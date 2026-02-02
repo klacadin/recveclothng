@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -12,18 +12,38 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
-import CheckoutAuth from '@/components/checkout/CheckoutAuth';
 import OTPVerification from '@/components/checkout/OTPVerification';
-import { SHIPPING_FEE, CONVENIENCE_FEE } from '@/config/constants';
+import { SHIPPING_FEE, CONVENIENCE_FEE, TEST_VOUCHER_CODE, TEST_VOUCHER_DISCOUNT_PERCENT } from '@/config/constants';
+import PhilippineAddressSelect from '@/components/checkout/PhilippineAddressSelect';
+import { buildAddressString } from '@/hooks/usePhilippineAddress';
+import { getProductDisplayImage } from '@/data/productImages';
 
 const checkoutSchema = z.object({
   customerName: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
   customerEmail: z.string().email('Invalid email address').max(320, 'Email is too long'),
   customerPhone: z.string().max(50, 'Phone number is too long').optional(),
-  shippingAddress: z.string().min(1, 'Shipping address is required').max(1000, 'Address is too long'),
+  streetAddress: z.string().min(1, 'Street address is required (house no., street, landmark)').max(500, 'Address is too long'),
+  addressSelections: z.object({
+    regionCode: z.string(),
+    regionName: z.string().optional(),
+    provinceCode: z.string(),
+    provinceName: z.string().optional(),
+    cityCode: z.string(),
+    cityName: z.string().optional(),
+    barangayCode: z.string(),
+    barangayName: z.string().optional(),
+  }),
   notes: z.string().max(500, 'Notes are too long').optional(),
   paymentMethod: z.enum(['cod', 'gcash', 'maya', 'bank_transfer']),
-});
+}).refine(
+  (data) => {
+    const a = data.addressSelections;
+    const isNCR = a.regionCode === '130000000';
+    if (isNCR) return !!(a.regionCode && a.cityCode && a.barangayCode);
+    return !!(a.regionCode && a.provinceCode && a.cityCode && a.barangayCode);
+  },
+  { message: 'Please complete all address fields (region, city, barangay)', path: ['addressSelections'] }
+);
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
@@ -41,25 +61,39 @@ const Checkout = () => {
     customerName: '',
     customerEmail: '',
     customerPhone: '',
-    shippingAddress: '',
+    streetAddress: '',
+    addressSelections: {
+      regionCode: '',
+      regionName: '',
+      provinceCode: '',
+      provinceName: '',
+      cityCode: '',
+      cityName: '',
+      barangayCode: '',
+      barangayName: '',
+    },
     notes: '',
-    paymentMethod: 'cod',
+    paymentMethod: 'gcash',
   });
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherApplied, setVoucherApplied] = useState(false);
 
-  const total = subtotal + SHIPPING_FEE + CONVENIENCE_FEE;
+  const preVoucherTotal = subtotal + SHIPPING_FEE + CONVENIENCE_FEE;
+  const isTestVoucher = voucherApplied && voucherCode.toUpperCase().trim() === TEST_VOUCHER_CODE;
+  const discountAmount = isTestVoucher ? Math.floor(preVoucherTotal * (TEST_VOUCHER_DISCOUNT_PERCENT / 100)) : 0;
+  const total = Math.max(1, preVoucherTotal - discountAmount);
 
-  // Initialize step based on auth state
+  // Initialize step: allow guest checkout (skip auth), or go to details when logged in
   useEffect(() => {
     if (!authLoading) {
-      if (user) {
-        setStep('details');
-        // Pre-fill email from user
-        if (user.email && !formData.customerEmail) {
-          setFormData(prev => ({ ...prev, customerEmail: user.email! }));
-        }
-      } else {
-        setStep('auth');
+      setStep('details');
+      if (user?.email && !formData.customerEmail) {
+        setFormData(prev => ({ ...prev, customerEmail: user.email! }));
+      }
+      // Guest: COD not available — switch to gcash if cod was selected
+      if (!user && formData.paymentMethod === 'cod') {
+        setFormData(prev => ({ ...prev, paymentMethod: 'gcash' }));
       }
     }
   }, [user, authLoading]);
@@ -96,8 +130,12 @@ const Checkout = () => {
       return;
     }
 
-    // Move to OTP verification
-    setStep('otp');
+    // Guest: skip OTP — payment itself verifies. Logged-in: verify with OTP first
+    if (!user) {
+      handleOTPVerified();
+    } else {
+      setStep('otp');
+    }
   };
 
   const handleOTPVerified = async () => {
@@ -109,12 +147,13 @@ const Checkout = () => {
         customer_name: formData.customerName,
         customer_email: formData.customerEmail,
         customer_phone: formData.customerPhone || null,
-        shipping_address: formData.shippingAddress,
+        shipping_address: buildAddressString(formData.streetAddress, formData.addressSelections),
         notes: formData.notes || null,
         payment_method: formData.paymentMethod,
         subtotal,
         shipping_fee: SHIPPING_FEE,
         total,
+        voucher_code: voucherApplied ? voucherCode.trim() : null,
         user_id: user?.id || null, // Link order to authenticated user
         items: items.map(item => ({
           product_id: item.product.id,
@@ -249,8 +288,6 @@ const Checkout = () => {
           onClick={() => {
             if (step === 'otp') {
               setStep('details');
-            } else if (step === 'details' && !user) {
-              setStep('auth');
             } else {
               navigate(-1);
             }
@@ -262,37 +299,25 @@ const Checkout = () => {
 
         <h1 className="text-3xl font-bold mb-8">Checkout</h1>
 
-        {/* Progress Steps */}
+        {/* Progress Steps: guests skip OTP — payment verifies; logged-in users verify with OTP */}
         <div className="flex items-center justify-center gap-4 mb-8">
-          <div className={`flex items-center gap-2 ${step === 'auth' || user ? 'text-primary' : 'text-muted-foreground'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${user ? 'bg-primary text-primary-foreground' : step === 'auth' ? 'bg-primary/20 text-primary' : 'bg-muted'}`}>
-              {user ? <CheckCircle2 className="h-4 w-4" /> : '1'}
+          <div className="flex items-center gap-2 text-primary">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium bg-primary/20 text-primary">
+              {(step === 'otp' || step === 'processing') ? <CheckCircle2 className="h-4 w-4" /> : '1'}
             </div>
-            <span className="hidden sm:inline text-sm">Account</span>
-          </div>
-          <div className="w-8 h-px bg-border" />
-          <div className={`flex items-center gap-2 ${step === 'details' || step === 'otp' || step === 'processing' ? 'text-primary' : 'text-muted-foreground'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 'otp' || step === 'processing' ? 'bg-primary text-primary-foreground' : step === 'details' ? 'bg-primary/20 text-primary' : 'bg-muted'}`}>
-              {step === 'otp' || step === 'processing' ? <CheckCircle2 className="h-4 w-4" /> : '2'}
-            </div>
-            <span className="hidden sm:inline text-sm">Details</span>
+            <span className="hidden sm:inline text-sm">{user ? 'Account' : 'Details'}</span>
           </div>
           <div className="w-8 h-px bg-border" />
           <div className={`flex items-center gap-2 ${step === 'otp' || step === 'processing' ? 'text-primary' : 'text-muted-foreground'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 'processing' ? 'bg-primary text-primary-foreground' : step === 'otp' ? 'bg-primary/20 text-primary' : 'bg-muted'}`}>
-              {step === 'processing' ? <CheckCircle2 className="h-4 w-4" /> : '3'}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 'otp' || step === 'processing' ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>
+              {step === 'processing' ? <CheckCircle2 className="h-4 w-4" /> : '2'}
             </div>
-            <span className="hidden sm:inline text-sm">Verify</span>
+            <span className="hidden sm:inline text-sm">{user ? 'Verify' : 'Payment'}</span>
           </div>
         </div>
 
-        {/* Auth Step */}
-        {step === 'auth' && (
-          <CheckoutAuth onAuthenticated={() => setStep('details')} />
-        )}
-
-        {/* OTP Verification Step */}
-        {step === 'otp' && (
+        {/* OTP Verification Step (logged-in users only) */}
+        {step === 'otp' && user && (
           <OTPVerification
             email={formData.customerEmail}
             phone={formData.customerPhone}
@@ -366,16 +391,32 @@ const Checkout = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="shippingAddress">Shipping Address *</Label>
-                      <Textarea
-                        id="shippingAddress"
-                        value={formData.shippingAddress}
-                        onChange={(e) => handleChange('shippingAddress', e.target.value)}
-                        placeholder="Enter your complete shipping address"
-                        rows={3}
+                      <Label htmlFor="streetAddress">Street Address *</Label>
+                      <Input
+                        id="streetAddress"
+                        value={formData.streetAddress}
+                        onChange={(e) => handleChange('streetAddress', e.target.value)}
+                        placeholder="House/unit no., street, building, landmark"
                       />
-                      {errors.shippingAddress && (
-                        <p className="text-sm text-destructive mt-1">{errors.shippingAddress}</p>
+                      {errors.streetAddress && (
+                        <p className="text-sm text-destructive mt-1">{errors.streetAddress}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label>Location (Region to Barangay) *</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Select your address to ensure accurate J&T delivery
+                      </p>
+                      <PhilippineAddressSelect
+                        value={formData.addressSelections}
+                        onChange={(sel) => {
+                          setFormData((prev) => ({ ...prev, addressSelections: { ...prev.addressSelections, ...sel } }));
+                          if (errors.addressSelections) setErrors((prev) => ({ ...prev, addressSelections: undefined }));
+                        }}
+                      />
+                      {errors.addressSelections && (
+                        <p className="text-sm text-destructive mt-1">{errors.addressSelections}</p>
                       )}
                     </div>
 
@@ -404,12 +445,14 @@ const Checkout = () => {
                       value={formData.paymentMethod}
                       onValueChange={(value) => handleChange('paymentMethod', value)}
                     >
-                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                        <RadioGroupItem value="cod" id="cod" />
-                        <Label htmlFor="cod" className="flex-1 cursor-pointer">
-                          Cash on Delivery (COD)
-                        </Label>
-                      </div>
+                      {user && (
+                        <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                          <RadioGroupItem value="cod" id="cod" />
+                          <Label htmlFor="cod" className="flex-1 cursor-pointer">
+                            Cash on Delivery (COD)
+                          </Label>
+                        </div>
+                      )}
                       <div className="flex items-center space-x-2 p-3 border rounded-lg bg-primary/5">
                         <RadioGroupItem value="gcash" id="gcash" />
                         <Label htmlFor="gcash" className="flex-1 cursor-pointer">
@@ -440,6 +483,11 @@ const Checkout = () => {
                         You'll be redirected to {formData.paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment
                       </p>
                     )}
+                    {!user && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        <Link to="/admin/login" className="text-primary hover:underline">Sign in</Link> for Cash on Delivery (COD) option
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -454,17 +502,11 @@ const Checkout = () => {
                     {items.map(({ product, quantity }) => (
                       <div key={product.id} className="flex gap-3">
                         <div className="w-16 h-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                          {product.image_url ? (
-                            <img
-                              src={product.image_url}
-                              alt={product.name}
-                              className="w-full h-full object-contain bg-secondary"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                              No image
-                            </div>
-                          )}
+                          <img
+                            src={getProductDisplayImage(product)}
+                            alt={product.name}
+                            className="w-full h-full object-contain bg-secondary"
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{product.name}</p>
@@ -489,6 +531,48 @@ const Checkout = () => {
                         <span className="text-muted-foreground">Convenience fee</span>
                         <span>₱{CONVENIENCE_FEE.toFixed(2)}</span>
                       </div>
+                      {/* Test voucher for low-cost payment testing */}
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          placeholder="Voucher code"
+                          value={voucherCode}
+                          onChange={(e) => {
+                            setVoucherCode(e.target.value.toUpperCase());
+                            setVoucherApplied(false);
+                          }}
+                          className="flex-1"
+                          disabled={voucherApplied}
+                        />
+                        <Button
+                          type="button"
+                          variant={voucherApplied ? "secondary" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            if (voucherApplied) {
+                              setVoucherApplied(false);
+                              setVoucherCode('');
+                              return;
+                            }
+                            const code = voucherCode.trim().toUpperCase();
+                            if (code === TEST_VOUCHER_CODE) {
+                              setVoucherApplied(true);
+                              setVoucherCode(code);
+                              toast({ title: 'Voucher applied!', description: `${TEST_VOUCHER_DISCOUNT_PERCENT}% off — for testing only.` });
+                            } else if (code) {
+                              toast({ title: 'Invalid voucher', description: 'Code not found.', variant: 'destructive' });
+                            }
+                          }}
+                          disabled={!voucherCode.trim() && !voucherApplied}
+                        >
+                          {voucherApplied ? 'Remove' : 'Apply'}
+                        </Button>
+                      </div>
+                      {voucherApplied && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Voucher ({TEST_VOUCHER_CODE}) -{TEST_VOUCHER_DISCOUNT_PERCENT}%</span>
+                          <span>-₱{discountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-lg font-bold border-t pt-2">
                         <span>Total</span>
                         <span>₱{total.toFixed(2)}</span>
@@ -501,7 +585,7 @@ const Checkout = () => {
                       size="lg"
                       disabled={isSubmitting}
                     >
-                      Continue to Verification
+                      {user ? 'Continue to Verification' : 'Proceed to Payment'}
                     </Button>
                   </CardContent>
                 </Card>

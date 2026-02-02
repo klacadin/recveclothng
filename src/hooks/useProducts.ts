@@ -21,6 +21,21 @@ export const useProducts = () => {
   });
 };
 
+/** Active products only — for Shop/storefront. Only is_active products appear. */
+export const useActiveProducts = () => {
+  const { data = [], ...rest } = useProducts();
+  return { data: data.filter((p) => p.is_active), ...rest };
+};
+
+const NEW_PRODUCT_DAYS = 30;
+
+/** True if product was created within the last N days */
+export function isProductNew(createdAt: string, days = NEW_PRODUCT_DAYS): boolean {
+  const created = new Date(createdAt).getTime();
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return created >= cutoff;
+}
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const useProduct = (id: string) => {

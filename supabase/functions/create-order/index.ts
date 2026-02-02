@@ -30,7 +30,12 @@ interface OrderRequest {
   total: number;
   items: OrderItem[];
   user_id?: string;
+  voucher_code?: string | null;
 }
+
+// Test voucher: 99% off for low-cost payment testing
+const TEST_VOUCHER = 'TEST99';
+const TEST_VOUCHER_DISCOUNT = 0.99; // 99% off
 
 interface ReservedItem {
   product_id: string;
@@ -301,7 +306,16 @@ serve(async (req) => {
 
     // SECURITY: Calculate server-side total
     const shippingFee = Math.max(0, Math.min(orderData.shipping_fee, 10000)); // Cap shipping fee
-    const serverTotal = serverSubtotal + shippingFee;
+    let serverTotal = serverSubtotal + shippingFee;
+
+    // Apply test voucher (99% off) for low-cost payment testing
+    const voucherCode = (orderData.voucher_code || '').trim().toUpperCase();
+    if (voucherCode === TEST_VOUCHER) {
+      const beforeDiscount = serverTotal;
+      const discountAmount = Math.floor(beforeDiscount * TEST_VOUCHER_DISCOUNT);
+      serverTotal = Math.max(1, beforeDiscount - discountAmount);
+      console.log('TEST99 voucher applied:', { original: beforeDiscount, discount: discountAmount, final: serverTotal });
+    }
 
     console.log('Server-calculated totals:', { subtotal: serverSubtotal, shipping: shippingFee, total: serverTotal });
 

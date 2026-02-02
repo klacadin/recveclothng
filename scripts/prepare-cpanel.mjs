@@ -12,7 +12,15 @@ Upload the CONTENTS of this folder to:
   Main domain:  public_html/
   Staging:      public_html/staging/
 
-Steps:
+Option A: ZIP (if FTP can't create folders)
+  npm run build:cpanel && npm run deploy:zip
+  Upload cpanel-deploy.zip to public_html via File Manager, then Extract.
+
+Option B: FTP (automated)
+  npm run deploy:ftp
+  (Requires FTP_HOST, FTP_USER, FTP_PASSWORD in .env)
+
+Option C: Manual
 1. cPanel File Manager → public_html (or public_html/staging)
 2. Delete existing files (for clean deploy)
 3. Upload all files from this folder
