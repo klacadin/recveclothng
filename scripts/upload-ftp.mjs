@@ -109,19 +109,52 @@ async function main() {
     const targetPath = remotePath || '.';
     console.log(`Uploading to ${targetPath === '.' ? '(current directory)' : targetPath}...`);
 
+    let uploadBase = '';
     if (targetPath && targetPath !== '.') {
-      try {
-        await client.cd(targetPath);
-      } catch (cdErr) {
-        const list = await client.list();
-        console.error(`Could not access "${targetPath}". Current directory contents:`);
-        list.forEach((f) => console.error('  ', f.name));
-        console.error('\nTry FTP_REMOTE_PATH=. (if you land in public_html) or domains/yourdomain.com/public_html');
-        throw cdErr;
+      const parts = targetPath.split('/').filter(Boolean);
+      if (parts.length >= 2) {
+        // e.g. public_html/staging: cd to parent, ensure subdir, upload with prefix (avoids cd into subdir)
+        const parentPath = parts.slice(0, -1).join('/');
+        const subDir = parts[parts.length - 1];
+        for (const segment of parts.slice(0, -1)) {
+          try {
+            await client.cd(segment);
+          } catch (cdErr) {
+            try {
+              await client.ensureDir(segment);
+              await client.cd(segment);
+            } catch (e) {
+              const list = await client.list();
+              console.error(`Could not access "${targetPath}". Current directory contents:`);
+              list.forEach((f) => console.error('  ', f.name));
+              throw cdErr;
+            }
+          }
+        }
+        try {
+          await client.ensureDir(subDir);
+        } catch (e) {
+          console.error(`Could not create ${subDir}: ${e.message}`);
+        }
+        uploadBase = subDir;
+      } else {
+        const segment = parts[0];
+        try {
+          await client.cd(segment);
+        } catch (cdErr) {
+          try {
+            await client.ensureDir(segment);
+            await client.cd(segment);
+          } catch (e) {
+            const list = await client.list();
+            console.error(`Could not access "${targetPath}". Current directory contents:`);
+            list.forEach((f) => console.error('  ', f.name));
+            throw cdErr;
+          }
+        }
+        uploadBase = '';
       }
     }
-
-    const uploadBase = targetPath && targetPath !== '.' ? targetPath : '';
     await uploadDirectory(client, LOCAL_DIR, uploadBase);
 
     console.log('✓ FTP upload complete');

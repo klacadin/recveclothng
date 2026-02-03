@@ -9,6 +9,7 @@
     "build:cpanel": "vite build && node scripts/prepare-cpanel.mjs",
     "deploy:ftp": "node scripts/upload-ftp.mjs",
     "deploy:zip": "node scripts/create-deploy-zip.mjs",
+    "deploy:staging": "npm run build:cpanel && npm run deploy:zip",
     "deploy:cpanel": "npm run build:cpanel && npm run deploy:ftp",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
