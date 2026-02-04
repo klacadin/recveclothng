@@ -40,6 +40,36 @@ function getEnv(name, defaultValue = '') {
   return process.env[name] ?? defaultValue;
 }
 
+/**
+ * Create a remote directory by path. Tries full path first; on 550, creates parent segments (for servers that only allow single-segment MKD).
+ */
+async function mkdirRecursive(client, remoteDir) {
+  try {
+    await client.send('MKD ' + remoteDir);
+    return;
+  } catch (e) {
+    if (e.code === 550 && remoteDir.includes('/')) {
+      const parts = remoteDir.split('/').filter(Boolean);
+      let path = '';
+      for (const part of parts) {
+        path = path ? path + '/' + part : part;
+        try {
+          await client.send('MKD ' + path);
+        } catch (e2) {
+          if (e2.code !== 550) throw e2;
+        }
+      }
+      return;
+    }
+    throw e;
+  }
+}
+
+/**
+ * Upload directory tree without ever cd'ing into subdirs (stays in one remote dir).
+ * Creates subdirs with MKD only; uploads files by full relative path.
+ * Works around servers that return 550 when cd'ing into newly created dirs.
+ */
 async function uploadDirectory(client, localPath, remotePath = '') {
   const entries = readdirSync(localPath, { withFileTypes: true });
   for (const entry of entries) {
@@ -48,12 +78,12 @@ async function uploadDirectory(client, localPath, remotePath = '') {
 
     if (entry.isDirectory()) {
       try {
-        await client.ensureDir(remoteFull);
+        await mkdirRecursive(client, remoteFull);
       } catch (mkErr) {
-        console.error(`  Could not create dir ${remoteFull}: ${mkErr.message}`);
-        console.error('  Tip: Your FTP account may not allow creating folders.');
-        console.error('  Use: npm run build:zip then upload cpanel-deploy.zip via cPanel File Manager and extract.');
-        throw mkErr;
+        if (!mkErr.message.includes('exists') && mkErr.code !== 550) {
+          console.error(`  Could not create dir ${remoteFull}: ${mkErr.message}`);
+          throw mkErr;
+        }
       }
       await uploadDirectory(client, localFull, remoteFull);
     } else {
@@ -153,6 +183,13 @@ async function main() {
           }
         }
         uploadBase = '';
+      }
+    }
+    if (uploadBase) {
+      try {
+        await mkdirRecursive(client, uploadBase);
+      } catch (e) {
+        if (e.code !== 550) throw e;
       }
     }
     await uploadDirectory(client, LOCAL_DIR, uploadBase);

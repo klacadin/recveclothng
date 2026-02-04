@@ -1327,7 +1327,7 @@ const Admin = () => {
 
       {/* Set to Paid — reference number required (z-[100] so it appears above order detail modal) */}
       <Dialog open={!!paidRefDialogOrder} onOpenChange={(open) => { if (!open) { setPaidRefDialogOrder(null); setPaidRefInput(''); } }}>
-        <DialogContent className="sm:max-w-md z-[100]">
+        <DialogContent className="sm:max-w-md z-[100]" overlayClassName="z-[100]">
           <DialogHeader>
             <DialogTitle>Set status to Paid</DialogTitle>
             <DialogDescription>
