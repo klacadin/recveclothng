@@ -4,6 +4,7 @@ VALUES ('product-images', 'product-images', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Allow admins to upload product images
+DROP POLICY IF EXISTS "Admins can upload product images" ON storage.objects;
 CREATE POLICY "Admins can upload product images"
 ON storage.objects
 FOR INSERT
@@ -13,6 +14,7 @@ WITH CHECK (
 );
 
 -- Allow admins to update product images
+DROP POLICY IF EXISTS "Admins can update product images" ON storage.objects;
 CREATE POLICY "Admins can update product images"
 ON storage.objects
 FOR UPDATE
@@ -22,6 +24,7 @@ USING (
 );
 
 -- Allow admins to delete product images
+DROP POLICY IF EXISTS "Admins can delete product images" ON storage.objects;
 CREATE POLICY "Admins can delete product images"
 ON storage.objects
 FOR DELETE
@@ -31,6 +34,7 @@ USING (
 );
 
 -- Allow public read access to product images
+DROP POLICY IF EXISTS "Product images are publicly accessible" ON storage.objects;
 CREATE POLICY "Product images are publicly accessible"
 ON storage.objects
 FOR SELECT

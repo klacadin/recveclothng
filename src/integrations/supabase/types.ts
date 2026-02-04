@@ -175,7 +175,9 @@ export type Database = {
           payment_method: Database["public"]["Enums"]["payment_method"]
           proof_of_payment_url: string | null
           proof_uploaded_at: string | null
+          payment_reference_number: string | null
           shipping_address: string
+          waybill_number: string | null
           shipping_fee: number
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
@@ -194,6 +196,7 @@ export type Database = {
           payment_method?: Database["public"]["Enums"]["payment_method"]
           proof_of_payment_url?: string | null
           proof_uploaded_at?: string | null
+          payment_reference_number?: string | null
           shipping_address: string
           shipping_fee?: number
           status?: Database["public"]["Enums"]["order_status"]
@@ -201,6 +204,7 @@ export type Database = {
           total?: number
           updated_at?: string
           user_id?: string | null
+          waybill_number?: string | null
         }
         Update: {
           created_at?: string
@@ -213,7 +217,9 @@ export type Database = {
           payment_method?: Database["public"]["Enums"]["payment_method"]
           proof_of_payment_url?: string | null
           proof_uploaded_at?: string | null
+          payment_reference_number?: string | null
           shipping_address?: string
+          waybill_number?: string | null
           shipping_fee?: number
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
@@ -404,8 +410,12 @@ export type Database = {
       app_role: "admin" | "user"
       order_status:
         | "new"
+        | "pending_payment"
+        | "for_verification"
         | "paid"
+        | "preparing"
         | "packed"
+        | "for_pickup"
         | "shipped"
         | "completed"
         | "cancelled"
@@ -541,8 +551,12 @@ export const Constants = {
       app_role: ["admin", "user"],
       order_status: [
         "new",
+        "pending_payment",
+        "for_verification",
         "paid",
+        "preparing",
         "packed",
+        "for_pickup",
         "shipped",
         "completed",
         "cancelled",

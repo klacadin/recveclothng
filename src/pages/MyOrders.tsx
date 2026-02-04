@@ -31,7 +31,7 @@ interface OrderItem {
 interface Order {
   id: string;
   order_number: string;
-  status: 'new' | 'paid' | 'packed' | 'shipped' | 'completed' | 'cancelled';
+  status: 'new' | 'pending_payment' | 'for_verification' | 'paid' | 'preparing' | 'packed' | 'for_pickup' | 'shipped' | 'completed' | 'cancelled';
   payment_method: string;
   subtotal: number;
   shipping_fee: number;
@@ -47,8 +47,12 @@ interface Order {
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   new: { label: 'Order Placed', color: 'bg-blue-100 text-blue-800', icon: Clock },
+  pending_payment: { label: 'Pending payment', color: 'bg-amber-100 text-amber-800', icon: Clock },
+  for_verification: { label: 'For verification', color: 'bg-orange-100 text-orange-800', icon: Clock },
   paid: { label: 'Payment Confirmed', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  packed: { label: 'Being Prepared', color: 'bg-yellow-100 text-yellow-800', icon: PackageCheck },
+  preparing: { label: 'Preparing', color: 'bg-yellow-100 text-yellow-800', icon: PackageCheck },
+  packed: { label: 'Packed', color: 'bg-yellow-100 text-yellow-800', icon: PackageCheck },
+  for_pickup: { label: 'For pickup', color: 'bg-indigo-100 text-indigo-800', icon: Truck },
   shipped: { label: 'Shipped', color: 'bg-purple-100 text-purple-800', icon: Truck },
   completed: { label: 'Delivered', color: 'bg-gray-100 text-gray-800', icon: CheckCircle },
   cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: XCircle },
@@ -230,7 +234,7 @@ const MyOrders = () => {
                     <OrderStatusTracker status={selectedOrder.status} />
 
                     {/* Proof of Payment Upload - Show for unpaid orders with bank_transfer/gcash/maya */}
-                    {selectedOrder.status === 'new' && ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) && (
+                    {(selectedOrder.status === 'new' || selectedOrder.status === 'pending_payment' || selectedOrder.status === 'for_verification') && ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) && (
                       <ProofOfPaymentUpload
                         orderId={selectedOrder.id}
                         orderNumber={selectedOrder.order_number}
@@ -240,9 +244,9 @@ const MyOrders = () => {
                         userId={user.id}
                         existingProofUrl={selectedOrder.proof_of_payment_url}
                         onUploadComplete={(url) => {
-                          setSelectedOrder({ ...selectedOrder, proof_of_payment_url: url });
+                          setSelectedOrder({ ...selectedOrder, proof_of_payment_url: url, status: 'for_verification' });
                           setOrders(orders.map(o => 
-                            o.id === selectedOrder.id ? { ...o, proof_of_payment_url: url } : o
+                            o.id === selectedOrder.id ? { ...o, proof_of_payment_url: url, status: 'for_verification' } : o
                           ));
                         }}
                       />

@@ -97,12 +97,13 @@ const ProofOfPaymentUpload = ({
 
       const proofUrl = urlData.publicUrl;
 
-      // Update order with proof URL
+      // Update order with proof URL and set status to for_verification so store manager can verify
       const { error: updateError } = await supabase
         .from('orders')
         .update({
           proof_of_payment_url: proofUrl,
           proof_uploaded_at: new Date().toISOString(),
+          status: 'for_verification',
         })
         .eq('id', orderId);
 

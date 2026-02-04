@@ -209,37 +209,32 @@ const Checkout = () => {
         throw new Error(data?.error || 'Failed to create order');
       }
 
-      // For e-wallet payments (GCash/Maya), redirect to HitPay
-      if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') {
-        const { data: paymentData, error: paymentError } = await supabase.functions.invoke('create-hitpay-payment', {
-          body: {
-            order_id: data.order_id,
-            order_number: data.order_number,
-            amount: data.total,
-            customer_email: formData.customerEmail,
-            customer_name: formData.customerName,
-            customer_phone: formData.customerPhone,
-            payment_method: formData.paymentMethod,
-            items: items.map(item => ({
-              name: item.product.name,
-              quantity: item.quantity,
-              price: item.product.price,
-            })),
+      // Payment via QR for now (HitPay API pending). All non-COD orders need proof of payment.
+      const needsProof = ['gcash', 'maya', 'bank_transfer'].includes(formData.paymentMethod);
+      clearCart();
+      if (needsProof) {
+        // Save pending order for "return later" flow (session/localStorage)
+        try {
+          const pending = { orderNumber: data.order_number, customerEmail: formData.customerEmail, total: data.total };
+          sessionStorage.setItem('pending_order', JSON.stringify(pending));
+        } catch (_) {}
+        toast({
+          title: 'Order placed!',
+          description: `Order ${data.order_number}. Pay via QR then upload proof of payment.`,
+        });
+        navigate('/order-confirmation', {
+          state: {
+            orderNumber: data.order_number,
+            needsProof: true,
+            total: data.total,
+            customerEmail: formData.customerEmail,
+            customerName: formData.customerName,
           },
         });
-
-        if (paymentError || !paymentData?.redirect_url) {
-          throw new Error(paymentData?.error || 'Failed to create payment session');
-        }
-
-        // Clear cart and redirect to HitPay payment page
-        clearCart();
-        window.location.href = paymentData.redirect_url;
         return;
       }
 
-      // For COD/Bank Transfer, go to confirmation page
-      clearCart();
+      // COD: go to confirmation (no proof needed)
       toast({
         title: 'Order placed successfully!',
         description: `Your order number is ${data.order_number}. We'll contact you soon.`,
@@ -478,9 +473,9 @@ const Checkout = () => {
                         </Label>
                       </div>
                     </RadioGroup>
-                    {(formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') && (
+                    {(formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya' || formData.paymentMethod === 'bank_transfer') && (
                       <p className="text-xs text-muted-foreground mt-2">
-                        You'll be redirected to {formData.paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment
+                        Pay via QR code on the next page, then upload proof of payment to complete your order.
                       </p>
                     )}
                     {!user && (

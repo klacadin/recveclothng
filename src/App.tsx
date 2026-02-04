@@ -19,6 +19,7 @@ import AdminLogin from "./pages/AdminLogin";
 import NobodyCollection from "./pages/NobodyCollection";
 import Checkout from "./pages/Checkout";
 import OrderConfirmation from "./pages/OrderConfirmation";
+import UploadProof from "./pages/UploadProof";
 import Wishlist from "./pages/Wishlist";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailed from "./pages/PaymentFailed";
@@ -70,6 +71,7 @@ const App = () => (
                     <Route path="/contact" element={<Contact />} />
                     <Route path="/checkout" element={<Checkout />} />
                     <Route path="/order-confirmation" element={<OrderConfirmation />} />
+                    <Route path="/upload-proof" element={<UploadProof />} />
                     <Route path="/payment-success" element={<PaymentSuccess />} />
                     <Route path="/payment-failed" element={<PaymentFailed />} />
                     <Route path="/wishlist" element={<Wishlist />} />

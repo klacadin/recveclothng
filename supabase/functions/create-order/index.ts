@@ -327,6 +327,10 @@ serve(async (req) => {
         customer_email: orderData.customer_email,
       });
 
+    // For non-COD: status is pending_payment until proof is uploaded and validated. COD stays new.
+    const needsProof = ['gcash', 'maya', 'bank_transfer'].includes(orderData.payment_method);
+    const initialStatus = needsProof ? 'pending_payment' : 'new';
+
     // Create order with SERVER-CALCULATED values
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -341,7 +345,7 @@ serve(async (req) => {
         subtotal: serverSubtotal,
         shipping_fee: shippingFee,
         total: serverTotal,
-        status: 'new',
+        status: initialStatus,
         user_id: orderData.user_id || null,
       })
       .select()

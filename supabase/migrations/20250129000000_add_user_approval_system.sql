@@ -13,22 +13,22 @@ CREATE TABLE IF NOT EXISTS public.user_approvals (
 -- Enable RLS on user_approvals
 ALTER TABLE public.user_approvals ENABLE ROW LEVEL SECURITY;
 
--- RLS policies for user_approvals
--- Users can view their own approval status
+-- RLS policies for user_approvals (drop first so migration is idempotent)
+DROP POLICY IF EXISTS "Users can view their own approval status" ON public.user_approvals;
 CREATE POLICY "Users can view their own approval status"
 ON public.user_approvals
 FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
--- Admins can view all approval statuses
+DROP POLICY IF EXISTS "Admins can view all approval statuses" ON public.user_approvals;
 CREATE POLICY "Admins can view all approval statuses"
 ON public.user_approvals
 FOR SELECT
 TO authenticated
 USING (public.has_role(auth.uid(), 'admin'));
 
--- Admins can update approval statuses
+DROP POLICY IF EXISTS "Admins can update approval statuses" ON public.user_approvals;
 CREATE POLICY "Admins can update approval statuses"
 ON public.user_approvals
 FOR UPDATE
@@ -36,7 +36,7 @@ TO authenticated
 USING (public.has_role(auth.uid(), 'admin'))
 WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
--- System can insert approval records (via trigger)
+DROP POLICY IF EXISTS "System can insert approval records" ON public.user_approvals;
 CREATE POLICY "System can insert approval records"
 ON public.user_approvals
 FOR INSERT

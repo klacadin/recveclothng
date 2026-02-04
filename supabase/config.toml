@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.xendit-webhook]
 verify_jwt = false
+
+[functions.get-pending-order]
+verify_jwt = false
+
+[functions.upload-order-proof]
+verify_jwt = false

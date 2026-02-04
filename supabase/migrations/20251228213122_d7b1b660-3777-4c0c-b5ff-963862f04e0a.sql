@@ -1,5 +1,5 @@
 -- Create products table for inventory management
-CREATE TABLE public.products (
+CREATE TABLE IF NOT EXISTS public.products (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
@@ -15,7 +15,7 @@ CREATE TABLE public.products (
 );
 
 -- Create inventory_logs table to track stock changes
-CREATE TABLE public.inventory_logs (
+CREATE TABLE IF NOT EXISTS public.inventory_logs (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
   change_type TEXT NOT NULL CHECK (change_type IN ('restock', 'sale', 'adjustment', 'return')),
@@ -31,23 +31,27 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_logs ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for products (public read, authenticated write)
+DROP POLICY IF EXISTS "Products are viewable by everyone" ON public.products;
 CREATE POLICY "Products are viewable by everyone" 
 ON public.products 
 FOR SELECT 
 USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can insert products" ON public.products;
 CREATE POLICY "Authenticated users can insert products" 
 ON public.products 
 FOR INSERT 
 TO authenticated
 WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can update products" ON public.products;
 CREATE POLICY "Authenticated users can update products" 
 ON public.products 
 FOR UPDATE 
 TO authenticated
 USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can delete products" ON public.products;
 CREATE POLICY "Authenticated users can delete products" 
 ON public.products 
 FOR DELETE 
@@ -55,12 +59,14 @@ TO authenticated
 USING (true);
 
 -- Create RLS policies for inventory_logs (authenticated only)
+DROP POLICY IF EXISTS "Authenticated users can view inventory logs" ON public.inventory_logs;
 CREATE POLICY "Authenticated users can view inventory logs" 
 ON public.inventory_logs 
 FOR SELECT 
 TO authenticated
 USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can insert inventory logs" ON public.inventory_logs;
 CREATE POLICY "Authenticated users can insert inventory logs" 
 ON public.inventory_logs 
 FOR INSERT 
@@ -77,6 +83,7 @@ END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
 -- Create trigger for automatic timestamp updates
+DROP TRIGGER IF EXISTS update_products_updated_at ON public.products;
 CREATE TRIGGER update_products_updated_at
 BEFORE UPDATE ON public.products
 FOR EACH ROW
@@ -111,6 +118,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Create trigger to automatically log inventory changes
+DROP TRIGGER IF EXISTS log_product_inventory_change ON public.products;
 CREATE TRIGGER log_product_inventory_change
 AFTER UPDATE ON public.products
 FOR EACH ROW

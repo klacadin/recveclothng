@@ -32,10 +32,11 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useUpdateStock, type Product, type ProductInsert } from "@/hooks/useProducts";
 import { useProductCategories } from "@/hooks/useCategories";
-import { useOrders, useCreateOrder, useUpdateOrderStatus, useDeleteOrder, type Order, type OrderWithItems } from "@/hooks/useOrders";
+import { useOrders, useCreateOrder, useUpdateOrderStatus, useUpdateOrder, useDeleteOrder, type Order, type OrderWithItems } from "@/hooks/useOrders";
 import { useAllProductVariants, useCreateVariantsForProduct, useBulkUpdateVariants, type SizeStock, type ProductVariant, variantsToSizeStock, SIZES } from "@/hooks/useProductVariants";
 import { useBulkProductActions } from "@/hooks/useBulkProductActions";
 import { usePendingUsers } from "@/hooks/useUserApprovals";
@@ -51,8 +52,12 @@ import { getProductDisplayImage } from "@/data/productImages";
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   new: { label: "New", color: "bg-blue-100 text-blue-800", icon: AlertCircle },
+  pending_payment: { label: "Pending payment", color: "bg-amber-100 text-amber-800", icon: Clock },
+  for_verification: { label: "For verification", color: "bg-orange-100 text-orange-800", icon: AlertCircle },
   paid: { label: "Paid", color: "bg-green-100 text-green-800", icon: CheckCircle },
+  preparing: { label: "Preparing", color: "bg-yellow-100 text-yellow-800", icon: PackageCheck },
   packed: { label: "Packed", color: "bg-yellow-100 text-yellow-800", icon: PackageCheck },
+  for_pickup: { label: "For pickup", color: "bg-indigo-100 text-indigo-800", icon: TruckIcon },
   shipped: { label: "Shipped", color: "bg-purple-100 text-purple-800", icon: TruckIcon },
   completed: { label: "Completed", color: "bg-gray-100 text-gray-800", icon: CheckCircle },
   cancelled: { label: "Cancelled", color: "bg-red-100 text-red-800", icon: AlertCircle },
@@ -79,7 +84,12 @@ const Admin = () => {
   const [showBulkCategoryInput, setShowBulkCategoryInput] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [inventoryView, setInventoryView] = useState<"table" | "preview">("table");
-  
+  const [waybillInput, setWaybillInput] = useState("");
+  const [verificationRefInput, setVerificationRefInput] = useState("");
+  const [paidRefDialogOrder, setPaidRefDialogOrder] = useState<{ id: string; order_number: string } | null>(null);
+  const [paidRefInput, setPaidRefInput] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'new' | 'paid' | 'packed' | 'shipped' | 'completed'>('all');
+
   const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -95,6 +105,7 @@ const Admin = () => {
   const updateStock = useUpdateStock();
   const createOrder = useCreateOrder();
   const updateOrderStatus = useUpdateOrderStatus();
+  const updateOrder = useUpdateOrder();
   const deleteOrder = useDeleteOrder();
   const createVariants = useCreateVariantsForProduct();
   const bulkUpdateVariants = useBulkUpdateVariants();
@@ -136,18 +147,31 @@ const Admin = () => {
     product.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredOrders = orders.filter((order) =>
+  const searchFilteredOrders = orders.filter((order) =>
     order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
     order.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     order.customer_email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const statusFilterMatch = (order: Order) => {
+    switch (orderStatusFilter) {
+      case 'all': return true;
+      case 'new': return ['new', 'pending_payment', 'for_verification'].includes(order.status);
+      case 'paid': return order.status === 'paid' || order.status === 'preparing';
+      case 'packed': return order.status === 'packed' || order.status === 'for_pickup';
+      case 'shipped': return order.status === 'shipped';
+      case 'completed': return order.status === 'completed';
+      default: return true;
+    }
+  };
+  const filteredOrders = searchFilteredOrders.filter(statusFilterMatch);
+
   const lowStockProducts = products.filter(p => p.stock_quantity <= p.low_stock_threshold);
   const outOfStockProducts = products.filter(p => p.stock_quantity === 0);
   const totalInventoryValue = products.reduce((sum, p) => sum + Number(p.price) * p.stock_quantity, 0);
   
-  const newOrders = orders.filter(o => o.status === 'new');
-  const pendingShipment = orders.filter(o => ['paid', 'packed'].includes(o.status));
+  const newOrders = orders.filter(o => ['new', 'pending_payment', 'for_verification'].includes(o.status));
+  const pendingShipment = orders.filter(o => ['paid', 'preparing', 'packed', 'for_pickup'].includes(o.status));
   const todayRevenue = orders
     .filter(o => o.status !== 'cancelled' && new Date(o.created_at).toDateString() === new Date().toDateString())
     .reduce((sum, o) => sum + Number(o.total), 0);
@@ -473,10 +497,34 @@ const Admin = () => {
           {/* Orders Tab */}
           {activeTab === "orders" && (
             <div className="bg-card rounded-sm border border-border overflow-hidden">
-              <div className="p-4 border-b border-border flex items-center justify-between">
-                <h3 className="font-semibold text-foreground">
-                  Orders ({filteredOrders.length})
-                </h3>
+              <div className="p-4 border-b border-border space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-foreground">
+                    Orders ({filteredOrders.length})
+                  </h3>
+                </div>
+                {/* Order workflow quick-filters */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { id: 'all' as const, label: 'All', count: searchFilteredOrders.length },
+                    { id: 'new' as const, label: 'New', count: searchFilteredOrders.filter(o => ['new', 'pending_payment', 'for_verification'].includes(o.status)).length },
+                    { id: 'paid' as const, label: 'Paid', count: searchFilteredOrders.filter(o => o.status === 'paid' || o.status === 'preparing').length },
+                    { id: 'packed' as const, label: 'Packed', count: searchFilteredOrders.filter(o => o.status === 'packed' || o.status === 'for_pickup').length },
+                    { id: 'shipped' as const, label: 'Shipped', count: searchFilteredOrders.filter(o => o.status === 'shipped').length },
+                    { id: 'completed' as const, label: 'Completed', count: searchFilteredOrders.filter(o => o.status === 'completed').length },
+                  ].map(({ id, label, count }) => (
+                    <Button
+                      key={id}
+                      variant={orderStatusFilter === id ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setOrderStatusFilter(id)}
+                      className="shrink-0"
+                    >
+                      {label}
+                      <span className="ml-1.5 text-xs opacity-80">({count})</span>
+                    </Button>
+                  ))}
+                </div>
               </div>
               
               {ordersLoading ? (
@@ -533,7 +581,14 @@ const Admin = () => {
                           <td className="p-4">
                             <Select
                               value={order.status}
-                              onValueChange={(value: Order['status']) => handleUpdateOrderStatus(order.id, value)}
+                              onValueChange={(value: Order['status']) => {
+                                if (value === 'paid') {
+                                  setPaidRefDialogOrder({ id: order.id, order_number: order.order_number });
+                                  setPaidRefInput('');
+                                } else {
+                                  handleUpdateOrderStatus(order.id, value);
+                                }
+                              }}
                             >
                               <SelectTrigger className="w-32 h-8">
                                 <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded ${status.color}`}>
@@ -543,8 +598,12 @@ const Admin = () => {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="new">New</SelectItem>
+                                <SelectItem value="pending_payment">Pending payment</SelectItem>
+                                <SelectItem value="for_verification">For verification</SelectItem>
                                 <SelectItem value="paid">Paid</SelectItem>
+                                <SelectItem value="preparing">Preparing</SelectItem>
                                 <SelectItem value="packed">Packed</SelectItem>
+                                <SelectItem value="for_pickup">For pickup</SelectItem>
                                 <SelectItem value="shipped">Shipped</SelectItem>
                                 <SelectItem value="completed">Completed</SelectItem>
                                 <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -553,13 +612,17 @@ const Admin = () => {
                           </td>
                           <td className="p-4">
                             <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => setSelectedOrder(order)}
-                                aria-label={`View order ${order.order_number}`}
-                              >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        setWaybillInput((order as OrderWithItems & { waybill_number?: string | null }).waybill_number ?? '');
+                        setVerificationRefInput('');
+                      }}
+                      aria-label={`View order ${order.order_number}`}
+                    >
                                 <Eye className="h-4 w-4" aria-hidden="true" />
                               </Button>
                               {deleteOrderId === order.id ? (
@@ -945,15 +1008,26 @@ const Admin = () => {
             <div className="space-y-6">
               <div className="bg-card rounded-sm border border-border p-6">
                 <h3 className="font-semibold text-foreground mb-4">Order Workflow</h3>
+                <p className="text-sm text-muted-foreground mb-4">Click a step to go to Orders filtered by that status.</p>
                 <div className="flex items-center justify-between">
-                  {["New", "Paid", "Packed", "Shipped", "Completed"].map((step, idx, arr) => (
+                  {[
+                    { step: "New", filter: 'new' as const },
+                    { step: "Paid", filter: 'paid' as const },
+                    { step: "Packed", filter: 'packed' as const },
+                    { step: "Shipped", filter: 'shipped' as const },
+                    { step: "Completed", filter: 'completed' as const },
+                  ].map(({ step, filter }, idx, arr) => (
                     <div key={step} className="flex items-center">
-                      <div className="flex flex-col items-center">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${idx === 0 ? "bg-accent text-accent-foreground" : "bg-secondary text-muted-foreground"}`}>
+                      <button
+                        type="button"
+                        onClick={() => { setOrderStatusFilter(filter); setActiveTab('orders'); }}
+                        className="flex flex-col items-center hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                      >
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-secondary text-muted-foreground hover:bg-accent hover:text-accent-foreground">
                           {idx + 1}
                         </div>
-                        <p className="text-xs font-medium mt-2">{step}</p>
-                      </div>
+                        <p className="text-xs font-medium mt-2 text-foreground">{step}</p>
+                      </button>
                       {idx < arr.length - 1 && (
                         <div className="w-16 h-0.5 bg-border mx-2" />
                       )}
@@ -1102,10 +1176,204 @@ const Admin = () => {
                   <p className="text-foreground">{selectedOrder.notes}</p>
                 </div>
               )}
+
+              {/* Status change — Paid requires reference number via dialog */}
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground mb-1">Status</p>
+                <Select
+                  value={selectedOrder.status}
+                  onValueChange={(value: Order['status']) => {
+                    if (value === 'paid') {
+                      setPaidRefDialogOrder({ id: selectedOrder.id, order_number: selectedOrder.order_number });
+                      setPaidRefInput('');
+                    } else {
+                      handleUpdateOrderStatus(selectedOrder.id, value);
+                      setSelectedOrder({ ...selectedOrder, status: value });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-40">
+                    <span className={statusConfig[selectedOrder.status] ? `inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded ${statusConfig[selectedOrder.status].color}` : ''}>
+                      {statusConfig[selectedOrder.status]?.label ?? selectedOrder.status}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="pending_payment">Pending payment</SelectItem>
+                    <SelectItem value="for_verification">For verification</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="preparing">Preparing</SelectItem>
+                    <SelectItem value="packed">Packed</SelectItem>
+                    <SelectItem value="for_pickup">For pickup</SelectItem>
+                    <SelectItem value="shipped">Shipped</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Proof of payment — always visible when proof exists; store manager can view and verify */}
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground mb-1">Proof of payment</p>
+                {selectedOrder.proof_of_payment_url ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(selectedOrder.proof_of_payment_url!, '_blank')}
+                      >
+                        View proof
+                      </Button>
+                      {(selectedOrder as OrderWithItems).payment_reference_number && (
+                        <span className="text-sm text-muted-foreground">
+                          Reference: <span className="font-medium text-foreground">{(selectedOrder as OrderWithItems).payment_reference_number}</span>
+                        </span>
+                      )}
+                    </div>
+                    {(selectedOrder.status === 'for_verification' || (selectedOrder.status === 'pending_payment' && selectedOrder.proof_of_payment_url)) && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <Input
+                          placeholder="Reference number (required to verify)"
+                          value={verificationRefInput}
+                          onChange={(e) => setVerificationRefInput(e.target.value)}
+                          className="max-w-xs"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            const ref = verificationRefInput.trim();
+                            if (!ref) {
+                              toast({ title: 'Reference required', description: 'Enter a reference number to verify proof.', variant: 'destructive' });
+                              return;
+                            }
+                            try {
+                              await updateOrder.mutateAsync({
+                                id: selectedOrder.id,
+                                updates: { status: 'preparing', payment_reference_number: ref },
+                              });
+                              toast({ title: 'Proof verified', description: 'Order status set to Preparing.' });
+                              setSelectedOrder({ ...selectedOrder, status: 'preparing', payment_reference_number: ref });
+                              setVerificationRefInput('');
+                            } catch (e) {
+                              toast({ title: 'Error', description: (e as Error).message, variant: 'destructive' });
+                            }
+                          }}
+                          disabled={updateOrder.isPending}
+                        >
+                          Verify proof → Preparing
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {['pending_payment', 'new'].includes(selectedOrder.status)
+                      ? 'Waiting for customer to upload proof.'
+                      : 'No proof uploaded.'}
+                  </p>
+                )}
+              </div>
+
+              {/* Waybill & for pickup */}
+              {['preparing', 'paid', 'packed'].includes(selectedOrder.status) && (
+                <div className="p-4 border border-border rounded-sm space-y-2">
+                  <p className="text-sm font-medium text-foreground">J&T waybill</p>
+                  <div className="flex gap-2 flex-wrap">
+                    <Input
+                      placeholder="Waybill number (after printing)"
+                      value={waybillInput || (selectedOrder as OrderWithItems).waybill_number || ''}
+                      onChange={(e) => setWaybillInput(e.target.value)}
+                      className="max-w-xs"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const wb = (selectedOrder as OrderWithItems).waybill_number ?? waybillInput;
+                        if (!wb?.trim()) {
+                          toast({ title: 'Enter waybill number', variant: 'destructive' });
+                          return;
+                        }
+                        try {
+                          await updateOrder.mutateAsync({
+                            id: selectedOrder.id,
+                            updates: { waybill_number: wb.trim(), status: 'for_pickup' },
+                          });
+                          toast({ title: 'Marked for pickup', description: 'Waybill saved. Status: For pickup.' });
+                          setSelectedOrder({
+                            ...selectedOrder,
+                            waybill_number: wb.trim(),
+                            status: 'for_pickup',
+                          });
+                          setWaybillInput('');
+                        } catch (e) {
+                          toast({ title: 'Error', description: (e as Error).message, variant: 'destructive' });
+                        }
+                      }}
+                      disabled={updateOrder.isPending}
+                    >
+                      Print waybill & mark for pickup
+                    </Button>
+                  </div>
+                  {(selectedOrder as OrderWithItems).waybill_number && (
+                    <p className="text-xs text-muted-foreground">Waybill: {(selectedOrder as OrderWithItems).waybill_number}</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
+
+      {/* Set to Paid — reference number required (z-[100] so it appears above order detail modal) */}
+      <Dialog open={!!paidRefDialogOrder} onOpenChange={(open) => { if (!open) { setPaidRefDialogOrder(null); setPaidRefInput(''); } }}>
+        <DialogContent className="sm:max-w-md z-[100]">
+          <DialogHeader>
+            <DialogTitle>Set status to Paid</DialogTitle>
+            <DialogDescription>
+              Enter the payment reference number before marking this order as Paid.
+              {paidRefDialogOrder && ` (Order ${paidRefDialogOrder.order_number})`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <Input
+              placeholder="Reference number"
+              value={paidRefInput}
+              onChange={(e) => setPaidRefInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), document.getElementById('confirm-paid-ref')?.click())}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPaidRefDialogOrder(null); setPaidRefInput(''); }}>
+              Cancel
+            </Button>
+            <Button
+              id="confirm-paid-ref"
+              disabled={!paidRefInput.trim() || updateOrder.isPending}
+              onClick={async () => {
+                if (!paidRefDialogOrder || !paidRefInput.trim()) return;
+                const ref = paidRefInput.trim();
+                try {
+                  await updateOrder.mutateAsync({
+                    id: paidRefDialogOrder.id,
+                    updates: { status: 'paid', payment_reference_number: ref },
+                  });
+                  toast({ title: 'Status updated', description: 'Order set to Paid with reference number saved.' });
+                  if (selectedOrder?.id === paidRefDialogOrder.id) {
+                    setSelectedOrder({ ...selectedOrder, status: 'paid', payment_reference_number: ref });
+                  }
+                  setPaidRefDialogOrder(null);
+                  setPaidRefInput('');
+                } catch (e) {
+                  toast({ title: 'Error', description: (e as Error).message, variant: 'destructive' });
+                }
+              }}
+            >
+              Confirm & set to Paid
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
