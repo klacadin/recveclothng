@@ -21,6 +21,9 @@ verify_jwt = false
 [functions.xendit-webhook]
 verify_jwt = false
 
+[functions.get-xendit-payment-status]
+verify_jwt = true
+
 [functions.fetch-facebook-posts]
 verify_jwt = true
 

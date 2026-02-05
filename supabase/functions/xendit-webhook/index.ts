@@ -88,9 +88,16 @@ serve(async (req) => {
       }
 
       console.log('Updating order to paid:', orderId);
+      console.log('Payment data:', JSON.stringify(paymentData));
+      console.log('Full payload:', JSON.stringify(payload));
 
       // Get payment reference from Xendit (id or payment_request_id)
       const paymentRef = paymentData.id || paymentData.payment_request_id || paymentData.payment_id || null;
+      // For v3 API, payment_request_id is in the data object, or id field
+      const paymentRequestId = paymentData.payment_request_id || paymentData.id || payload.payment_request_id || null;
+      
+      console.log('Payment Request ID:', paymentRequestId);
+      console.log('Payment Reference:', paymentRef);
 
       // Update order status to 'paid' and save payment reference
       const { data: order, error: updateError } = await supabase
@@ -98,10 +105,11 @@ serve(async (req) => {
         .update({ 
           status: 'paid',
           payment_reference_number: paymentRef,
+          xendit_payment_id: paymentRequestId,
           updated_at: new Date().toISOString(),
         })
         .eq('id', orderId)
-        .select()
+        .select('id, order_number, xendit_payment_id, status')
         .single();
 
       if (updateError) {
@@ -123,13 +131,14 @@ serve(async (req) => {
       // Send payment confirmation email
       try {
         const emailPayload = {
-          type: 'payment_received',
+          type: 'status_update',
           order_id: orderId,
           customer_email: order.customer_email,
           customer_name: order.customer_name,
           order_number: order.order_number,
           total: order.total,
           payment_method: order.payment_method,
+          new_status: 'paid',
         };
 
         await fetch(`${supabaseUrl}/functions/v1/send-order-email`, {

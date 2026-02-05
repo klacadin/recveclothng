@@ -189,17 +189,30 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Update order with payment reference (store in notes for now)
-    const { error: updateError } = await supabase
+    // Xendit v3 API returns 'id' field for payment_request_id
+    const paymentRequestId = xenditResult.id || xenditResult.payment_request_id;
+    
+    console.log('Storing Xendit payment ID:', paymentRequestId);
+    console.log('Xendit result keys:', Object.keys(xenditResult));
+    console.log('Full Xendit result:', JSON.stringify(xenditResult));
+
+    // Update order with Xendit payment ID
+    const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
       .update({
-        notes: `Xendit Payment ID: ${xenditResult.id}`
+        xendit_payment_id: paymentRequestId,
       })
-      .eq('id', paymentData.order_id);
+      .eq('id', paymentData.order_id)
+      .select('id, xendit_payment_id')
+      .single();
 
     if (updateError) {
       console.error('Failed to update order with payment ID:', updateError);
+      console.error('Update error details:', JSON.stringify(updateError));
       // Don't fail the payment, just log
+    } else {
+      console.log('Order updated successfully with Xendit payment ID:', updatedOrder);
+      console.log('Stored xendit_payment_id:', updatedOrder?.xendit_payment_id);
     }
 
     return new Response(

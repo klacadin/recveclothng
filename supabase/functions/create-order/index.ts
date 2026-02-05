@@ -84,10 +84,10 @@ serve(async (req) => {
     }));
 
     // Validate required fields
-    if (!orderData.customer_name || !orderData.customer_email || !orderData.shipping_address) {
+    if (!orderData.customer_name || !orderData.customer_email || !orderData.shipping_address || !orderData.customer_phone) {
       console.error('Missing required fields');
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ error: 'Missing required fields: customer name, email, phone, and shipping address are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -338,7 +338,7 @@ serve(async (req) => {
         order_number: orderNumber,
         customer_name: orderData.customer_name.substring(0, 255),
         customer_email: orderData.customer_email.substring(0, 320),
-        customer_phone: orderData.customer_phone?.substring(0, 50) || null,
+        customer_phone: orderData.customer_phone.substring(0, 50),
         shipping_address: orderData.shipping_address.substring(0, 1000),
         notes: orderData.notes?.substring(0, 500) || null,
         payment_method: orderData.payment_method,
@@ -413,7 +413,10 @@ serve(async (req) => {
         customer_name: orderData.customer_name,
         order_number: orderNumber,
         items: reservedItems.map(item => ({
-          ...item,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
           size: item.size, // Include size in email
         })),
         subtotal: serverSubtotal,

@@ -42,6 +42,7 @@ interface Order {
   created_at: string;
   updated_at: string;
   proof_of_payment_url: string | null;
+  xendit_payment_id?: string | null;
   order_items: OrderItem[];
 }
 
@@ -63,6 +64,25 @@ const paymentLabels: Record<string, string> = {
   gcash: 'GCash',
   maya: 'Maya',
   bank_transfer: 'Bank Transfer',
+};
+
+// Helper function to get payment label with Xendit prefix if applicable
+const getPaymentLabel = (paymentMethod: string, xenditPaymentId?: string | null): string => {
+  const baseLabels: Record<string, string> = {
+    cod: 'Cash on Delivery',
+    gcash: 'GCash',
+    maya: 'Maya',
+    bank_transfer: 'Bank Transfer',
+  };
+  
+  const baseLabel = baseLabels[paymentMethod] || paymentMethod;
+  
+  // If payment was made through Xendit, prefix with "Xendit-"
+  if (xenditPaymentId && (paymentMethod === 'gcash' || paymentMethod === 'maya')) {
+    return `Xendit-${baseLabel}`;
+  }
+  
+  return baseLabel;
 };
 
 const MyOrders = () => {
@@ -100,13 +120,15 @@ const MyOrders = () => {
             created_at,
             updated_at,
             proof_of_payment_url,
+            xendit_payment_id,
             order_items (
               id,
               product_name,
               product_sku,
               quantity,
               unit_price,
-              total_price
+              total_price,
+              size
             )
           `)
           .eq('user_id', user.id)
@@ -204,7 +226,7 @@ const MyOrders = () => {
                             })}
                           </p>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {order.order_items?.length || 0} item(s) • {paymentLabels[order.payment_method] || order.payment_method}
+                            {order.order_items?.length || 0} item(s) • {getPaymentLabel(order.payment_method, order.xendit_payment_id)}
                           </p>
                         </div>
                         <div className="text-right">
@@ -233,8 +255,10 @@ const MyOrders = () => {
                     {/* Order Status Tracker */}
                     <OrderStatusTracker status={selectedOrder.status} />
 
-                    {/* Proof of Payment Upload - Show for unpaid orders with bank_transfer/gcash/maya */}
-                    {(selectedOrder.status === 'new' || selectedOrder.status === 'pending_payment' || selectedOrder.status === 'for_verification') && ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) && (
+                    {/* Proof of Payment Upload - Show for unpaid orders with bank_transfer/gcash/maya, but NOT for Xendit payments */}
+                    {(selectedOrder.status === 'new' || selectedOrder.status === 'pending_payment' || selectedOrder.status === 'for_verification') && 
+                     ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) && 
+                     !(selectedOrder as any).xendit_payment_id && (
                       <ProofOfPaymentUpload
                         orderId={selectedOrder.id}
                         orderNumber={selectedOrder.order_number}
@@ -259,6 +283,11 @@ const MyOrders = () => {
                           <div key={item.id} className="flex justify-between text-sm">
                             <span>
                               {item.product_name} × {item.quantity}
+                              {item.size && (
+                                <span className="ml-2 px-1.5 py-0.5 bg-primary/10 text-primary rounded text-xs">
+                                  Size: {item.size}
+                                </span>
+                              )}
                             </span>
                             <span>₱{Number(item.total_price).toLocaleString()}</span>
                           </div>
@@ -288,7 +317,17 @@ const MyOrders = () => {
 
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Method</p>
-                      <p className="text-sm">{paymentLabels[selectedOrder.payment_method] || selectedOrder.payment_method}</p>
+                      <p className="text-sm">{getPaymentLabel(selectedOrder.payment_method, selectedOrder.xendit_payment_id)}</p>
+                      {selectedOrder.xendit_payment_id && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Xendit Payment ID: <span className="font-mono">{selectedOrder.xendit_payment_id}</span>
+                        </p>
+                      )}
+                      {selectedOrder.xendit_payment_id && selectedOrder.status === 'paid' && (
+                        <p className="text-xs text-green-600 mt-1">
+                          ✓ Payment verified automatically via Xendit
+                        </p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

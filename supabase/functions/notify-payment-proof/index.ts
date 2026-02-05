@@ -115,7 +115,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: "shop@reveclothingxnobody.com",
+      from: "REVE <shop@reveclothingxnobody.com>",
       to: adminEmails,
       subject: `Payment Proof Uploaded - ${data.order_number}`,
       html: emailHtml,

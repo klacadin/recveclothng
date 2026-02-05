@@ -38,6 +38,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useUpdateStock, type Product, type ProductInsert } from "@/hooks/useProducts";
 import { useProductCategories } from "@/hooks/useCategories";
 import { useOrders, useCreateOrder, useUpdateOrderStatus, useUpdateOrder, useDeleteOrder, type Order, type OrderWithItems } from "@/hooks/useOrders";
+import { useXenditPaymentStatus } from "@/hooks/useXenditPayment";
+import CustomerInfoDialog from "@/components/admin/CustomerInfoDialog";
 import { useAllProductVariants, useCreateVariantsForProduct, useBulkUpdateVariants, type SizeStock, type ProductVariant, variantsToSizeStock, SIZES } from "@/hooks/useProductVariants";
 import { useBulkProductActions } from "@/hooks/useBulkProductActions";
 import { useBulkOrderActions } from "@/hooks/useBulkOrderActions";
@@ -66,11 +68,145 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
   cancelled: { label: "Cancelled", color: "bg-red-100 text-red-800", icon: AlertCircle },
 };
 
-const paymentLabels: Record<string, string> = {
-  cod: "COD",
-  gcash: "GCash",
-  maya: "Maya",
-  bank_transfer: "Bank",
+// Helper function to get payment label with Xendit prefix if applicable
+const getPaymentLabel = (paymentMethod: string, xenditPaymentId?: string | null): string => {
+  const baseLabels: Record<string, string> = {
+    cod: "COD",
+    gcash: "GCash",
+    maya: "Maya",
+    bank_transfer: "Bank",
+  };
+  
+  const baseLabel = baseLabels[paymentMethod] || paymentMethod;
+  
+  // If payment was made through Xendit, prefix with "Xendit-"
+  if (xenditPaymentId && (paymentMethod === 'gcash' || paymentMethod === 'maya')) {
+    return `Xendit-${baseLabel}`;
+  }
+  
+  return baseLabel;
+};
+
+// Component to display Xendit payment status
+const XenditPaymentStatusDisplay = ({ paymentRequestId, orderId }: { paymentRequestId: string; orderId: string }) => {
+  const { data: paymentStatus, isLoading, error, refetch } = useXenditPaymentStatus(paymentRequestId, true);
+  const { toast } = useToast();
+
+  const getStatusColor = (status?: string) => {
+    switch (status) {
+      case 'SUCCEEDED':
+        return 'bg-green-100 text-green-800';
+      case 'FAILED':
+      case 'CANCELED':
+      case 'EXPIRED':
+        return 'bg-red-100 text-red-800';
+      case 'REQUIRES_ACTION':
+      case 'ACCEPTING_PAYMENTS':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'AUTHORIZED':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status?: string) => {
+    switch (status) {
+      case 'SUCCEEDED':
+        return 'Paid';
+      case 'FAILED':
+        return 'Failed';
+      case 'CANCELED':
+        return 'Canceled';
+      case 'EXPIRED':
+        return 'Expired';
+      case 'REQUIRES_ACTION':
+        return 'Pending';
+      case 'ACCEPTING_PAYMENTS':
+        return 'Awaiting Payment';
+      case 'AUTHORIZED':
+        return 'Authorized';
+      default:
+        return status || 'Unknown';
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          Xendit Status: <span className="animate-pulse">Loading...</span>
+        </span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        <span className="text-red-600">Failed to load Xendit status</span>
+      </div>
+    );
+  }
+
+  if (!paymentStatus) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        <span className="text-orange-600">Unable to fetch Xendit payment status</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 p-3 bg-secondary/50 rounded-sm border border-border">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-foreground">Xendit Payment Status</p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isLoading}
+            className="h-7 text-xs"
+          >
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(paymentStatus?.payment_status)}`}>
+            {getStatusLabel(paymentStatus?.payment_status)}
+          </span>
+        </div>
+      </div>
+      {paymentStatus?.payment_request_id && (
+        <div className="text-xs">
+          <span className="text-muted-foreground">Payment ID: </span>
+          <span className="font-mono text-foreground">{paymentStatus.payment_request_id}</span>
+        </div>
+      )}
+      {paymentStatus?.channel_code && (
+        <div className="text-xs">
+          <span className="text-muted-foreground">Channel: </span>
+          <span className="text-foreground font-medium">{paymentStatus.channel_code.toUpperCase()}</span>
+        </div>
+      )}
+      {paymentStatus?.request_amount && (
+        <div className="text-xs">
+          <span className="text-muted-foreground">Amount: </span>
+          <span className="text-foreground font-medium">₱{Number(paymentStatus.request_amount).toLocaleString()}</span>
+        </div>
+      )}
+      {paymentStatus?.failure_code && (
+        <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+          <span className="font-medium">Failure Code: </span>
+          {paymentStatus.failure_code}
+        </div>
+      )}
+      {paymentStatus?.updated && (
+        <div className="text-xs text-muted-foreground">
+          Last updated: {new Date(paymentStatus.updated).toLocaleString('en-PH')}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const Admin = () => {
@@ -93,6 +229,8 @@ const Admin = () => {
   const [paidRefInput, setPaidRefInput] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'new' | 'paid' | 'packed' | 'shipped' | 'completed'>('all');
   const [openArticleFormImmediately, setOpenArticleFormImmediately] = useState(false);
+  const [customerInfoDialogOpen, setCustomerInfoDialogOpen] = useState(false);
+  const [selectedCustomerOrder, setSelectedCustomerOrder] = useState<OrderWithItems | null>(null);
 
   const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -741,21 +879,67 @@ const Admin = () => {
                             </p>
                           </td>
                           <td className="p-4">
-                            <p className="text-sm text-foreground">{order.customer_name}</p>
-                            <p className="text-xs text-muted-foreground">{order.customer_email}</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedCustomerOrder(order);
+                                setCustomerInfoDialogOpen(true);
+                              }}
+                              className="text-left hover:underline cursor-pointer group"
+                            >
+                              <p className="text-sm text-foreground group-hover:text-primary transition-colors">
+                                {order.customer_name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{order.customer_email}</p>
+                              {order.customer_phone && (
+                                <p className="text-xs text-muted-foreground">{order.customer_phone}</p>
+                              )}
+                            </button>
                           </td>
                           <td className="p-4 text-sm text-muted-foreground">
-                            {order.order_items?.length || 0} items
+                            <div>
+                              <span>{order.order_items?.length || 0} items</span>
+                              {order.order_items && order.order_items.length > 0 && (
+                                <div className="mt-1 space-y-0.5">
+                                  {order.order_items.map((item, idx) => (
+                                    <div key={idx} className="text-xs">
+                                      <span className="text-foreground">{item.product_name}</span>
+                                      {item.size && (
+                                        <span className="ml-1.5 px-1.5 py-0.5 bg-primary/10 text-primary rounded font-medium">
+                                          {item.size}
+                                        </span>
+                                      )}
+                                      <span className="text-muted-foreground ml-1">×{item.quantity}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4 text-sm font-medium text-foreground">
                             ₱{Number(order.total).toLocaleString()}
                           </td>
                           <td className="p-4">
-                            <span className={`px-2 py-1 text-xs font-medium rounded ${
-                              order.payment_method === 'cod' ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"
-                            }`}>
-                              {paymentLabels[order.payment_method] || order.payment_method}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                order.payment_method === 'cod' ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"
+                              }`}>
+                                {getPaymentLabel(order.payment_method, (order as any).xendit_payment_id)}
+                              </span>
+                              {(order.payment_method === 'gcash' || order.payment_method === 'maya') && (order as any).xendit_payment_id && (
+                                <div className="mt-1">
+                                  <span className="text-xs text-muted-foreground">
+                                    Xendit: <span className="font-mono text-xs">{(order as any).xendit_payment_id}</span>
+                                  </span>
+                                </div>
+                              )}
+                              {/* Debug: Show if payment method is GCash/Maya but no xendit_payment_id */}
+                              {(order.payment_method === 'gcash' || order.payment_method === 'maya') && !(order as any).xendit_payment_id && (
+                                <span className="text-xs text-orange-600 mt-1">
+                                  ⚠ No Xendit ID
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4">
                             <Select
@@ -1334,6 +1518,11 @@ const Admin = () => {
                         <p className="font-medium text-foreground">{item.product_name}</p>
                         <p className="text-sm text-muted-foreground">
                           {item.quantity} × ₱{Number(item.unit_price).toLocaleString()}
+                          {item.size && (
+                            <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded text-xs font-medium">
+                              Size: {item.size}
+                            </span>
+                          )}
                         </p>
                       </div>
                       <p className="font-medium text-foreground">
@@ -1360,14 +1549,44 @@ const Admin = () => {
               </div>
 
               {/* Payment details — method and reference number */}
-              <div className="p-4 border border-border rounded-sm space-y-1">
-                <p className="text-sm font-medium text-foreground">Payment</p>
-                <p className="text-sm text-muted-foreground">
-                  Method: <span className="text-foreground">{paymentLabels[selectedOrder.payment_method] || selectedOrder.payment_method}</span>
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Reference: <span className="font-medium text-foreground">{(selectedOrder as OrderWithItems).payment_reference_number || "—"}</span>
-                </p>
+              <div className="p-4 border border-border rounded-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">Payment</p>
+                  {(selectedOrder.payment_method === 'gcash' || selectedOrder.payment_method === 'maya') && !(selectedOrder as any).xendit_payment_id && (
+                    <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                      ⚠ Not via Xendit
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Method: <span className="text-foreground font-medium">{getPaymentLabel(selectedOrder.payment_method, (selectedOrder as any).xendit_payment_id)}</span>
+                  </p>
+                  {(selectedOrder.payment_method === 'gcash' || selectedOrder.payment_method === 'maya') && (selectedOrder as any).xendit_payment_id && (
+                    <div className="mt-3">
+                      <XenditPaymentStatusDisplay 
+                        paymentRequestId={(selectedOrder as any).xendit_payment_id} 
+                        orderId={selectedOrder.id}
+                      />
+                    </div>
+                  )}
+                  {(selectedOrder.payment_method === 'gcash' || selectedOrder.payment_method === 'maya') && !(selectedOrder as any).xendit_payment_id && (
+                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                      <p className="font-medium mb-1">Payment not processed via Xendit</p>
+                      <p className="text-muted-foreground">This order was created before Xendit integration or payment was not initiated through Xendit.</p>
+                      {(selectedOrder as OrderWithItems).payment_reference_number && (
+                        <p className="mt-1">
+                          Reference: <span className="font-mono">{(selectedOrder as OrderWithItems).payment_reference_number}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {selectedOrder.payment_method !== 'gcash' && selectedOrder.payment_method !== 'maya' && (
+                    <p className="text-sm text-muted-foreground">
+                      Reference: <span className="font-medium text-foreground">{(selectedOrder as OrderWithItems).payment_reference_number || "—"}</span>
+                    </p>
+                  )}
+                </div>
               </div>
 
               {selectedOrder.notes && (
@@ -1413,6 +1632,8 @@ const Admin = () => {
               </div>
 
               {/* Proof of payment — always visible when proof exists; store manager can view and verify */}
+              {/* Don't show proof section for Xendit payments (auto-verified) */}
+              {!(selectedOrder as any).xendit_payment_id && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground mb-1">Proof of payment</p>
                 {selectedOrder.proof_of_payment_url ? (
@@ -1474,6 +1695,7 @@ const Admin = () => {
                   </p>
                 )}
               </div>
+              )}
 
               {/* Waybill & for pickup */}
               {['preparing', 'paid', 'packed'].includes(selectedOrder.status) && (
@@ -1574,6 +1796,13 @@ const Admin = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Customer Info Dialog */}
+      <CustomerInfoDialog
+        order={selectedCustomerOrder}
+        open={customerInfoDialogOpen}
+        onOpenChange={setCustomerInfoDialogOpen}
+      />
     </div>
   );
 };

@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
-import OTPVerification from '@/components/checkout/OTPVerification';
+// OTP verification removed - only COD requires it, but COD is hidden for now
 import { SHIPPING_FEE, CONVENIENCE_FEE, TEST_VOUCHER_CODE, TEST_VOUCHER_DISCOUNT_PERCENT } from '@/config/constants';
 import PhilippineAddressSelect from '@/components/checkout/PhilippineAddressSelect';
 import { buildAddressString } from '@/hooks/usePhilippineAddress';
@@ -21,7 +21,7 @@ import { getProductDisplayImage } from '@/data/productImages';
 const checkoutSchema = z.object({
   customerName: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
   customerEmail: z.string().email('Invalid email address').max(320, 'Email is too long'),
-  customerPhone: z.string().max(50, 'Phone number is too long').optional(),
+  customerPhone: z.string().min(1, 'Phone number is required').max(50, 'Phone number is too long'),
   streetAddress: z.string().min(1, 'Street address is required (house no., street, landmark)').max(500, 'Address is too long'),
   addressSelections: z.object({
     regionCode: z.string(),
@@ -91,8 +91,8 @@ const Checkout = () => {
       if (user?.email && !formData.customerEmail) {
         setFormData(prev => ({ ...prev, customerEmail: user.email! }));
       }
-      // Guest: COD not available — switch to gcash if cod was selected
-      if (!user && formData.paymentMethod === 'cod') {
+      // COD is hidden - ensure a valid payment method is selected
+      if (formData.paymentMethod === 'cod') {
         setFormData(prev => ({ ...prev, paymentMethod: 'gcash' }));
       }
     }
@@ -130,12 +130,9 @@ const Checkout = () => {
       return;
     }
 
-    // Guest: skip OTP — payment itself verifies. Logged-in: verify with OTP first
-    if (!user) {
-      handleOTPVerified();
-    } else {
-      setStep('otp');
-    }
+    // Skip OTP for online payments (GCash/Maya/Bank Transfer)
+    // Only COD requires OTP, but COD is hidden, so skip OTP for all payment methods
+    handleOTPVerified();
   };
 
   const handleOTPVerified = async () => {
@@ -146,7 +143,7 @@ const Checkout = () => {
       const orderData = {
         customer_name: formData.customerName,
         customer_email: formData.customerEmail,
-        customer_phone: formData.customerPhone || null,
+        customer_phone: formData.customerPhone,
         shipping_address: buildAddressString(formData.streetAddress, formData.addressSelections),
         notes: formData.notes || null,
         payment_method: formData.paymentMethod,
@@ -441,12 +438,13 @@ const Checkout = () => {
           variant="ghost"
           className="mb-6"
           onClick={() => {
-            if (step === 'otp') {
-              setStep('details');
-            } else {
-              navigate(-1);
+            if (step === 'processing') {
+              // Don't allow going back during processing
+              return;
             }
+            navigate(-1);
           }}
+          disabled={step === 'processing'}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
@@ -454,33 +452,22 @@ const Checkout = () => {
 
         <h1 className="text-3xl font-bold mb-8">Checkout</h1>
 
-        {/* Progress Steps: guests skip OTP — payment verifies; logged-in users verify with OTP */}
+        {/* Progress Steps: Details → Payment (OTP skipped for online payments) */}
         <div className="flex items-center justify-center gap-4 mb-8">
           <div className="flex items-center gap-2 text-primary">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium bg-primary/20 text-primary">
-              {(step === 'otp' || step === 'processing') ? <CheckCircle2 className="h-4 w-4" /> : '1'}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 'processing' ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>
+              {step === 'processing' ? <CheckCircle2 className="h-4 w-4" /> : '1'}
             </div>
-            <span className="hidden sm:inline text-sm">{user ? 'Account' : 'Details'}</span>
+            <span className="hidden sm:inline text-sm">Details</span>
           </div>
           <div className="w-8 h-px bg-border" />
-          <div className={`flex items-center gap-2 ${step === 'otp' || step === 'processing' ? 'text-primary' : 'text-muted-foreground'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 'otp' || step === 'processing' ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>
+          <div className={`flex items-center gap-2 ${step === 'processing' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 'processing' ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>
               {step === 'processing' ? <CheckCircle2 className="h-4 w-4" /> : '2'}
             </div>
-            <span className="hidden sm:inline text-sm">{user ? 'Verify' : 'Payment'}</span>
+            <span className="hidden sm:inline text-sm">Payment</span>
           </div>
         </div>
-
-        {/* OTP Verification Step (logged-in users only) */}
-        {step === 'otp' && user && (
-          <OTPVerification
-            email={formData.customerEmail}
-            phone={formData.customerPhone}
-            customerName={formData.customerName}
-            onVerified={handleOTPVerified}
-            onBack={() => setStep('details')}
-          />
-        )}
 
         {/* Processing Step */}
         {step === 'processing' && (
@@ -532,7 +519,7 @@ const Checkout = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="customerPhone">Phone Number</Label>
+                      <Label htmlFor="customerPhone">Phone Number <span className="text-destructive">*</span></Label>
                       <Input
                         id="customerPhone"
                         type="tel"
@@ -600,14 +587,7 @@ const Checkout = () => {
                       value={formData.paymentMethod}
                       onValueChange={(value) => handleChange('paymentMethod', value)}
                     >
-                      {user && (
-                        <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                          <RadioGroupItem value="cod" id="cod" />
-                          <Label htmlFor="cod" className="flex-1 cursor-pointer">
-                            Cash on Delivery (COD)
-                          </Label>
-                        </div>
-                      )}
+                      {/* COD is hidden for now - only online payments available */}
                       <div className="flex items-center space-x-2 p-3 border rounded-lg bg-primary/5">
                         <RadioGroupItem value="gcash" id="gcash" />
                         <Label htmlFor="gcash" className="flex-1 cursor-pointer">
@@ -636,11 +616,6 @@ const Checkout = () => {
                     {(formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya' || formData.paymentMethod === 'bank_transfer') && (
                       <p className="text-xs text-muted-foreground mt-2">
                         Pay via QR code on the next page, then upload proof of payment to complete your order.
-                      </p>
-                    )}
-                    {!user && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        <Link to="/admin/login" className="text-primary hover:underline">Sign in</Link> for Cash on Delivery (COD) option
                       </p>
                     )}
                   </CardContent>

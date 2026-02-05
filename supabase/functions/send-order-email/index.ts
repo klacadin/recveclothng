@@ -12,6 +12,7 @@ interface OrderItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  size?: string | null;
 }
 
 interface EmailRequest {
@@ -58,7 +59,10 @@ const getPaymentMethodLabel = (method: string): string => {
 const generateConfirmationEmail = (data: EmailRequest): string => {
   const itemsHtml = data.items?.map(item => `
     <tr>
-      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.product_name}</td>
+      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+        ${item.product_name}
+        ${item.size ? `<span style="display: inline-block; background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; margin-left: 8px;">Size: ${item.size}</span>` : ''}
+      </td>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatPrice(item.unit_price)}</td>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatPrice(item.total_price)}</td>
@@ -231,7 +235,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'REVE <onboarding@resend.dev>',
+        from: 'REVE <shop@reveclothingxnobody.com>',
         to: [data.customer_email],
         subject: subject,
         html: html,
