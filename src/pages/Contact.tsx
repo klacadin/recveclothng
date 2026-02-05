@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { MapPin, Phone, Mail, Clock, Facebook, Instagram, Send, Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
@@ -57,26 +58,28 @@ const Contact = () => {
     }
 
     setIsSubmitting(true);
-    
-    // For now, we'll create a mailto link or show success
-    // In production, this would send to an edge function
+
     try {
-      const mailtoUrl = `mailto:reveclothing214@gmail.com?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(
-        `Name: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.phone || 'Not provided'}\n\nMessage:\n${formData.message}`
-      )}`;
-      
-      window.open(mailtoUrl, '_blank');
-      
-      toast({
-        title: 'Message ready to send!',
-        description: 'Your email client should open with your message. If not, please email us directly at reveclothing214@gmail.com',
+      const { error } = await supabase.from('contact_submissions').insert({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || null,
+        subject: formData.subject,
+        message: formData.message,
       });
-      
+
+      if (error) throw error;
+
+      toast({
+        title: 'Message sent!',
+        description: "We've received your message and will get back to you soon.",
+      });
+
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to prepare message. Please try again or email us directly.',
+        description: 'Failed to send message. Please try again or email us directly at reveclothing214@gmail.com',
         variant: 'destructive',
       });
     } finally {
@@ -229,7 +232,7 @@ const Contact = () => {
                       {isSubmitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Preparing...
+                          Sending...
                         </>
                       ) : (
                         <>

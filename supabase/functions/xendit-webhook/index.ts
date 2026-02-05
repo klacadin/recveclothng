@@ -22,7 +22,12 @@ serve(async (req) => {
     if (!webhookToken) {
       console.error('XENDIT_WEBHOOK_TOKEN not configured');
       return new Response(
-        JSON.stringify({ error: 'Webhook verification not configured' }),
+        JSON.stringify({ 
+          success: false,
+          status: 'configuration_error',
+          error: 'Webhook verification not configured',
+          message: 'XENDIT_WEBHOOK_TOKEN is missing',
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -45,41 +50,54 @@ serve(async (req) => {
     const payload = await req.json();
     console.log('Xendit webhook received:', JSON.stringify(payload));
 
-    // Xendit webhook event types:
-    // Payment Request API: payment.capture, payment.authorization, payment.failure
-    // Payment Session API: payment_session.completed, payment_session.expired
-    const eventType = payload.event;
+    // Xendit webhook event types (v3 Payment Requests API):
+    // payment_request.payment_created, payment_request.payment_succeeded, payment_request.payment_failed
+    // Legacy: payment.capture, payment.authorization, payment.failure
+    const eventType = payload.event || payload.type;
     const paymentData = payload.data || payload;
 
     console.log('Event type:', eventType);
     console.log('Payment status:', paymentData.status);
+    console.log('Full payload:', JSON.stringify(payload));
 
-    // Handle payment success events (both Payment Request and Payment Session APIs)
-    if (
+    // Handle payment success events (v3 API and legacy)
+    const isSuccess = 
+      eventType === 'payment_request.payment_succeeded' ||
       eventType === 'payment.capture' ||
       eventType === 'payment_session.completed' ||
       paymentData.status === 'SUCCEEDED' ||
       paymentData.status === 'PAID' ||
-      paymentData.status === 'COMPLETED'
-    ) {
+      paymentData.status === 'COMPLETED' ||
+      paymentData.status === 'SUCCESS';
+
+    if (isSuccess) {
       // Get order ID from reference_id (we pass order_id as reference_id)
-      const orderId = paymentData.reference_id || paymentData.metadata?.order_id;
+      const orderId = paymentData.reference_id || paymentData.metadata?.order_id || payload.reference_id;
       
       if (!orderId) {
         console.error('No order ID in webhook payload');
         return new Response(
-          JSON.stringify({ error: 'Missing order reference' }),
+          JSON.stringify({ 
+            success: false,
+            status: 'missing_order_reference',
+            error: 'Missing order reference',
+            payload_keys: Object.keys(payload),
+          }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       console.log('Updating order to paid:', orderId);
 
-      // Update order status to 'paid'
+      // Get payment reference from Xendit (id or payment_request_id)
+      const paymentRef = paymentData.id || paymentData.payment_request_id || paymentData.payment_id || null;
+
+      // Update order status to 'paid' and save payment reference
       const { data: order, error: updateError } = await supabase
         .from('orders')
         .update({ 
           status: 'paid',
+          payment_reference_number: paymentRef,
           updated_at: new Date().toISOString(),
         })
         .eq('id', orderId)
@@ -89,7 +107,13 @@ serve(async (req) => {
       if (updateError) {
         console.error('Failed to update order:', updateError);
         return new Response(
-          JSON.stringify({ error: 'Failed to update order status' }),
+          JSON.stringify({ 
+            success: false,
+            status: 'database_error',
+            error: 'Failed to update order status',
+            order_id: orderId,
+            database_error: updateError.message,
+          }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -124,19 +148,30 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, message: 'Order updated to paid' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: true, 
+          status: 'order_paid',
+          message: 'Order updated to paid',
+          order_id: orderId,
+          order_number: order.order_number,
+          payment_status: 'SUCCEEDED',
+          event_type: eventType,
+          updated_at: new Date().toISOString(),
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Handle payment failure (both Payment Request and Payment Session APIs)
-    if (
+    // Handle payment failure (v3 API and legacy)
+    const isFailure =
+      eventType === 'payment_request.payment_failed' ||
       eventType === 'payment.failure' ||
       eventType === 'payment_session.expired' ||
       paymentData.status === 'FAILED' ||
-      paymentData.status === 'EXPIRED'
-    ) {
-      const orderId = paymentData.reference_id || paymentData.metadata?.order_id;
+      paymentData.status === 'EXPIRED';
+
+    if (isFailure) {
+      const orderId = paymentData.reference_id || paymentData.metadata?.order_id || payload.reference_id;
       
       if (orderId) {
         console.log('Payment failed for order:', orderId, 'Reason:', paymentData.failure_code);
@@ -153,14 +188,27 @@ serve(async (req) => {
     // Acknowledge other events
     console.log('Unhandled event type:', eventType);
     return new Response(
-      JSON.stringify({ success: true, message: 'Webhook received' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        success: true, 
+        status: 'webhook_received',
+        message: 'Webhook received',
+        event_type: eventType,
+        payment_status: paymentData.status || 'UNKNOWN',
+        received_at: new Date().toISOString(),
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: unknown) {
     console.error('Webhook error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        success: false,
+        status: 'internal_server_error',
+        error: 'Internal server error',
+        message: errorMessage,
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

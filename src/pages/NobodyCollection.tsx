@@ -190,7 +190,7 @@ const NobodyCollection = () => {
             {showComingSoon ? (
               <div className="text-center py-16 px-4 bg-background/50 rounded-sm border border-dashed border-border">
                 <p className="font-display text-xl font-semibold text-foreground">{selectedSubCategory}</p>
-                <p className="text-muted-foreground mt-2">Coming soon.</p>
+                <p className="text-muted-foreground mt-2">No products in this category yet.</p>
                 <Button variant="outline" size="sm" className="mt-4" onClick={() => setSubCategory("")}>
                   View all NOBODY
                 </Button>

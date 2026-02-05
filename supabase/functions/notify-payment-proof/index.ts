@@ -53,7 +53,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get admin emails from auth.users
-    let adminEmails: string[] = [];
+    const adminEmails: string[] = [];
     if (adminRoles && adminRoles.length > 0) {
       const adminUserIds = adminRoles.map(r => r.user_id);
       

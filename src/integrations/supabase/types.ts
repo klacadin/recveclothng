@@ -318,6 +318,81 @@ export type Database = {
         }
         Relationships: []
       }
+      articles: {
+        Row: {
+          id: string
+          title: string
+          slug: string
+          content: string | null
+          excerpt: string | null
+          source: string
+          source_url: string | null
+          image_url: string | null
+          published_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          slug: string
+          content?: string | null
+          excerpt?: string | null
+          source?: string
+          source_url?: string | null
+          image_url?: string | null
+          published_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          slug?: string
+          content?: string | null
+          excerpt?: string | null
+          source?: string
+          source_url?: string | null
+          image_url?: string | null
+          published_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contact_submissions: {
+        Row: {
+          id: string
+          name: string
+          email: string
+          phone: string | null
+          subject: string
+          message: string
+          read_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          email: string
+          phone?: string | null
+          subject: string
+          message: string
+          read_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          email?: string
+          phone?: string | null
+          subject?: string
+          message?: string
+          read_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

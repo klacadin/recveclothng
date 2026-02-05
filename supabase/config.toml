@@ -21,6 +21,9 @@ verify_jwt = false
 [functions.xendit-webhook]
 verify_jwt = false
 
+[functions.fetch-facebook-posts]
+verify_jwt = true
+
 [functions.get-pending-order]
 verify_jwt = false
 

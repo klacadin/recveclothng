@@ -1,7 +1,7 @@
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { CheckCircle, QrCode, Upload } from 'lucide-react';
+import { CheckCircle, QrCode, Upload, MessageSquare } from 'lucide-react';
 
 const OrderConfirmation = () => {
   const location = useLocation();
@@ -66,6 +66,16 @@ const OrderConfirmation = () => {
               <p className="mt-1">You can track your order status using your order number.</p>
             </div>
           )}
+
+          <a
+            href="https://forms.gle/1B1K1UFaQReJEpnv5"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 text-sm text-accent hover:underline"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Share your feedback & get a FREE singlet
+          </a>
 
           <div className="flex flex-col gap-3">
             <Button onClick={() => navigate('/shop')}>Continue Shopping</Button>

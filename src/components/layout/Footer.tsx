@@ -87,6 +87,9 @@ const Footer = () => {
               <Link to="/about" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
                 About Us
               </Link>
+              <Link to="/news" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
+                News & Updates
+              </Link>
               <Link to="/contact" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
                 Contact Us
               </Link>
@@ -138,9 +141,17 @@ const Footer = () => {
             <span>•</span>
             <span>Nationwide via J&T</span>
           </div>
-          <p className="text-primary-foreground/50 text-xs">
-            © 2025 REVE Clothing. Timing is Everything.
-          </p>
+          <div className="flex flex-col items-center md:items-end gap-1 text-primary-foreground/50 text-xs">
+            <p>© 2025 REVE Clothing. Timing is Everything.</p>
+            <a
+              href="https://haturikonet.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-primary-foreground transition-colors"
+            >
+              Powered by Haturiko Services Inc.
+            </a>
+          </div>
         </div>
       </div>
     </footer>

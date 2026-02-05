@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
-  Truck, 
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Truck,
   Settings,
   Search,
+  Newspaper,
   Plus,
   Edit,
   Trash2,
@@ -39,6 +40,7 @@ import { useProductCategories } from "@/hooks/useCategories";
 import { useOrders, useCreateOrder, useUpdateOrderStatus, useUpdateOrder, useDeleteOrder, type Order, type OrderWithItems } from "@/hooks/useOrders";
 import { useAllProductVariants, useCreateVariantsForProduct, useBulkUpdateVariants, type SizeStock, type ProductVariant, variantsToSizeStock, SIZES } from "@/hooks/useProductVariants";
 import { useBulkProductActions } from "@/hooks/useBulkProductActions";
+import { useBulkOrderActions } from "@/hooks/useBulkOrderActions";
 import { usePendingUsers } from "@/hooks/useUserApprovals";
 import { useToast } from "@/hooks/use-toast";
 import ProductForm from "@/components/admin/ProductForm";
@@ -47,6 +49,7 @@ import OrderForm from "@/components/admin/OrderForm";
 import AdminSettings from "@/components/admin/AdminSettings";
 import UserApprovals from "@/components/admin/UserApprovals";
 import CategoryManagement from "@/components/admin/CategoryManagement";
+import ArticleManagement from "@/components/admin/ArticleManagement";
 import ProductCard from "@/components/product/ProductCard";
 import { getProductDisplayImage } from "@/data/productImages";
 
@@ -89,6 +92,7 @@ const Admin = () => {
   const [paidRefDialogOrder, setPaidRefDialogOrder] = useState<{ id: string; order_number: string } | null>(null);
   const [paidRefInput, setPaidRefInput] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'new' | 'paid' | 'packed' | 'shipped' | 'completed'>('all');
+  const [openArticleFormImmediately, setOpenArticleFormImmediately] = useState(false);
 
   const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -131,10 +135,23 @@ const Admin = () => {
     bulkUpdateCategory,
   } = useBulkProductActions();
 
+  const {
+    selectedIds: selectedOrderIds,
+    toggleSelection: toggleOrderSelection,
+    selectAll: selectAllOrders,
+    clearSelection: clearOrderSelection,
+    isSelected: isOrderSelected,
+    selectedCount: selectedOrderCount,
+    hasSelection: hasOrderSelection,
+    bulkUpdateStatus: bulkUpdateOrderStatus,
+    bulkExportCSV: bulkExportOrdersCSV,
+  } = useBulkOrderActions();
+
   const sidebarItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "orders", label: "Orders", icon: ShoppingCart },
     { id: "inventory", label: "Inventory", icon: Package },
+    { id: "news", label: "News & Blog", icon: Newspaper },
     { id: "categories", label: "Categories", icon: Tag },
     { id: "users", label: "User Approvals", icon: Users },
     { id: "shipping", label: "Shipping", icon: Truck },
@@ -445,48 +462,130 @@ const Admin = () => {
           {/* Dashboard Tab */}
           {activeTab === "dashboard" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-4 gap-4">
-                <div className="bg-card p-4 rounded-sm border border-border">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">New Orders</p>
-                  <p className="font-display text-2xl font-bold text-foreground mt-1">{newOrders.length}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Awaiting processing</p>
+              <p className="text-sm text-muted-foreground">
+                Quick overview of your store. Click any card to jump to the relevant section.
+              </p>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab("orders"); setOrderStatusFilter("new"); }}
+                  className="bg-card p-5 rounded-sm border border-border hover:border-accent hover:bg-accent/5 transition-colors text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <AlertCircle className="h-8 w-8 text-blue-600" />
+                    {newOrders.length > 0 && (
+                      <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded">
+                        {newOrders.length}
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-display text-2xl font-bold text-foreground mt-2">{newOrders.length}</p>
+                  <p className="text-sm font-medium text-foreground">New Orders</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Awaiting processing</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab("orders"); setOrderStatusFilter("paid"); }}
+                  className="bg-card p-5 rounded-sm border border-border hover:border-accent hover:bg-accent/5 transition-colors text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <TruckIcon className="h-8 w-8 text-amber-600" />
+                    {pendingShipment.length > 0 && (
+                      <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded">
+                        {pendingShipment.length}
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-display text-2xl font-bold text-foreground mt-2">{pendingShipment.length}</p>
+                  <p className="text-sm font-medium text-foreground">To Ship</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Paid & ready to pack</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("inventory")}
+                  className="bg-card p-5 rounded-sm border border-border hover:border-accent hover:bg-accent/5 transition-colors text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <AlertTriangle className="h-8 w-8 text-yellow-600" />
+                    {lowStockProducts.length > 0 && (
+                      <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-0.5 rounded">
+                        {lowStockProducts.length}
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-display text-2xl font-bold text-foreground mt-2">{lowStockProducts.length}</p>
+                  <p className="text-sm font-medium text-foreground">Low Stock</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {outOfStockProducts.length > 0 ? `${outOfStockProducts.length} out of stock` : "Action needed"}
+                  </p>
+                </button>
+                <div className="bg-card p-5 rounded-sm border border-border">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                  <p className="font-display text-2xl font-bold text-foreground mt-2">₱{todayRevenue.toLocaleString()}</p>
+                  <p className="text-sm font-medium text-foreground">Today's Revenue</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {orders.filter((o) => o.status !== "cancelled").length} orders total
+                  </p>
                 </div>
-                <div className="bg-card p-4 rounded-sm border border-border">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Pending Shipment</p>
-                  <p className="font-display text-2xl font-bold text-foreground mt-1">{pendingShipment.length}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Ready to ship</p>
-                </div>
-                <div className="bg-card p-4 rounded-sm border border-border">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Low Stock Items</p>
-                  <p className="font-display text-2xl font-bold text-foreground mt-1">{lowStockProducts.length}</p>
-                  {lowStockProducts.length > 0 && (
-                    <p className="text-xs text-yellow-600 mt-1">Action needed</p>
+              </div>
+
+              {/* Quick actions */}
+              <div className="bg-card rounded-sm border border-border p-6">
+                <h3 className="font-semibold text-foreground mb-4">Quick Actions</h3>
+                <div className="flex flex-wrap gap-3">
+                  <Button variant="outline" onClick={() => { setActiveTab("orders"); setShowOrderForm(true); }}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Order
+                  </Button>
+                  <Button variant="outline" onClick={() => { setActiveTab("inventory"); setShowProductForm(true); }}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Product
+                  </Button>
+                  <Button variant="outline" onClick={() => { setActiveTab("news"); setOpenArticleFormImmediately(true); }}>
+                    <Newspaper className="h-4 w-4 mr-2" />
+                    Add Blog Post
+                  </Button>
+                  <Button variant="outline" onClick={() => { setActiveTab("shipping"); }}>
+                    <TruckIcon className="h-4 w-4 mr-2" />
+                    Order Workflow
+                  </Button>
+                  {pendingUsers.length > 0 && (
+                    <Button variant="outline" onClick={() => setActiveTab("users")}>
+                      <Users className="h-4 w-4 mr-2" />
+                      Approve Users ({pendingUsers.length})
+                    </Button>
                   )}
-                </div>
-                <div className="bg-card p-4 rounded-sm border border-border">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Revenue (Today)</p>
-                  <p className="font-display text-2xl font-bold text-foreground mt-1">₱{todayRevenue.toLocaleString()}</p>
                 </div>
               </div>
 
               {lowStockProducts.length > 0 && (
                 <div className="bg-card rounded-sm border border-border p-6">
-                  <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                    Low Stock Alerts
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                      Low Stock Alerts
+                    </h3>
+                    <Button variant="outline" size="sm" onClick={() => setActiveTab("inventory")}>
+                      View all
+                    </Button>
+                  </div>
                   <div className="space-y-2">
                     {lowStockProducts.slice(0, 5).map((product) => (
-                      <div key={product.id} className="flex items-center justify-between p-3 bg-secondary rounded-sm">
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => { setActiveTab("inventory"); setStockUpdateProduct(product); }}
+                        className="w-full flex items-center justify-between p-3 bg-secondary rounded-sm hover:bg-secondary/80 transition-colors text-left"
+                      >
                         <div>
                           <p className="font-medium text-foreground">{product.name}</p>
-                          <p className="text-sm text-muted-foreground">{product.sku}</p>
+                          <p className="text-sm text-muted-foreground">{product.sku || "—"}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-medium text-foreground">{product.stock_quantity} left</p>
                           <p className="text-xs text-muted-foreground">Threshold: {product.low_stock_threshold}</p>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -527,6 +626,60 @@ const Admin = () => {
                 </div>
               </div>
               
+              {/* Order bulk actions toolbar */}
+              {hasOrderSelection && (
+                <div className="p-4 bg-accent/10 border-b border-border flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-medium text-foreground">
+                    {selectedOrderCount} order{selectedOrderCount !== 1 ? 's' : ''} selected
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={clearOrderSelection}>
+                    <X className="h-4 w-4 mr-1" />
+                    Clear
+                  </Button>
+                  <div className="h-4 w-px bg-border" />
+                  <Select
+                    onValueChange={(value: Order['status']) => {
+                      bulkUpdateOrderStatus.mutate({
+                        ids: Array.from(selectedOrderIds),
+                        status: value,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="w-40 h-8">
+                      <SelectValue placeholder="Set status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="preparing">→ Preparing</SelectItem>
+                      <SelectItem value="packed">→ Packed</SelectItem>
+                      <SelectItem value="for_pickup">→ For pickup</SelectItem>
+                      <SelectItem value="shipped">→ Shipped</SelectItem>
+                      <SelectItem value="completed">→ Completed</SelectItem>
+                      <SelectItem value="cancelled">→ Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      bulkExportOrdersCSV(
+                        filteredOrders.map((o) => ({
+                          id: o.id,
+                          order_number: o.order_number,
+                          customer_name: o.customer_name,
+                          customer_email: o.customer_email,
+                          total: Number(o.total),
+                          status: o.status,
+                          created_at: o.created_at,
+                        }))
+                      )
+                    }
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Export CSV
+                  </Button>
+                </div>
+              )}
+
               {ordersLoading ? (
                 <div className="p-8 text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -541,6 +694,22 @@ const Admin = () => {
                 <table className="w-full">
                   <thead className="bg-secondary">
                     <tr>
+                      <th className="p-4 w-12">
+                        <Checkbox
+                          checked={
+                            selectedOrderCount === filteredOrders.length &&
+                            filteredOrders.length > 0
+                          }
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              selectAllOrders(filteredOrders.map((o) => o.id));
+                            } else {
+                              clearOrderSelection();
+                            }
+                          }}
+                          aria-label="Select all orders"
+                        />
+                      </th>
                       <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Order</th>
                       <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Customer</th>
                       <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Items</th>
@@ -554,7 +723,17 @@ const Admin = () => {
                     {filteredOrders.map((order) => {
                       const status = statusConfig[order.status] || statusConfig.new;
                       return (
-                        <tr key={order.id} className="border-t border-border hover:bg-secondary/50">
+                        <tr
+                          key={order.id}
+                          className={`border-t border-border hover:bg-secondary/50 ${isOrderSelected(order.id) ? 'bg-accent/5' : ''}`}
+                        >
+                          <td className="p-4">
+                            <Checkbox
+                              checked={isOrderSelected(order.id)}
+                              onCheckedChange={() => toggleOrderSelection(order.id)}
+                              aria-label={`Select order ${order.order_number}`}
+                            />
+                          </td>
                           <td className="p-4">
                             <p className="text-sm font-medium text-foreground">{order.order_number}</p>
                             <p className="text-xs text-muted-foreground">
@@ -1050,6 +1229,16 @@ const Admin = () => {
             </div>
           )}
 
+          {/* News Tab */}
+          {activeTab === "news" && (
+            <div className="bg-card rounded-sm border border-border p-6">
+              <ArticleManagement
+                openFormImmediately={openArticleFormImmediately}
+                onFormOpened={() => setOpenArticleFormImmediately(false)}
+              />
+            </div>
+          )}
+
           {/* Categories Tab */}
           {activeTab === "categories" && <CategoryManagement />}
 
@@ -1170,6 +1359,17 @@ const Admin = () => {
                 </div>
               </div>
 
+              {/* Payment details — method and reference number */}
+              <div className="p-4 border border-border rounded-sm space-y-1">
+                <p className="text-sm font-medium text-foreground">Payment</p>
+                <p className="text-sm text-muted-foreground">
+                  Method: <span className="text-foreground">{paymentLabels[selectedOrder.payment_method] || selectedOrder.payment_method}</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Reference: <span className="font-medium text-foreground">{(selectedOrder as OrderWithItems).payment_reference_number || "—"}</span>
+                </p>
+              </div>
+
               {selectedOrder.notes && (
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Notes</p>
@@ -1250,10 +1450,10 @@ const Admin = () => {
                             try {
                               await updateOrder.mutateAsync({
                                 id: selectedOrder.id,
-                                updates: { status: 'preparing', payment_reference_number: ref },
+                                updates: { status: 'paid', payment_reference_number: ref },
                               });
-                              toast({ title: 'Proof verified', description: 'Order status set to Preparing.' });
-                              setSelectedOrder({ ...selectedOrder, status: 'preparing', payment_reference_number: ref });
+                              toast({ title: 'Proof verified', description: 'Order marked as Paid.' });
+                              setSelectedOrder({ ...selectedOrder, status: 'paid', payment_reference_number: ref });
                               setVerificationRefInput('');
                             } catch (e) {
                               toast({ title: 'Error', description: (e as Error).message, variant: 'destructive' });
@@ -1261,7 +1461,7 @@ const Admin = () => {
                           }}
                           disabled={updateOrder.isPending}
                         >
-                          Verify proof → Preparing
+                          Verify & Mark as Paid
                         </Button>
                       </div>
                     )}

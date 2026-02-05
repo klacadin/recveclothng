@@ -34,6 +34,7 @@ const Header = () => {
 
   const navLinks = [
     { name: "Shop", href: "/shop" },
+    { name: "News", href: "/news" },
     { name: "About", href: "/about" },
     { name: "Contact", href: "/contact" },
   ];
@@ -49,7 +50,6 @@ const Header = () => {
     { name: "NOBODY", href: "/collections/nobody", description: "Running apparel sub-brand", subCategories: nobodySubCategories },
   ];
 
-  const comingSoonCollections = "More collections coming soon.";
 
   const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href + "/");
 
@@ -141,9 +141,6 @@ const Header = () => {
                           ) : null}
                         </div>
                       ))}
-                      <p className="px-2 py-2 text-xs text-muted-foreground italic">
-                        {comingSoonCollections}
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -319,9 +316,6 @@ const Header = () => {
                     ) : null}
                   </div>
                 ))}
-                <p className="px-4 py-2 text-xs text-muted-foreground italic">
-                  {comingSoonCollections}
-                </p>
               </div>
 
               {/* Mobile Account Section */}

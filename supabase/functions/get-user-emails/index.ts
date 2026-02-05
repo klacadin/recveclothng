@@ -68,12 +68,14 @@ serve(async (req) => {
       throw usersError;
     }
 
-    // Map user IDs to emails
-    const userEmailMap: Record<string, { email: string; created_at: string }> = {};
+    // Map user IDs to email and name
+    const userEmailMap: Record<string, { email: string; full_name: string; created_at: string }> = {};
     users.users.forEach((u) => {
       if (user_ids.includes(u.id)) {
+        const meta = u.user_metadata || {};
         userEmailMap[u.id] = {
           email: u.email || "",
+          full_name: meta.full_name || meta.name || "",
           created_at: u.created_at,
         };
       }

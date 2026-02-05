@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
 import { CartDrawer } from "@/components/cart/CartDrawer";
+import FeedbackButton from "@/components/FeedbackButton";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
@@ -31,6 +32,8 @@ import Shipping from "./pages/Shipping";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Returns from "./pages/Returns";
+import News from "./pages/News";
+import ArticleDetail from "./pages/ArticleDetail";
 import NotFound from "./pages/NotFound";
 
 // Lazy load heavy admin component
@@ -62,6 +65,7 @@ const App = () => (
             <CartProvider>
               <WishlistProvider>
                 <CartDrawer />
+                <FeedbackButton />
                 <ErrorBoundary>
                   <Routes>
                     <Route path="/" element={<Index />} />
@@ -83,6 +87,8 @@ const App = () => (
                     <Route path="/terms" element={<Terms />} />
                     <Route path="/privacy" element={<Privacy />} />
                     <Route path="/returns" element={<Returns />} />
+                    <Route path="/news" element={<News />} />
+                    <Route path="/news/:slug" element={<ArticleDetail />} />
                     <Route path="/admin/login" element={<AdminLogin />} />
                     <Route
                       path="/admin"

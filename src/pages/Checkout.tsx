@@ -79,10 +79,10 @@ const Checkout = () => {
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherApplied, setVoucherApplied] = useState(false);
 
-  const preVoucherTotal = subtotal + SHIPPING_FEE + CONVENIENCE_FEE;
   const isTestVoucher = voucherApplied && voucherCode.toUpperCase().trim() === TEST_VOUCHER_CODE;
-  const discountAmount = isTestVoucher ? Math.floor(preVoucherTotal * (TEST_VOUCHER_DISCOUNT_PERCENT / 100)) : 0;
-  const total = Math.max(1, preVoucherTotal - discountAmount);
+  // Discount applies to subtotal only — never to shipping or convenience fee
+  const discountAmount = isTestVoucher ? Math.floor(subtotal * (TEST_VOUCHER_DISCOUNT_PERCENT / 100)) : 0;
+  const total = Math.max(1, subtotal - discountAmount + SHIPPING_FEE + CONVENIENCE_FEE);
 
   // Initialize step: allow guest checkout (skip auth), or go to details when logged in
   useEffect(() => {
@@ -173,31 +173,71 @@ const Checkout = () => {
 
       if (error) {
         console.error('Order creation error:', error);
+        console.error('Error status:', error.status);
+        console.error('Error context:', error.context);
+        
         // Try to extract detailed error message from the response
         let errorMessage = 'Failed to place order';
+        
+        // Get status code from error (may be in different places)
+        const statusCode = error.status || error.context?.status || error.context?.statusCode;
+        console.error('Detected status code:', statusCode);
+        
+        // Handle specific status codes
+        if (statusCode === 409) {
+          errorMessage = 'A similar order was recently placed. Please wait a few minutes before ordering again.';
+        } else if (statusCode === 429) {
+          errorMessage = 'Too many orders. Please wait before placing another order.';
+        } else if (statusCode === 400) {
+          errorMessage = 'Invalid order data. Please check your information and try again.';
+        }
         
         // Check if error has context with response body (FunctionsHttpError)
         if (error.context) {
           try {
-            // For FunctionsHttpError, the context might have different structures
-            if (typeof error.context.json === 'function') {
-              const errorBody = await error.context.json();
-              console.error('Error body (json):', errorBody);
-              errorMessage = errorBody?.error || errorMessage;
-            } else if (error.context.body) {
-              // Try to read body as text
-              const reader = error.context.body.getReader?.();
-              if (reader) {
-                const { value } = await reader.read();
+            const errorContext = error.context;
+            
+            // Method 1: Check if body is a Response object
+            if (errorContext.body && errorContext.body instanceof Response) {
+              const errorBody = await errorContext.body.json();
+              console.error('Error body (Response):', errorBody);
+              if (errorBody?.error) errorMessage = errorBody.error;
+              else if (errorBody?.message) errorMessage = errorBody.message;
+            }
+            // Method 2: Check if body has json() method
+            else if (errorContext.body && typeof errorContext.body.json === 'function') {
+              const errorBody = await errorContext.body.json();
+              console.error('Error body (json method):', errorBody);
+              if (errorBody?.error) errorMessage = errorBody.error;
+              else if (errorBody?.message) errorMessage = errorBody.message;
+            }
+            // Method 3: Try to read as ReadableStream
+            else if (errorContext.body && errorContext.body.getReader) {
+              const reader = errorContext.body.getReader();
+              const { value } = await reader.read();
+              if (value) {
                 const text = new TextDecoder().decode(value);
-                console.error('Error body (text):', text);
-                const parsed = JSON.parse(text);
-                errorMessage = parsed?.error || errorMessage;
+                const errorBody = JSON.parse(text);
+                console.error('Error body (stream):', errorBody);
+                if (errorBody?.error) errorMessage = errorBody.error;
+                else if (errorBody?.message) errorMessage = errorBody.message;
               }
+            }
+            // Method 4: error.context.json() function
+            else if (typeof errorContext.json === 'function') {
+              const errorBody = await errorContext.json();
+              console.error('Error body (context json):', errorBody);
+              if (errorBody?.error) errorMessage = errorBody.error;
+              else if (errorBody?.message) errorMessage = errorBody.message;
             }
           } catch (e) {
             console.error('Could not parse error body:', e);
           }
+        }
+        
+        // Don't use generic "non-2xx" message if we have a better one
+        if (error.message && !error.message.includes('non-2xx') && errorMessage === 'Failed to place order') {
+          errorMessage = error.message;
         }
         
         // Fallback to error message or data.error
@@ -209,18 +249,136 @@ const Checkout = () => {
         throw new Error(data?.error || 'Failed to create order');
       }
 
-      // Payment via QR for now (HitPay API pending). All non-COD orders need proof of payment.
-      const needsProof = ['gcash', 'maya', 'bank_transfer'].includes(formData.paymentMethod);
-      clearCart();
-      if (needsProof) {
-        // Save pending order for "return later" flow (session/localStorage)
+      // Handle payment based on method
+      // NOTE: Don't clear cart until payment is successfully initiated or order is confirmed
+      
+      // Xendit payment for GCash/Maya
+      if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') {
+        try {
+          const paymentResponse = await supabase.functions.invoke('create-xendit-payment', {
+            body: {
+              order_id: data.order_id,
+              order_number: data.order_number,
+              amount: data.total,
+              customer_email: formData.customerEmail,
+              customer_name: formData.customerName,
+              payment_method: formData.paymentMethod,
+              items: items.map(item => ({
+                name: item.product.name,
+                quantity: item.quantity,
+                price: item.product.price,
+              })),
+            },
+          });
+
+          // Check for error response
+          if (paymentResponse.error) {
+            console.error('Payment response error:', paymentResponse.error);
+            
+            // Try to extract detailed error from response
+            let errorMessage = 'Failed to initiate payment';
+            
+            // Handle specific status codes first
+            if (paymentResponse.error.status === 401) {
+              errorMessage = 'Authentication failed. Please refresh the page and try again.';
+            } else if (paymentResponse.error.status === 500) {
+              errorMessage = 'Payment service error. Please try again later.';
+            } else if (paymentResponse.error.status === 400) {
+              errorMessage = 'Invalid payment request. Please check your information.';
+            }
+            
+            // Try to extract error from response body (multiple methods)
+            try {
+              const errorContext = paymentResponse.error.context;
+              
+              // Method 1: Check if body is a Response object
+              if (errorContext?.body && errorContext.body instanceof Response) {
+                const errorBody = await errorContext.body.json();
+                console.error('Payment error body (Response):', errorBody);
+                if (errorBody?.error) errorMessage = errorBody.error;
+                else if (errorBody?.message) errorMessage = errorBody.message;
+              }
+              // Method 2: Check if body has json() method
+              else if (errorContext?.body && typeof errorContext.body.json === 'function') {
+                const errorBody = await errorContext.body.json();
+                console.error('Payment error body (json method):', errorBody);
+                if (errorBody?.error) errorMessage = errorBody.error;
+                else if (errorBody?.message) errorMessage = errorBody.message;
+              }
+              // Method 3: Try to read as ReadableStream
+              else if (errorContext?.body && errorContext.body.getReader) {
+                const reader = errorContext.body.getReader();
+                const { value } = await reader.read();
+                if (value) {
+                  const text = new TextDecoder().decode(value);
+                  const errorBody = JSON.parse(text);
+                  console.error('Payment error body (stream):', errorBody);
+                  if (errorBody?.error) errorMessage = errorBody.error;
+                  else if (errorBody?.message) errorMessage = errorBody.message;
+                }
+              }
+              // Method 4: error.context.json() function
+              else if (typeof errorContext?.json === 'function') {
+                const errorBody = await errorContext.json();
+                console.error('Payment error body (context json):', errorBody);
+                if (errorBody?.error) errorMessage = errorBody.error;
+                else if (errorBody?.message) errorMessage = errorBody.message;
+              }
+            } catch (e) {
+              console.error('Could not parse payment error body:', e);
+            }
+            
+            // Fallback to error message
+            if (paymentResponse.error.message && !paymentResponse.error.message.includes('non-2xx')) {
+              errorMessage = paymentResponse.error.message;
+            }
+            
+            throw new Error(errorMessage);
+          }
+
+          // Check if response indicates failure (even with 200 status)
+          if (paymentResponse.data && !paymentResponse.data.success) {
+            const errorMsg = paymentResponse.data.error || paymentResponse.data.message || 'Payment initiation failed';
+            throw new Error(errorMsg);
+          }
+
+          if (paymentResponse.data?.redirect_url) {
+            // Clear cart only after payment is successfully initiated
+            clearCart();
+            // Redirect to Xendit payment page
+            window.location.href = paymentResponse.data.redirect_url;
+            return;
+          } else {
+            throw new Error(paymentResponse.data?.error || 'No payment redirect URL received');
+          }
+        } catch (paymentError) {
+          console.error('Xendit payment error:', paymentError);
+          const errorMessage = paymentError instanceof Error 
+            ? paymentError.message 
+            : 'Could not start payment. Please try again.';
+          
+          toast({
+            title: 'Payment initiation failed',
+            description: errorMessage,
+            variant: 'destructive',
+          });
+          setIsSubmitting(false);
+          setStep('details');
+          return;
+        }
+      }
+
+      // Bank transfer: QR/proof upload flow (manual verification)
+      if (formData.paymentMethod === 'bank_transfer') {
         try {
           const pending = { orderNumber: data.order_number, customerEmail: formData.customerEmail, total: data.total };
           sessionStorage.setItem('pending_order', JSON.stringify(pending));
         } catch (_) {}
+        // Clear cart after order is successfully created
+        clearCart();
         toast({
           title: 'Order placed!',
-          description: `Order ${data.order_number}. Pay via QR then upload proof of payment.`,
+          description: `Order ${data.order_number}. Pay via bank transfer then upload proof of payment.`,
         });
         navigate('/order-confirmation', {
           state: {
@@ -235,6 +393,8 @@ const Checkout = () => {
       }
 
       // COD: go to confirmation (no proof needed)
+      // Clear cart after order is successfully created
+      clearCart();
       toast({
         title: 'Order placed successfully!',
         description: `Your order number is ${data.order_number}. We'll contact you soon.`,
