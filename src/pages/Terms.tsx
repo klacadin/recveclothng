@@ -127,7 +127,7 @@ const Terms = () => {
                 If you have questions about these Terms of Service, please contact us:
               </p>
               <ul className="text-muted-foreground mt-3 space-y-1">
-                <li>Email: reveclothing214@gmail.com</li>
+                <li>Email: shop@reveclothingxnobody.com</li>
                 <li>Phone: 0955 446 5207</li>
                 <li>Facebook: <a href="https://www.facebook.com/ReveClothingBukidnon/" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">REVE Clothing Bukidnon</a></li>
                 <li>Instagram: <a href="https://www.instagram.com/jingjing" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">@jingjing</a></li>

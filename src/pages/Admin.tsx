@@ -27,7 +27,9 @@ import {
   Download,
   Users,
   LayoutGrid,
-  List
+  List,
+  Mail,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,6 +41,7 @@ import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useU
 import { useProductCategories } from "@/hooks/useCategories";
 import { useOrders, useCreateOrder, useUpdateOrderStatus, useUpdateOrder, useDeleteOrder, type Order, type OrderWithItems } from "@/hooks/useOrders";
 import { useXenditPaymentStatus } from "@/hooks/useXenditPayment";
+import { supabase } from "@/integrations/supabase/client";
 import CustomerInfoDialog from "@/components/admin/CustomerInfoDialog";
 import { useAllProductVariants, useCreateVariantsForProduct, useBulkUpdateVariants, type SizeStock, type ProductVariant, variantsToSizeStock, SIZES } from "@/hooks/useProductVariants";
 import { useBulkProductActions } from "@/hooks/useBulkProductActions";
@@ -52,6 +55,7 @@ import AdminSettings from "@/components/admin/AdminSettings";
 import UserApprovals from "@/components/admin/UserApprovals";
 import CategoryManagement from "@/components/admin/CategoryManagement";
 import ArticleManagement from "@/components/admin/ArticleManagement";
+import EmailManagement from "@/components/admin/EmailManagement";
 import ProductCard from "@/components/product/ProductCard";
 import { getProductDisplayImage } from "@/data/productImages";
 
@@ -227,6 +231,7 @@ const Admin = () => {
   const [verificationRefInput, setVerificationRefInput] = useState("");
   const [paidRefDialogOrder, setPaidRefDialogOrder] = useState<{ id: string; order_number: string } | null>(null);
   const [paidRefInput, setPaidRefInput] = useState("");
+  const [sendingProofReminder, setSendingProofReminder] = useState(false);
   const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'new' | 'paid' | 'packed' | 'shipped' | 'completed'>('all');
   const [openArticleFormImmediately, setOpenArticleFormImmediately] = useState(false);
   const [customerInfoDialogOpen, setCustomerInfoDialogOpen] = useState(false);
@@ -289,6 +294,7 @@ const Admin = () => {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "orders", label: "Orders", icon: ShoppingCart },
     { id: "inventory", label: "Inventory", icon: Package },
+    { id: "emails", label: "Emails", icon: Mail },
     { id: "news", label: "News & Blog", icon: Newspaper },
     { id: "categories", label: "Categories", icon: Tag },
     { id: "users", label: "User Approvals", icon: Users },
@@ -452,6 +458,41 @@ const Admin = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
+    }
+  };
+
+  const handleSendProofReminder = async (order: OrderWithItems) => {
+    if (!order) return;
+    
+    setSendingProofReminder(true);
+    try {
+      const appUrl = import.meta.env.VITE_APP_URL || 'https://reveclothingxnobody.com';
+      const uploadUrl = `${appUrl}/upload-proof?order=${encodeURIComponent(order.order_number)}`;
+      
+      const { data, error } = await supabase.functions.invoke('send-order-email', {
+        body: {
+          type: 'proof_reminder',
+          order_id: order.id,
+          customer_email: order.customer_email,
+          customer_name: order.customer_name,
+          order_number: order.order_number,
+          total: order.total,
+          payment_method: order.payment_method,
+          upload_proof_url: uploadUrl,
+        },
+      });
+
+      if (error) throw error;
+      
+      toast({ 
+        title: "Reminder sent", 
+        description: `Proof reminder email sent to ${order.customer_email}` 
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send reminder email';
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+    } finally {
+      setSendingProofReminder(false);
     }
   };
 
@@ -1426,6 +1467,9 @@ const Admin = () => {
           {/* Categories Tab */}
           {activeTab === "categories" && <CategoryManagement />}
 
+          {/* Emails Tab */}
+          {activeTab === "emails" && <EmailManagement />}
+
           {/* User Approvals Tab */}
           {activeTab === "users" && <UserApprovals />}
 
@@ -1642,7 +1686,62 @@ const Admin = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(selectedOrder.proof_of_payment_url!, '_blank')}
+                        onClick={async () => {
+                          try {
+                            const proofUrl = selectedOrder.proof_of_payment_url!;
+                            
+                            // Extract file path from the URL
+                            // URL format: https://[project].supabase.co/storage/v1/object/public/payment-proofs/[path]
+                            // or: https://[project].supabase.co/storage/v1/object/sign/payment-proofs/[path]?token=...
+                            let filePath = '';
+                            
+                            // Check if it's a signed URL
+                            if (proofUrl.includes('/object/sign/')) {
+                              // Already signed, use directly
+                              window.open(proofUrl, '_blank');
+                              return;
+                            }
+                            
+                            // Extract path from public URL
+                            const publicUrlMatch = proofUrl.match(/\/payment-proofs\/(.+)$/);
+                            if (publicUrlMatch) {
+                              filePath = decodeURIComponent(publicUrlMatch[1]);
+                            } else {
+                              // Try to extract from any Supabase storage URL
+                              const storageMatch = proofUrl.match(/payment-proofs\/(.+?)(\?|$)/);
+                              if (storageMatch) {
+                                filePath = decodeURIComponent(storageMatch[1]);
+                              }
+                            }
+                            
+                            if (filePath) {
+                              // Create a signed URL (valid for 1 hour)
+                              const { data, error } = await supabase.storage
+                                .from('payment-proofs')
+                                .createSignedUrl(filePath, 3600);
+                              
+                              if (error) {
+                                console.error('Error creating signed URL:', error);
+                                // Fallback to original URL
+                                window.open(proofUrl, '_blank');
+                              } else if (data?.signedUrl) {
+                                window.open(data.signedUrl, '_blank');
+                              } else {
+                                window.open(proofUrl, '_blank');
+                              }
+                            } else {
+                              // Couldn't extract path, try original URL
+                              window.open(proofUrl, '_blank');
+                            }
+                          } catch (error) {
+                            console.error('Error opening proof:', error);
+                            toast({ 
+                              title: 'Error', 
+                              description: 'Failed to open proof. Please try again.', 
+                              variant: 'destructive' 
+                            });
+                          }
+                        }}
                       >
                         View proof
                       </Button>
@@ -1688,11 +1787,40 @@ const Admin = () => {
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {['pending_payment', 'new'].includes(selectedOrder.status)
-                      ? 'Waiting for customer to upload proof.'
-                      : 'No proof uploaded.'}
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      {['pending_payment', 'new'].includes(selectedOrder.status)
+                        ? 'Waiting for customer to upload proof.'
+                        : selectedOrder.status === 'for_verification'
+                        ? 'Proof uploaded, awaiting verification.'
+                        : 'No proof uploaded.'}
+                    </p>
+                    {/* Show reminder button for orders that need proof: pending_payment, new, or for_verification */}
+                    {/* Only for payment methods that require proof (gcash, maya, bank_transfer) and NOT Xendit payments */}
+                    {['pending_payment', 'new', 'for_verification'].includes(selectedOrder.status) && 
+                     ['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) &&
+                     !(selectedOrder as any).xendit_payment_id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSendProofReminder(selectedOrder)}
+                        disabled={sendingProofReminder}
+                        className="w-full sm:w-auto"
+                      >
+                        {sendingProofReminder ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send Proof Reminder Email
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
               )}

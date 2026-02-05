@@ -19,7 +19,7 @@ const UserApprovals = () => {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [userEmails, setUserEmails] = useState<Record<string, { email: string; created_at: string }>>({});
+  const [userEmails, setUserEmails] = useState<Record<string, { email: string; full_name: string; created_at: string }>>({});
 
   const { toast } = useToast();
   const { data: pendingUsers = [], isLoading: pendingLoading } = usePendingUsers();
@@ -176,9 +176,17 @@ const UserApprovals = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium text-foreground">
-                        {userEmail?.email || approval.user_id.substring(0, 8) + '...'}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="font-medium text-foreground">
+                          {userEmail?.full_name || userEmail?.email || 'Loading user details...'}
+                        </span>
+                        {userEmail?.full_name && userEmail?.email && (
+                          <span className="text-sm text-muted-foreground">{userEmail.email}</span>
+                        )}
+                        {!userEmail && (
+                          <span className="text-xs text-muted-foreground">User ID: {approval.user_id.substring(0, 8)}…</span>
+                        )}
+                      </div>
                       {getStatusBadge(approval.status)}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -238,9 +246,17 @@ const UserApprovals = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1">
                       <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-foreground">
-                        {userEmail?.email || approval.user_id.substring(0, 8) + '...'}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-foreground">
+                          {userEmail?.full_name || userEmail?.email || 'Loading user details...'}
+                        </span>
+                        {userEmail?.full_name && userEmail?.email && (
+                          <span className="text-xs text-muted-foreground">{userEmail.email}</span>
+                        )}
+                        {!userEmail && (
+                          <span className="text-xs text-muted-foreground">User ID: {approval.user_id.substring(0, 8)}…</span>
+                        )}
+                      </div>
                       {getStatusBadge(approval.status)}
                     </div>
                     {approval.rejection_reason && (

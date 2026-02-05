@@ -137,7 +137,7 @@ const Privacy = () => {
                 If you have questions about this Privacy Policy or our data practices, please contact us:
               </p>
               <ul className="text-muted-foreground mt-3 space-y-1">
-                <li>Email: reveclothing214@gmail.com</li>
+                <li>Email: shop@reveclothingxnobody.com</li>
                 <li>Phone: 0955 446 5207</li>
                 <li>Address: P5 North Poblacion, Maramag, Bukidnon</li>
               </ul>

@@ -111,14 +111,14 @@ const AdminSettings = () => {
         {/* Grant Admin Form */}
         <form onSubmit={handleGrantAdmin} className="mb-6">
           <Label htmlFor="userId" className="text-sm text-muted-foreground mb-2 block">
-            Grant admin access to a user by their User ID
+            Grant admin access to a user
           </Label>
           <div className="flex gap-2">
             <Input
               id="userId"
               value={newAdminUserId}
               onChange={(e) => setNewAdminUserId(e.target.value)}
-              placeholder="Enter user ID (UUID)"
+              placeholder="Enter user email or user ID"
               className="flex-1"
             />
             <Button type="submit" disabled={grantAdmin.isPending || !newAdminUserId.trim()}>
@@ -127,7 +127,7 @@ const AdminSettings = () => {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Users must sign up first. You can find their User ID in the database after they register.
+            Enter the user's email address or their user ID. Users must sign up first before you can grant them admin access.
           </p>
         </form>
 
@@ -154,18 +154,21 @@ const AdminSettings = () => {
                 >
                   <div>
                     <p className="font-medium text-foreground">
-                      {name || email || 'Loading...'}
+                      {name || email || 'Loading user details...'}
                       {adminRole.user_id === user?.id && (
                         <span className="text-xs text-accent ml-1">(You)</span>
                       )}
                     </p>
-                    {email && (name ? (
+                    {name && email && (
                       <p className="text-sm text-muted-foreground">{email}</p>
-                    ) : null)}
+                    )}
+                    {!name && email && (
+                      <p className="text-sm text-muted-foreground">{email}</p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Added: {new Date(adminRole.created_at).toLocaleDateString()}
                       {!name && !email && (
-                        <span className="ml-1 font-mono text-muted-foreground/80">({adminRole.user_id.slice(0, 8)}…)</span>
+                        <span className="ml-1 text-muted-foreground/60">(User ID: {adminRole.user_id.slice(0, 8)}…)</span>
                       )}
                     </p>
                   </div>

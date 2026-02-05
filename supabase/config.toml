@@ -24,6 +24,12 @@ verify_jwt = false
 [functions.get-xendit-payment-status]
 verify_jwt = true
 
+[functions.get-resend-emails]
+verify_jwt = false
+
+[functions.get-resend-email]
+verify_jwt = false
+
 [functions.fetch-facebook-posts]
 verify_jwt = true
 

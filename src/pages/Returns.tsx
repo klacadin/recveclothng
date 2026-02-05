@@ -216,10 +216,10 @@ const Returns = () => {
                 </a>
                 <span className="text-muted-foreground">or</span>
                 <a 
-                  href="mailto:reveclothing214@gmail.com"
+                  href="mailto:shop@reveclothingxnobody.com"
                   className="text-accent hover:underline"
                 >
-                  reveclothing214@gmail.com
+                  shop@reveclothingxnobody.com
                 </a>
               </div>
             </CardContent>

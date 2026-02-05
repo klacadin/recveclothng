@@ -79,7 +79,7 @@ const Contact = () => {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to send message. Please try again or email us directly at reveclothing214@gmail.com',
+        description: 'Failed to send message. Please try again or email us directly at shop@reveclothingxnobody.com',
         variant: 'destructive',
       });
     } finally {
@@ -103,8 +103,8 @@ const Contact = () => {
     {
       icon: Mail,
       label: 'Email',
-      value: 'reveclothing214@gmail.com',
-      href: 'mailto:reveclothing214@gmail.com',
+      value: 'shop@reveclothingxnobody.com',
+      href: 'mailto:shop@reveclothingxnobody.com',
     },
     {
       icon: Facebook,
@@ -124,7 +124,7 @@ const Contact = () => {
     <div className="min-h-screen bg-background">
       <SEO 
         title="Contact Us"
-        description="Get in touch with REVE Clothing. Located in Maramag, Bukidnon. Call 0955 446 5207 or email reveclothing214@gmail.com. We ship nationwide via J&T."
+        description="Get in touch with REVE Clothing. Located in Maramag, Bukidnon. Call 0955 446 5207 or email shop@reveclothingxnobody.com. We ship nationwide via J&T."
         url="/contact"
       />
       <Header />
