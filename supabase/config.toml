@@ -24,6 +24,15 @@ verify_jwt = false
 [functions.get-xendit-payment-status]
 verify_jwt = true
 
+[functions.create-hitpay-payment]
+verify_jwt = false
+
+[functions.hitpay-webhook]
+verify_jwt = false
+
+[functions.get-hitpay-payment-status]
+verify_jwt = true
+
 [functions.get-resend-emails]
 verify_jwt = false
 

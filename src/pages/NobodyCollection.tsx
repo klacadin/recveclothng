@@ -186,7 +186,7 @@ const NobodyCollection = () => {
               ))}
             </div>
 
-            {/* Products Grid or Coming Soon */}
+            {/* Products Grid or Empty State */}
             {showComingSoon ? (
               <div className="text-center py-16 px-4 bg-background/50 rounded-sm border border-dashed border-border">
                 <p className="font-display text-xl font-semibold text-foreground">{selectedSubCategory}</p>

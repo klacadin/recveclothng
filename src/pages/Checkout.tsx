@@ -249,10 +249,10 @@ const Checkout = () => {
       // Handle payment based on method
       // NOTE: Don't clear cart until payment is successfully initiated or order is confirmed
       
-      // Xendit payment for GCash/Maya
+      // HitPay payment for GCash/Maya
       if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') {
         try {
-          const paymentResponse = await supabase.functions.invoke('create-xendit-payment', {
+          const paymentResponse = await supabase.functions.invoke('create-hitpay-payment', {
             body: {
               order_id: data.order_id,
               order_number: data.order_number,
@@ -342,14 +342,14 @@ const Checkout = () => {
           if (paymentResponse.data?.redirect_url) {
             // Clear cart only after payment is successfully initiated
             clearCart();
-            // Redirect to Xendit payment page
+            // Redirect to HitPay payment page
             window.location.href = paymentResponse.data.redirect_url;
             return;
           } else {
             throw new Error(paymentResponse.data?.error || 'No payment redirect URL received');
           }
         } catch (paymentError) {
-          console.error('Xendit payment error:', paymentError);
+          console.error('HitPay payment error:', paymentError);
           const errorMessage = paymentError instanceof Error 
             ? paymentError.message 
             : 'Could not start payment. Please try again.';

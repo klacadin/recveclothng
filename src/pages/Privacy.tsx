@@ -69,7 +69,7 @@ const Privacy = () => {
               </p>
               <ul className="text-muted-foreground space-y-2">
                 <li>• <strong>Shipping Partners:</strong> J&T Express for order delivery</li>
-                <li>• <strong>Payment Processors:</strong> Xendit for secure payment processing</li>
+                <li>• <strong>Payment Processors:</strong> HitPay for secure payment processing (GCash, Maya, cards)</li>
                 <li>• <strong>Service Providers:</strong> Third parties that help us operate our business</li>
                 <li>• <strong>Legal Requirements:</strong> When required by law or to protect our rights</li>
               </ul>

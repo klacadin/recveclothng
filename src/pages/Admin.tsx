@@ -40,7 +40,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useUpdateStock, type Product, type ProductInsert } from "@/hooks/useProducts";
 import { useProductCategories } from "@/hooks/useCategories";
 import { useOrders, useCreateOrder, useUpdateOrderStatus, useUpdateOrder, useDeleteOrder, type Order, type OrderWithItems } from "@/hooks/useOrders";
-import { useXenditPaymentStatus } from "@/hooks/useXenditPayment";
+import { useHitPayPaymentStatus } from "@/hooks/useHitPayPayment";
 import { supabase } from "@/integrations/supabase/client";
 import CustomerInfoDialog from "@/components/admin/CustomerInfoDialog";
 import { useAllProductVariants, useCreateVariantsForProduct, useBulkUpdateVariants, type SizeStock, type ProductVariant, variantsToSizeStock, SIZES } from "@/hooks/useProductVariants";
@@ -72,8 +72,8 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
   cancelled: { label: "Cancelled", color: "bg-red-100 text-red-800", icon: AlertCircle },
 };
 
-// Helper function to get payment label with Xendit prefix if applicable
-const getPaymentLabel = (paymentMethod: string, xenditPaymentId?: string | null): string => {
+// Helper function to get payment label with HitPay prefix if applicable
+const getPaymentLabel = (paymentMethod: string, paymentGatewayId?: string | null): string => {
   const baseLabels: Record<string, string> = {
     cod: "COD",
     gcash: "GCash",
@@ -83,31 +83,31 @@ const getPaymentLabel = (paymentMethod: string, xenditPaymentId?: string | null)
   
   const baseLabel = baseLabels[paymentMethod] || paymentMethod;
   
-  // If payment was made through Xendit, prefix with "Xendit-"
-  if (xenditPaymentId && (paymentMethod === 'gcash' || paymentMethod === 'maya')) {
-    return `Xendit-${baseLabel}`;
+  // If payment was made through HitPay (GCash/Maya), prefix with "HitPay-"
+  if (paymentGatewayId && (paymentMethod === 'gcash' || paymentMethod === 'maya')) {
+    return `HitPay-${baseLabel}`;
   }
   
   return baseLabel;
 };
 
-// Component to display Xendit payment status
-const XenditPaymentStatusDisplay = ({ paymentRequestId, orderId }: { paymentRequestId: string; orderId: string }) => {
-  const { data: paymentStatus, isLoading, error, refetch } = useXenditPaymentStatus(paymentRequestId, true);
+// Component to display HitPay payment status
+const HitPayPaymentStatusDisplay = ({ paymentRequestId, orderId }: { paymentRequestId: string; orderId: string }) => {
+  const { data: paymentStatus, isLoading, error, refetch } = useHitPayPaymentStatus(paymentRequestId, true);
   const { toast } = useToast();
 
   const getStatusColor = (status?: string) => {
     switch (status) {
-      case 'SUCCEEDED':
+      case 'completed':
+      case 'succeeded':
         return 'bg-green-100 text-green-800';
-      case 'FAILED':
-      case 'CANCELED':
-      case 'EXPIRED':
+      case 'failed':
+      case 'canceled':
+      case 'expired':
         return 'bg-red-100 text-red-800';
-      case 'REQUIRES_ACTION':
-      case 'ACCEPTING_PAYMENTS':
+      case 'pending':
         return 'bg-yellow-100 text-yellow-800';
-      case 'AUTHORIZED':
+      case 'inactive':
         return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -116,20 +116,19 @@ const XenditPaymentStatusDisplay = ({ paymentRequestId, orderId }: { paymentRequ
 
   const getStatusLabel = (status?: string) => {
     switch (status) {
-      case 'SUCCEEDED':
+      case 'completed':
+      case 'succeeded':
         return 'Paid';
-      case 'FAILED':
+      case 'failed':
         return 'Failed';
-      case 'CANCELED':
+      case 'canceled':
         return 'Canceled';
-      case 'EXPIRED':
+      case 'expired':
         return 'Expired';
-      case 'REQUIRES_ACTION':
-        return 'Pending';
-      case 'ACCEPTING_PAYMENTS':
+      case 'pending':
         return 'Awaiting Payment';
-      case 'AUTHORIZED':
-        return 'Authorized';
+      case 'inactive':
+        return 'Inactive';
       default:
         return status || 'Unknown';
     }
@@ -139,7 +138,7 @@ const XenditPaymentStatusDisplay = ({ paymentRequestId, orderId }: { paymentRequ
     return (
       <div className="text-sm text-muted-foreground">
         <span className="inline-flex items-center gap-1">
-          Xendit Status: <span className="animate-pulse">Loading...</span>
+          HitPay Status: <span className="animate-pulse">Loading...</span>
         </span>
       </div>
     );
@@ -148,7 +147,7 @@ const XenditPaymentStatusDisplay = ({ paymentRequestId, orderId }: { paymentRequ
   if (error) {
     return (
       <div className="text-sm text-muted-foreground">
-        <span className="text-red-600">Failed to load Xendit status</span>
+        <span className="text-red-600">Failed to load HitPay status</span>
       </div>
     );
   }
@@ -156,7 +155,7 @@ const XenditPaymentStatusDisplay = ({ paymentRequestId, orderId }: { paymentRequ
   if (!paymentStatus) {
     return (
       <div className="text-sm text-muted-foreground">
-        <span className="text-orange-600">Unable to fetch Xendit payment status</span>
+        <span className="text-orange-600">Unable to fetch HitPay payment status</span>
       </div>
     );
   }
@@ -164,7 +163,7 @@ const XenditPaymentStatusDisplay = ({ paymentRequestId, orderId }: { paymentRequ
   return (
     <div className="space-y-2 p-3 bg-secondary/50 rounded-sm border border-border">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-foreground">Xendit Payment Status</p>
+        <p className="text-sm font-medium text-foreground">HitPay Payment Status</p>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -175,8 +174,8 @@ const XenditPaymentStatusDisplay = ({ paymentRequestId, orderId }: { paymentRequ
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
-          <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(paymentStatus?.payment_status)}`}>
-            {getStatusLabel(paymentStatus?.payment_status)}
+          <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(paymentStatus?.payment_status?.toLowerCase())}`}>
+            {getStatusLabel(paymentStatus?.payment_status?.toLowerCase())}
           </span>
         </div>
       </div>
@@ -186,27 +185,15 @@ const XenditPaymentStatusDisplay = ({ paymentRequestId, orderId }: { paymentRequ
           <span className="font-mono text-foreground">{paymentStatus.payment_request_id}</span>
         </div>
       )}
-      {paymentStatus?.channel_code && (
-        <div className="text-xs">
-          <span className="text-muted-foreground">Channel: </span>
-          <span className="text-foreground font-medium">{paymentStatus.channel_code.toUpperCase()}</span>
-        </div>
-      )}
-      {paymentStatus?.request_amount && (
+      {paymentStatus?.amount && (
         <div className="text-xs">
           <span className="text-muted-foreground">Amount: </span>
-          <span className="text-foreground font-medium">₱{Number(paymentStatus.request_amount).toLocaleString()}</span>
+          <span className="text-foreground font-medium">₱{Number(paymentStatus.amount).toLocaleString()}</span>
         </div>
       )}
-      {paymentStatus?.failure_code && (
-        <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
-          <span className="font-medium">Failure Code: </span>
-          {paymentStatus.failure_code}
-        </div>
-      )}
-      {paymentStatus?.updated && (
+      {paymentStatus?.updated_at && (
         <div className="text-xs text-muted-foreground">
-          Last updated: {new Date(paymentStatus.updated).toLocaleString('en-PH')}
+          Last updated: {new Date(paymentStatus.updated_at).toLocaleString('en-PH')}
         </div>
       )}
     </div>
@@ -970,14 +957,14 @@ const Admin = () => {
                               {(order.payment_method === 'gcash' || order.payment_method === 'maya') && (order as any).xendit_payment_id && (
                                 <div className="mt-1">
                                   <span className="text-xs text-muted-foreground">
-                                    Xendit: <span className="font-mono text-xs">{(order as any).xendit_payment_id}</span>
+                                    HitPay: <span className="font-mono text-xs">{(order as any).xendit_payment_id}</span>
                                   </span>
                                 </div>
                               )}
                               {/* Debug: Show if payment method is GCash/Maya but no xendit_payment_id */}
                               {(order.payment_method === 'gcash' || order.payment_method === 'maya') && !(order as any).xendit_payment_id && (
                                 <span className="text-xs text-orange-600 mt-1">
-                                  ⚠ No Xendit ID
+                                  ⚠ No HitPay ID
                                 </span>
                               )}
                             </div>
@@ -1598,7 +1585,7 @@ const Admin = () => {
                   <p className="text-sm font-medium text-foreground">Payment</p>
                   {(selectedOrder.payment_method === 'gcash' || selectedOrder.payment_method === 'maya') && !(selectedOrder as any).xendit_payment_id && (
                     <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                      ⚠ Not via Xendit
+                      ⚠ Not via HitPay
                     </span>
                   )}
                 </div>
@@ -1608,7 +1595,7 @@ const Admin = () => {
                   </p>
                   {(selectedOrder.payment_method === 'gcash' || selectedOrder.payment_method === 'maya') && (selectedOrder as any).xendit_payment_id && (
                     <div className="mt-3">
-                      <XenditPaymentStatusDisplay 
+                      <HitPayPaymentStatusDisplay 
                         paymentRequestId={(selectedOrder as any).xendit_payment_id} 
                         orderId={selectedOrder.id}
                       />
@@ -1616,8 +1603,8 @@ const Admin = () => {
                   )}
                   {(selectedOrder.payment_method === 'gcash' || selectedOrder.payment_method === 'maya') && !(selectedOrder as any).xendit_payment_id && (
                     <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-                      <p className="font-medium mb-1">Payment not processed via Xendit</p>
-                      <p className="text-muted-foreground">This order was created before Xendit integration or payment was not initiated through Xendit.</p>
+                      <p className="font-medium mb-1">Payment not processed via HitPay</p>
+                      <p className="text-muted-foreground">This order was created before HitPay integration or payment was not initiated through HitPay.</p>
                       {(selectedOrder as OrderWithItems).payment_reference_number && (
                         <p className="mt-1">
                           Reference: <span className="font-mono">{(selectedOrder as OrderWithItems).payment_reference_number}</span>
@@ -1676,7 +1663,7 @@ const Admin = () => {
               </div>
 
               {/* Proof of payment — always visible when proof exists; store manager can view and verify */}
-              {/* Don't show proof section for Xendit payments (auto-verified) */}
+              {/* Don't show proof section for HitPay payments (auto-verified) */}
               {!(selectedOrder as any).xendit_payment_id && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground mb-1">Proof of payment</p>
@@ -1796,7 +1783,7 @@ const Admin = () => {
                         : 'No proof uploaded.'}
                     </p>
                     {/* Show reminder button for orders that need proof: pending_payment, new, or for_verification */}
-                    {/* Only for payment methods that require proof (gcash, maya, bank_transfer) and NOT Xendit payments */}
+                    {/* Only for payment methods that require proof (gcash, maya, bank_transfer) and NOT HitPay payments */}
                     {['pending_payment', 'new', 'for_verification'].includes(selectedOrder.status) && 
                      ['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) &&
                      !(selectedOrder as any).xendit_payment_id && (

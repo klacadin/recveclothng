@@ -1,142 +1,174 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createHmac } from "https://deno.land/std@0.190.0/crypto/mod.ts";
-
-const HITPAY_SALT = Deno.env.get("HITPAY_SALT");
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, hitpay-signature',
 };
 
-// Verify HitPay webhook signature
-function verifySignature(data: Record<string, string>, signature: string, salt: string): boolean {
-  // Sort keys alphabetically and create string
-  const sortedKeys = Object.keys(data).sort();
-  const signatureString = sortedKeys
-    .filter(key => key !== 'hmac')
-    .map(key => `${key}${data[key]}`)
-    .join('');
-  
-  // Create HMAC
-  const encoder = new TextEncoder();
-  const hmac = createHmac("sha256", encoder.encode(salt));
-  hmac.update(encoder.encode(signatureString));
-  const calculatedSignature = Array.from(new Uint8Array(hmac.digest()))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-  
-  return calculatedSignature === signature;
-}
-
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Parse form data (HitPay sends as form-urlencoded)
-    const formData = await req.formData();
-    const data: Record<string, string> = {};
-    formData.forEach((value, key) => {
-      data[key] = value.toString();
-    });
-
-    console.log("Received HitPay webhook:", {
-      payment_id: data.payment_id,
-      reference_number: data.reference_number,
-      status: data.status,
-    });
-
-    // Verify signature if salt is configured
-    if (HITPAY_SALT && data.hmac) {
-      const isValid = verifySignature(data, data.hmac, HITPAY_SALT);
-      if (!isValid) {
-        console.error("Invalid webhook signature");
-        return new Response(
-          JSON.stringify({ error: "Invalid signature" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    const webhookSalt = Deno.env.get('HITPAY_WEBHOOK_SALT');
+    if (!webhookSalt) {
+      console.error('HITPAY_WEBHOOK_SALT not configured');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          status: 'configuration_error',
+          error: 'Webhook verification not configured',
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const paymentId = data.payment_id;
-    const paymentRequestId = data.payment_request_id;
-    const referenceNumber = data.reference_number;
-    const status = data.status;
-    const paymentMethod = data.payment_type;
+    const signature = req.headers.get('hitpay-signature');
+    const rawBody = await req.text();
 
-    // Map HitPay status to our status
-    let paymentStatus = "pending";
-    if (status === "completed") {
-      paymentStatus = "completed";
-    } else if (status === "failed" || status === "expired") {
-      paymentStatus = "failed";
-    } else if (status === "refunded") {
-      paymentStatus = "refunded";
+    if (!signature || !rawBody) {
+      console.error('Missing webhook signature or body');
+      return new Response(
+        JSON.stringify({ error: 'Invalid webhook request' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Update payment transaction
-    const { data: transaction, error: txError } = await supabase
-      .from("payment_transactions")
+    // Validate HMAC-SHA256 signature
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(webhookSalt),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const sigBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(rawBody));
+    const computedSignature = Array.from(new Uint8Array(sigBuffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    if (computedSignature !== signature) {
+      console.error('Invalid HitPay webhook signature');
+      return new Response(
+        JSON.stringify({ error: 'Invalid webhook signature' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('HitPay webhook signature verified');
+
+    const payload = JSON.parse(rawBody);
+    console.log('HitPay webhook received:', JSON.stringify(payload));
+
+    const status = payload.status;
+    const orderId = payload.reference_number || payload.reference_id;
+    const paymentRequestId = payload.id;
+
+    // HitPay: status 'completed' = payment succeeded
+    const isSuccess = status === 'completed' || status === 'succeeded';
+
+    if (!isSuccess) {
+      console.log('HitPay webhook: payment not completed, status:', status);
+      return new Response(
+        JSON.stringify({ success: true, message: 'Webhook received' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!orderId) {
+      console.error('No order reference in HitPay webhook payload');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          status: 'missing_order_reference',
+          error: 'Missing order reference',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const paymentRef = payload.payments?.[0]?.id || paymentRequestId;
+
+    const { data: order, error: updateError } = await supabase
+      .from('orders')
       .update({
-        status: paymentStatus,
-        payment_reference: paymentId,
-        payment_method: paymentMethod,
-        metadata: data,
+        status: 'paid',
+        payment_reference_number: paymentRef,
+        xendit_payment_id: paymentRequestId,
+        updated_at: new Date().toISOString(),
       })
-      .eq("payment_id", paymentRequestId)
-      .select("order_id")
+      .eq('id', orderId)
+      .select('id, order_number, customer_email, customer_name, total, payment_method')
       .single();
 
-    if (txError) {
-      console.error("Error updating payment transaction:", txError);
-      // Try to find by reference number
-      const { data: txByRef } = await supabase
-        .from("payment_transactions")
-        .update({
-          status: paymentStatus,
-          payment_reference: paymentId,
-          payment_method: paymentMethod,
-          metadata: data,
-        })
-        .eq("payment_id", referenceNumber)
-        .select("order_id")
-        .single();
-      
-      if (!txByRef) {
-        console.error("Payment transaction not found");
-      }
+    if (updateError) {
+      console.error('Failed to update order:', updateError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          status: 'database_error',
+          error: 'Failed to update order status',
+          order_id: orderId,
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Update order status if payment completed
-    if (paymentStatus === "completed" && transaction?.order_id) {
-      const { error: orderError } = await supabase
-        .from("orders")
-        .update({ status: "paid" })
-        .eq("id", transaction.order_id);
+    console.log('Order updated to paid:', order.order_number);
 
-      if (orderError) {
-        console.error("Error updating order status:", orderError);
-      } else {
-        console.log("Order marked as paid:", transaction.order_id);
-      }
+    try {
+      const emailPayload = {
+        type: 'status_update',
+        order_id: orderId,
+        customer_email: order.customer_email,
+        customer_name: order.customer_name,
+        order_number: order.order_number,
+        total: order.total,
+        payment_method: order.payment_method,
+        new_status: 'paid',
+      };
+
+      await fetch(`${supabaseUrl}/functions/v1/send-order-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+        },
+        body: JSON.stringify(emailPayload),
+      });
+      console.log('Payment confirmation email sent');
+    } catch (emailError) {
+      console.error('Failed to send payment email:', emailError);
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        success: true,
+        status: 'order_paid',
+        message: 'Order updated to paid',
+        order_id: orderId,
+        order_number: order.order_number,
+        payment_status: 'completed',
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: unknown) {
-    console.error("Error in hitpay-webhook:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error('Webhook error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        success: false,
+        status: 'internal_server_error',
+        error: 'Internal server error',
+        message: errorMessage,
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -27,6 +27,7 @@ export const useOrders = () => {
       if (error) throw error;
       return data as OrderWithItems[];
     },
+    refetchInterval: 30000, // Auto-refresh every 30s so dashboard reflects HitPay payment status
   });
 };
 

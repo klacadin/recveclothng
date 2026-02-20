@@ -62,7 +62,7 @@ const Terms = () => {
                 <li>• <strong>Bank Transfer</strong> - Direct deposit</li>
               </ul>
               <p className="text-muted-foreground mt-3">
-                All online payments are processed securely through Xendit.
+                All online payments are processed securely through HitPay.
               </p>
             </section>
 

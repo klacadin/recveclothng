@@ -42,7 +42,7 @@ interface Order {
   created_at: string;
   updated_at: string;
   proof_of_payment_url: string | null;
-  xendit_payment_id?: string | null;
+  xendit_payment_id?: string | null; // Reused for HitPay payment ID
   order_items: OrderItem[];
 }
 
@@ -66,8 +66,8 @@ const paymentLabels: Record<string, string> = {
   bank_transfer: 'Bank Transfer',
 };
 
-// Helper function to get payment label with Xendit prefix if applicable
-const getPaymentLabel = (paymentMethod: string, xenditPaymentId?: string | null): string => {
+// Helper function to get payment label with HitPay prefix if applicable
+const getPaymentLabel = (paymentMethod: string, paymentGatewayId?: string | null): string => {
   const baseLabels: Record<string, string> = {
     cod: 'Cash on Delivery',
     gcash: 'GCash',
@@ -77,9 +77,9 @@ const getPaymentLabel = (paymentMethod: string, xenditPaymentId?: string | null)
   
   const baseLabel = baseLabels[paymentMethod] || paymentMethod;
   
-  // If payment was made through Xendit, prefix with "Xendit-"
-  if (xenditPaymentId && (paymentMethod === 'gcash' || paymentMethod === 'maya')) {
-    return `Xendit-${baseLabel}`;
+  // If payment was made through HitPay (GCash/Maya), prefix with "HitPay-"
+  if (paymentGatewayId && (paymentMethod === 'gcash' || paymentMethod === 'maya')) {
+    return `HitPay-${baseLabel}`;
   }
   
   return baseLabel;
@@ -255,7 +255,7 @@ const MyOrders = () => {
                     {/* Order Status Tracker */}
                     <OrderStatusTracker status={selectedOrder.status} />
 
-                    {/* Proof of Payment Upload - Show for unpaid orders with bank_transfer/gcash/maya, but NOT for Xendit payments */}
+                    {/* Proof of Payment Upload - Show for unpaid orders with bank_transfer/gcash/maya, but NOT for HitPay payments */}
                     {(selectedOrder.status === 'new' || selectedOrder.status === 'pending_payment' || selectedOrder.status === 'for_verification') && 
                      ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) && 
                      !(selectedOrder as any).xendit_payment_id && (
@@ -320,12 +320,12 @@ const MyOrders = () => {
                       <p className="text-sm">{getPaymentLabel(selectedOrder.payment_method, selectedOrder.xendit_payment_id)}</p>
                       {selectedOrder.xendit_payment_id && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          Xendit Payment ID: <span className="font-mono">{selectedOrder.xendit_payment_id}</span>
+                          HitPay Payment ID: <span className="font-mono">{selectedOrder.xendit_payment_id}</span>
                         </p>
                       )}
                       {selectedOrder.xendit_payment_id && selectedOrder.status === 'paid' && (
                         <p className="text-xs text-green-600 mt-1">
-                          ✓ Payment verified automatically via Xendit
+                          ✓ Payment verified automatically via HitPay
                         </p>
                       )}
                     </div>
