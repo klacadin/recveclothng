@@ -404,6 +404,62 @@ serve(async (req) => {
 
     console.log('Order items created successfully');
 
+    // HitPay: Create payment for GCash/Maya and return redirect URL (bypasses frontend JWT)
+    let redirectUrl: string | null = null;
+    if (orderData.payment_method === 'gcash' || orderData.payment_method === 'maya') {
+      const hitpayApiKey = Deno.env.get('HITPAY_API_KEY');
+      if (hitpayApiKey) {
+        try {
+          const appUrl = Deno.env.get('APP_URL') || 'https://reveclothingxnobody.com';
+          const hitpayBaseUrl = Deno.env.get('HITPAY_SANDBOX') === 'true'
+            ? 'https://api.sandbox.hit-pay.com'
+            : 'https://api.hit-pay.com';
+          const webhookUrl = `${supabaseUrl}/functions/v1/hitpay-webhook`;
+          const hitpayRedirect = `${appUrl}/payment-success?order_id=${order.id}`;
+
+          const hitpayPayload = {
+            amount: serverTotal,
+            currency: 'PHP',
+            payment_methods: ['gcash_qr', 'qrph_netbank'],
+            email: orderData.customer_email,
+            name: orderData.customer_name,
+            purpose: `Order ${orderNumber}`,
+            reference_number: order.id,
+            redirect_url: hitpayRedirect,
+            webhook: webhookUrl,
+            send_email: 'false',
+            send_sms: 'false',
+          };
+
+          const hitpayRes = await fetch(`${hitpayBaseUrl}/v1/payment-requests`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-BUSINESS-API-KEY': hitpayApiKey,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify(hitpayPayload),
+          });
+
+          const hitpayResult = await hitpayRes.json();
+          if (hitpayRes.ok && hitpayResult.url && hitpayResult.id) {
+            redirectUrl = hitpayResult.url;
+            await supabase.from('orders').update({
+              xendit_payment_id: hitpayResult.id,
+              updated_at: new Date().toISOString(),
+            }).eq('id', order.id);
+            console.log('HitPay payment created:', hitpayResult.id);
+          } else {
+            console.error('HitPay API error:', hitpayResult);
+          }
+        } catch (hitpayErr) {
+          console.error('HitPay create error:', hitpayErr);
+        }
+      } else {
+        console.warn('HITPAY_API_KEY not configured - skipping HitPay payment');
+      }
+    }
+
     // Send confirmation email (non-blocking)
     try {
       const emailPayload = {
@@ -445,13 +501,17 @@ serve(async (req) => {
       // Don't fail the order if email fails
     }
 
+    const response: Record<string, unknown> = { 
+      success: true, 
+      order_id: order.id, 
+      order_number: orderNumber,
+      total: serverTotal
+    };
+    if (redirectUrl) {
+      response.redirect_url = redirectUrl;
+    }
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        order_id: order.id, 
-        order_number: orderNumber,
-        total: serverTotal
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

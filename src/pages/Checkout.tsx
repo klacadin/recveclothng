@@ -246,72 +246,21 @@ const Checkout = () => {
         throw new Error(data?.error || 'Failed to create order');
       }
 
-      // Handle payment based on method
-      // NOTE: Don't clear cart until payment is successfully initiated or order is confirmed
-      
-      // HitPay payment for GCash/Maya
+      // HitPay: create-order returns redirect_url for GCash/Maya (created server-side, no JWT)
       if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') {
-        try {
-          // Use direct fetch with anon key to avoid session/JWT issues (Invalid JWT)
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-          const res = await fetch(`${supabaseUrl}/functions/v1/create-hitpay-payment`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${anonKey}`,
-            },
-            body: JSON.stringify({
-              order_id: data.order_id,
-              order_number: data.order_number,
-              amount: data.total,
-              customer_email: formData.customerEmail,
-              customer_name: formData.customerName,
-              payment_method: formData.paymentMethod,
-              items: items.map(item => ({
-                name: item.product.name,
-                quantity: item.quantity,
-                price: item.product.price,
-              })),
-            }),
-          });
-
-          const paymentData = await res.json().catch(() => ({}));
-
-          if (!res.ok) {
-            const errorMessage = paymentData?.error || paymentData?.message || 
-              (res.status === 401 ? 'Invalid session. Sign out and try again, or check Supabase keys in .env' : 'Failed to initiate payment');
-            throw new Error(errorMessage);
-          }
-
-          if (!paymentData?.success) {
-            throw new Error(paymentData?.error || paymentData?.message || 'Payment initiation failed');
-          }
-
-          if (paymentData?.redirect_url) {
-            // Clear cart only after payment is successfully initiated
-            clearCart();
-            // Redirect to HitPay payment page
-            window.location.href = paymentData.redirect_url;
-            return;
-          } else {
-            throw new Error(paymentData?.error || 'No payment redirect URL received');
-          }
-        } catch (paymentError) {
-          console.error('HitPay payment error:', paymentError);
-          const errorMessage = paymentError instanceof Error 
-            ? paymentError.message 
-            : 'Could not start payment. Please try again.';
-          
-          toast({
-            title: 'Payment initiation failed',
-            description: errorMessage,
-            variant: 'destructive',
-          });
-          setIsSubmitting(false);
-          setStep('details');
+        if (data.redirect_url) {
+          clearCart();
+          window.location.href = data.redirect_url;
           return;
         }
+        toast({
+          title: 'Payment initiation failed',
+          description: 'Could not create payment. Please try again or contact support.',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        setStep('details');
+        return;
       }
 
       // Bank transfer: QR/proof upload flow (manual verification)
