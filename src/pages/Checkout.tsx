@@ -252,8 +252,16 @@ const Checkout = () => {
       // HitPay payment for GCash/Maya
       if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') {
         try {
-          const paymentResponse = await supabase.functions.invoke('create-hitpay-payment', {
-            body: {
+          // Use direct fetch with anon key to avoid session/JWT issues (Invalid JWT)
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const res = await fetch(`${supabaseUrl}/functions/v1/create-hitpay-payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({
               order_id: data.order_id,
               order_number: data.order_number,
               amount: data.total,
@@ -265,88 +273,29 @@ const Checkout = () => {
                 quantity: item.quantity,
                 price: item.product.price,
               })),
-            },
+            }),
           });
 
-          // Check for error response
-          if (paymentResponse.error) {
-            console.error('Payment response error:', paymentResponse.error);
-            
-            // Try to extract detailed error from response
-            let errorMessage = 'Failed to initiate payment';
-            
-            // Handle specific status codes first
-            if (paymentResponse.error.status === 401) {
-              errorMessage = 'Authentication failed. Please refresh the page and try again.';
-            } else if (paymentResponse.error.status === 500) {
-              errorMessage = 'Payment service error. Please try again later.';
-            } else if (paymentResponse.error.status === 400) {
-              errorMessage = 'Invalid payment request. Please check your information.';
-            }
-            
-            // Try to extract error from response body (multiple methods)
-            try {
-              const errorContext = paymentResponse.error.context;
-              
-              // Method 1: Check if body is a Response object
-              if (errorContext?.body && errorContext.body instanceof Response) {
-                const errorBody = await errorContext.body.json();
-                console.error('Payment error body (Response):', errorBody);
-                if (errorBody?.error) errorMessage = errorBody.error;
-                else if (errorBody?.message) errorMessage = errorBody.message;
-              }
-              // Method 2: Check if body has json() method
-              else if (errorContext?.body && typeof errorContext.body.json === 'function') {
-                const errorBody = await errorContext.body.json();
-                console.error('Payment error body (json method):', errorBody);
-                if (errorBody?.error) errorMessage = errorBody.error;
-                else if (errorBody?.message) errorMessage = errorBody.message;
-              }
-              // Method 3: Try to read as ReadableStream
-              else if (errorContext?.body && errorContext.body.getReader) {
-                const reader = errorContext.body.getReader();
-                const { value } = await reader.read();
-                if (value) {
-                  const text = new TextDecoder().decode(value);
-                  const errorBody = JSON.parse(text);
-                  console.error('Payment error body (stream):', errorBody);
-                  if (errorBody?.error) errorMessage = errorBody.error;
-                  else if (errorBody?.message) errorMessage = errorBody.message;
-                }
-              }
-              // Method 4: error.context.json() function
-              else if (typeof errorContext?.json === 'function') {
-                const errorBody = await errorContext.json();
-                console.error('Payment error body (context json):', errorBody);
-                if (errorBody?.error) errorMessage = errorBody.error;
-                else if (errorBody?.message) errorMessage = errorBody.message;
-              }
-            } catch (e) {
-              console.error('Could not parse payment error body:', e);
-            }
-            
-            // Fallback to error message
-            if (paymentResponse.error.message && !paymentResponse.error.message.includes('non-2xx')) {
-              errorMessage = paymentResponse.error.message;
-            }
-            
+          const paymentData = await res.json().catch(() => ({}));
+
+          if (!res.ok) {
+            const errorMessage = paymentData?.error || paymentData?.message || 
+              (res.status === 401 ? 'Invalid session. Sign out and try again, or check Supabase keys in .env' : 'Failed to initiate payment');
             throw new Error(errorMessage);
           }
 
-          // Check if response indicates failure (even with 200 status)
-          if (paymentResponse.data && !paymentResponse.data.success) {
-            const errorMsg = paymentResponse.data.error || paymentResponse.data.message || 'Payment initiation failed';
-            throw new Error(errorMsg);
+          if (!paymentData?.success) {
+            throw new Error(paymentData?.error || paymentData?.message || 'Payment initiation failed');
           }
 
-          if (paymentResponse.data?.redirect_url) {
+          if (paymentData?.redirect_url) {
             // Clear cart only after payment is successfully initiated
             clearCart();
             // Redirect to HitPay payment page
-            window.location.href = paymentResponse.data.redirect_url;
+            window.location.href = paymentData.redirect_url;
             return;
           } else {
-            throw new Error(paymentResponse.data?.error || 'No payment redirect URL received');
+            throw new Error(paymentData?.error || 'No payment redirect URL received');
           }
         } catch (paymentError) {
           console.error('HitPay payment error:', paymentError);
