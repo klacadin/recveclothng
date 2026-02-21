@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import type { Product } from '@/hooks/useProducts';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -27,29 +27,55 @@ type CartContextType = {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const CART_STORAGE_KEY = 'shopping-cart-v2'; // New key for size-aware cart
+const CART_STORAGE_KEY = 'shopping-cart-v2';
+
+function parseCartFromStorage(savedCart: string): CartItem[] {
+  try {
+    const parsed = JSON.parse(savedCart);
+    const rawItems = Array.isArray(parsed) ? parsed : (parsed?.items ?? []);
+    return rawItems.filter((item: unknown) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+      const i = item as Record<string, unknown>;
+      if (!i.size || !i.quantity || typeof i.quantity !== 'number' || i.quantity < 1) return false;
+      if (!i.product || typeof i.product !== 'object' || Array.isArray(i.product)) return false;
+      const p = i.product as Record<string, unknown>;
+      if (!p.id || !p.name || p.price == null || Number.isNaN(Number(p.price))) return false;
+      return true;
+    }).map((item: unknown) => {
+      const i = item as { product: Record<string, unknown>; quantity: number; size: ProductSize };
+      const p = i.product;
+      return {
+        product: {
+          ...p,
+          id: String(p.id),
+          name: String(p.name),
+          price: Number(p.price),
+        } as Product,
+        quantity: i.quantity,
+        size: i.size as ProductSize,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const hasLoadedRef = useRef(false);
 
-  // Load cart from localStorage on mount
+  // Load cart from localStorage on mount (runs once)
   useEffect(() => {
     const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-    if (savedCart) {
-      try {
-        const parsed = JSON.parse(savedCart);
-        // Validate that items have size field
-        const validItems = parsed.filter((item: any) => item.size && item.product && item.quantity);
-        setItems(validItems);
-      } catch (e) {
-        console.error('Failed to parse cart from storage:', e);
-      }
-    }
+    const loaded = parseCartFromStorage(savedCart || '[]');
+    setItems(loaded);
+    hasLoadedRef.current = true;
   }, []);
 
-  // Save cart to localStorage whenever it changes
+  // Save cart to localStorage when it changes, but never overwrite with [] before load completes
   useEffect(() => {
+    if (!hasLoadedRef.current) return;
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
   }, [items]);
 
