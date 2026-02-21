@@ -524,20 +524,20 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-secondary flex">
-      {/* Mobile sidebar backdrop */}
+      {/* Sidebar backdrop — visible on tablets/phones when menu open */}
       <div
-        className={`fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-black/50 z-40 xl:hidden transition-opacity ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setSidebarOpen(false)}
         aria-hidden="true"
       />
-      {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col transform transition-transform duration-200 ease-out lg:transform-none ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="p-4 lg:p-6 border-b border-border flex items-center justify-between">
+      {/* Sidebar — auto-hidden below xl (1280px), overlay when open */}
+      <aside className={`fixed xl:static inset-y-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col transform transition-transform duration-200 ease-out xl:transform-none ${sidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}`}>
+        <div className="p-4 xl:p-6 border-b border-border flex items-center justify-between">
           <div>
             <h1 className="font-display text-xl font-bold text-foreground">REVE Admin</h1>
             <p className="text-xs text-muted-foreground mt-1">Operations Dashboard</p>
           </div>
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
+          <Button variant="ghost" size="icon" className="xl:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -593,7 +593,7 @@ const Admin = () => {
         <header className="bg-card border-b border-border p-4 lg:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="lg:hidden shrink-0" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+              <Button variant="ghost" size="icon" className="xl:hidden shrink-0" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
                 <Menu className="h-5 w-5" />
               </Button>
               <h2 className="font-display text-xl lg:text-2xl font-bold text-foreground capitalize">
