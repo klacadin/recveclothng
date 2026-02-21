@@ -42,9 +42,9 @@ Create a welcome email that:
 ## 2. 📦 Order Confirmation Email
 
 ### **When Sent:**
-- Immediately after order is successfully created
+- **COD orders:** Immediately after order is successfully created
+- **HitPay orders (GCash/Maya/Bank Transfer):** Only when payment is confirmed via HitPay webhook—not at order creation
 - Sent to **both registered users and guest customers**
-- Triggered from `create-order` edge function
 
 ### **Email Details:**
 - **Subject:** `Order Confirmed - {order_number}`
@@ -83,7 +83,34 @@ Create a welcome email that:
 
 ### **Code Location:**
 - `supabase/functions/send-order-email/index.ts` - `generateConfirmationEmail()` function
-- Triggered from: `supabase/functions/create-order/index.ts` (lines 407-443)
+- Triggered from: `supabase/functions/create-order/index.ts` (COD only), `supabase/functions/hitpay-webhook/index.ts` (HitPay payment confirmed)
+
+---
+
+## 2b. 💌 Payment Reminder Emails (HitPay Pending)
+
+### **When Sent:**
+- Automatically for orders with **pending HitPay payment** (GCash/Maya/Bank Transfer) at **30 minutes**, **1 hour**, and **90 minutes** after order creation
+- 90-minute reminder is the final reminder before orders auto-fail at 2 hours
+- Triggered by `send-payment-reminders` Edge Function (invoked via pg_cron + pg_net or external cron)
+
+### **Email Details:**
+- **Subject:** `Your order is reserved for you — Complete payment · {order_number}` (30/60 min) or `Last chance: Your order is still reserved for you — {order_number}` (90 min)
+- **Type:** `payment_reminder` with `reminder_stage: 30 | 60 | 90`
+- **From:** `REVE <shop@reveclothingxnobody.com>`
+
+### **Email Content:**
+- **Header:** "Your Order Is Reserved for You" — REVE brand tagline
+- Warm, friendly copy: "Your REVE order is reserved for you!" with stage-specific messaging
+- 90 min: "This is our final reminder—we'd hate for your order to slip away."
+- Order number and total
+- CTA: "Complete Payment" (links to My Orders)
+- Brand footer: "From Nobody to Somebody—we're here for your journey"
+
+### **Code Location:**
+- `supabase/functions/send-order-email/index.ts` - `generatePaymentReminderEmail()`
+- `supabase/functions/send-payment-reminders/index.ts`
+- Setup: `scripts/setup-cron-payment-reminders.md`
 
 ---
 
@@ -146,24 +173,21 @@ Create a welcome email that:
 
 ---
 
-## 4. ✅ Payment Confirmation Email (Xendit)
+## 4. ✅ Payment Confirmation Email (HitPay)
 
 ### **When Sent:**
-- When Xendit payment succeeds (via webhook)
-- Only for GCash/Maya payments processed through Xendit
-- Automatically updates order status to `paid` and sends email
+- When HitPay payment succeeds (via webhook)
+- For GCash/Maya/Bank Transfer payments processed through HitPay
+- Automatically updates order status to `paid` and sends **full Order Confirmation Email** (see section 2)
 
 ### **Email Details:**
-- **Subject:** `Order Payment Confirmed - {order_number}`
-- **Type:** `status_update` with `new_status: 'paid'`
+- **Subject:** `Order Confirmed - {order_number}`
+- **Type:** `confirmation` (full order details)
 - **From:** `REVE <shop@reveclothingxnobody.com>`
 
-### **Email Content:**
-Same as Order Status Update Email for "Paid" status (see section 3 above)
-
 ### **Code Location:**
-- `supabase/functions/xendit-webhook/index.ts` (lines 123-148)
-- Calls `send-order-email` function with payment_received type
+- `supabase/functions/hitpay-webhook/index.ts`
+- Sends full confirmation (items, totals, address) when payment is confirmed
 
 ---
 
@@ -270,42 +294,27 @@ Account Pending Approval
 ❌ NO APPROVAL NOTIFICATION EMAIL (Missing)
 ```
 
-### **Order Flow (Registered User):**
+### **Order Flow — COD:**
 ```
-Place Order
+Place Order → Order Created → ✅ Order Confirmation Email (immediate)
   ↓
-OTP Email Sent (during checkout)
-  ↓
-Order Created
-  ↓
-✅ Order Confirmation Email
-  ↓
-Payment Processed (if Xendit)
-  ↓
-✅ Payment Confirmation Email
-  ↓
-Status Updates
-  ↓
-✅ Status Update Emails (paid, packed, shipped, completed)
+Status Updates → ✅ Status Update Emails (packed, shipped, completed)
 ```
 
-### **Order Flow (Guest User):**
+### **Order Flow — HitPay (GCash/Maya/Bank Transfer):**
 ```
-Place Order (Guest)
+Place Order → Order Created → Redirect to HitPay
   ↓
-OTP Email Sent (during checkout)
+Customer pays → HitPay Webhook → ✅ Order Confirmation Email (payment confirmed)
   ↓
-Order Created
+Status Updates → ✅ Status Update Emails (packed, shipped, completed)
+```
+
+### **Payment Reminders (HitPay pending only):**
+```
+Order pending_payment (30/60/90 min after creation)
   ↓
-✅ Order Confirmation Email
-  ↓
-Payment Processed (if Xendit)
-  ↓
-✅ Payment Confirmation Email
-  ↓
-Status Updates
-  ↓
-✅ Status Update Emails (paid, packed, shipped, completed)
+send-payment-reminders cron → ✅ Payment Reminder Email ("reserved for you")
 ```
 
 ---

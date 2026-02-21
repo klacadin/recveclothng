@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.upload-order-proof]
 verify_jwt = false
+
+[functions.fail-stale-pending-orders]
+verify_jwt = false

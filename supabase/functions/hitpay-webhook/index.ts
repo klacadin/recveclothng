@@ -104,7 +104,7 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId)
-      .select('id, order_number, customer_email, customer_name, total, payment_method')
+      .select('id, order_number, customer_email, customer_name, total, subtotal, shipping_fee, shipping_address, payment_method')
       .single();
 
     if (updateError) {
@@ -122,16 +122,31 @@ serve(async (req) => {
 
     console.log('Order updated to paid:', order.order_number);
 
+    // Send full order confirmation email for HitPay-confirmed payments
     try {
+      const { data: orderItems } = await supabase
+        .from('order_items')
+        .select('product_name, quantity, unit_price, total_price, size')
+        .eq('order_id', orderId);
+
       const emailPayload = {
-        type: 'status_update',
+        type: 'confirmation',
         order_id: orderId,
         customer_email: order.customer_email,
         customer_name: order.customer_name,
         order_number: order.order_number,
+        items: (orderItems || []).map(item => ({
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          size: item.size,
+        })),
+        subtotal: order.subtotal,
+        shipping_fee: order.shipping_fee,
         total: order.total,
         payment_method: order.payment_method,
-        new_status: 'paid',
+        shipping_address: order.shipping_address,
       };
 
       await fetch(`${supabaseUrl}/functions/v1/send-order-email`, {
@@ -142,9 +157,9 @@ serve(async (req) => {
         },
         body: JSON.stringify(emailPayload),
       });
-      console.log('Payment confirmation email sent');
+      console.log('Order confirmation email sent (HitPay payment confirmed)');
     } catch (emailError) {
-      console.error('Failed to send payment email:', emailError);
+      console.error('Failed to send confirmation email:', emailError);
     }
 
     return new Response(

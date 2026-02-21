@@ -188,8 +188,8 @@ const Checkout = () => {
         throw new Error(data?.error || 'Failed to create order');
       }
 
-      // HitPay: create-order returns redirect_url for GCash/Maya (created server-side, no JWT)
-      if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') {
+      // HitPay: create-order returns redirect_url for GCash/Maya/Bank Transfer (QR Ph)
+      if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya' || formData.paymentMethod === 'bank_transfer') {
         if (data.redirect_url) {
           clearCart();
           window.location.href = data.redirect_url;
@@ -202,30 +202,6 @@ const Checkout = () => {
         });
         setIsSubmitting(false);
         setStep('details');
-        return;
-      }
-
-      // Bank transfer: QR/proof upload flow (manual verification)
-      if (formData.paymentMethod === 'bank_transfer') {
-        try {
-          const pending = { orderNumber: data.order_number, customerEmail: formData.customerEmail, total: data.total };
-          sessionStorage.setItem('pending_order', JSON.stringify(pending));
-        } catch (_) {}
-        // Clear cart after order is successfully created
-        clearCart();
-        toast({
-          title: 'Order placed!',
-          description: `Order ${data.order_number}. Pay via bank transfer then upload proof of payment.`,
-        });
-        navigate('/order-confirmation', {
-          state: {
-            orderNumber: data.order_number,
-            needsProof: true,
-            total: data.total,
-            customerEmail: formData.customerEmail,
-            customerName: formData.customerName,
-          },
-        });
         return;
       }
 
@@ -455,7 +431,9 @@ const Checkout = () => {
                     </RadioGroup>
                     {(formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya' || formData.paymentMethod === 'bank_transfer') && (
                       <p className="text-xs text-muted-foreground mt-2">
-                        Pay via QR code on the next page, then upload proof of payment to complete your order.
+                        {formData.paymentMethod === 'gcash' && 'Opens GCash app.'}
+                        {formData.paymentMethod === 'maya' && 'Opens Maya app.'}
+                        {formData.paymentMethod === 'bank_transfer' && 'Pay via QR Ph—scan with your bank app.'}
                       </p>
                     )}
                   </CardContent>

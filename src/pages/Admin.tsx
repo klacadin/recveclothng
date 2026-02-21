@@ -70,6 +70,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
   shipped: { label: "Shipped", color: "bg-purple-100 text-purple-800", icon: TruckIcon },
   completed: { label: "Completed", color: "bg-gray-100 text-gray-800", icon: CheckCircle },
   cancelled: { label: "Cancelled", color: "bg-red-100 text-red-800", icon: AlertCircle },
+  failed: { label: "Failed", color: "bg-red-100 text-red-800", icon: AlertCircle },
 };
 
 // Helper function to get payment label with HitPay prefix if applicable
@@ -321,7 +322,7 @@ const Admin = () => {
   const newOrders = orders.filter(o => ['new', 'pending_payment', 'for_verification'].includes(o.status));
   const pendingShipment = orders.filter(o => ['paid', 'preparing', 'packed', 'for_pickup'].includes(o.status));
   const todayRevenue = orders
-    .filter(o => o.status !== 'cancelled' && new Date(o.created_at).toDateString() === new Date().toDateString())
+    .filter(o => !['cancelled', 'failed'].includes(o.status) && new Date(o.created_at).toDateString() === new Date().toDateString())
     .reduce((sum, o) => sum + Number(o.total), 0);
 
   const handleCreateProduct = async (data: ProductInsert, sizeStocks: SizeStock) => {
@@ -690,7 +691,7 @@ const Admin = () => {
                   <p className="font-display text-2xl font-bold text-foreground mt-2">₱{todayRevenue.toLocaleString()}</p>
                   <p className="text-sm font-medium text-foreground">Today's Revenue</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {orders.filter((o) => o.status !== "cancelled").length} orders total
+                    {orders.filter((o) => !['cancelled', 'failed'].includes(o.status)).length} orders total
                   </p>
                 </div>
               </div>
@@ -821,6 +822,7 @@ const Admin = () => {
                       <SelectItem value="shipped">→ Shipped</SelectItem>
                       <SelectItem value="completed">→ Completed</SelectItem>
                       <SelectItem value="cancelled">→ Cancelled</SelectItem>
+                      <SelectItem value="failed">→ Failed</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button
@@ -998,6 +1000,7 @@ const Admin = () => {
                                 <SelectItem value="shipped">Shipped</SelectItem>
                                 <SelectItem value="completed">Completed</SelectItem>
                                 <SelectItem value="cancelled">Cancelled</SelectItem>
+                                <SelectItem value="failed">Failed</SelectItem>
                               </SelectContent>
                             </Select>
                           </td>
@@ -1658,6 +1661,7 @@ const Admin = () => {
                     <SelectItem value="shipped">Shipped</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

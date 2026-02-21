@@ -494,6 +494,7 @@ export type Database = {
         | "shipped"
         | "completed"
         | "cancelled"
+        | "failed"
       payment_method: "cod" | "gcash" | "maya" | "bank_transfer"
       product_size: "XS" | "S" | "M" | "L" | "XL" | "2XL" | "3XL"
     }
@@ -635,6 +636,7 @@ export const Constants = {
         "shipped",
         "completed",
         "cancelled",
+        "failed",
       ],
       payment_method: ["cod", "gcash", "maya", "bank_transfer"],
       product_size: ["XS", "S", "M", "L", "XL", "2XL", "3XL"],

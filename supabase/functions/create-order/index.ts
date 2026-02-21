@@ -404,9 +404,11 @@ serve(async (req) => {
 
     console.log('Order items created successfully');
 
-    // HitPay: Create payment for GCash/Maya and return redirect URL (bypasses frontend JWT)
+    // HitPay: Create payment for GCash/Maya/Bank Transfer and return redirect URL
+    // GCash: gcash_qr → opens GCash app; Maya: qrph_netbank → Maya app; Bank Transfer: qrph_netbank → bank apps via QR Ph
     let redirectUrl: string | null = null;
-    if (orderData.payment_method === 'gcash' || orderData.payment_method === 'maya') {
+    const hitpayMethods = ['gcash', 'maya', 'bank_transfer'];
+    if (hitpayMethods.includes(orderData.payment_method)) {
       const hitpayApiKey = Deno.env.get('HITPAY_API_KEY');
       if (hitpayApiKey) {
         try {
@@ -417,10 +419,20 @@ serve(async (req) => {
           const webhookUrl = `${supabaseUrl}/functions/v1/hitpay-webhook`;
           const hitpayRedirect = `${appUrl}/payment-success?order_id=${order.id}`;
 
+          // Sandbox only supports PayNow + cards (no GCash/QRPH). Production uses PH payment methods.
+          const isSandbox = Deno.env.get('HITPAY_SANDBOX') === 'true';
+          const paymentMethodCodes = isSandbox
+            ? ['card', 'paynow_online']  // Sandbox: test cards + PayNow (PH methods not available)
+            : orderData.payment_method === 'gcash'
+              ? ['gcash_qr']  // GCash app redirect
+              : orderData.payment_method === 'maya'
+                ? ['qrph_netbank']  // Maya app via QR Ph
+                : ['qrph_netbank'];  // Bank transfer: QR Ph
+
           const hitpayPayload = {
             amount: serverTotal,
             currency: 'PHP',
-            payment_methods: ['gcash_qr', 'qrph_netbank'],
+            payment_methods: paymentMethodCodes,
             email: orderData.customer_email,
             name: orderData.customer_name,
             purpose: `Order ${orderNumber}`,
@@ -460,45 +472,47 @@ serve(async (req) => {
       }
     }
 
-    // Send confirmation email (non-blocking)
-    try {
-      const emailPayload = {
-        type: 'confirmation',
-        order_id: order.id,
-        customer_email: orderData.customer_email,
-        customer_name: orderData.customer_name,
-        order_number: orderNumber,
-        items: reservedItems.map(item => ({
-          product_name: item.product_name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          size: item.size, // Include size in email
-        })),
-        subtotal: serverSubtotal,
-        shipping_fee: shippingFee,
-        total: serverTotal,
-        payment_method: orderData.payment_method,
-        shipping_address: orderData.shipping_address,
-      };
+    // Send confirmation email only for COD orders. HitPay orders (GCash/Maya/Bank Transfer)
+    // receive confirmation when payment is confirmed via hitpay-webhook.
+    if (orderData.payment_method === 'cod') {
+      try {
+        const emailPayload = {
+          type: 'confirmation',
+          order_id: order.id,
+          customer_email: orderData.customer_email,
+          customer_name: orderData.customer_name,
+          order_number: orderNumber,
+          items: reservedItems.map(item => ({
+            product_name: item.product_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            size: item.size,
+          })),
+          subtotal: serverSubtotal,
+          shipping_fee: shippingFee,
+          total: serverTotal,
+          payment_method: orderData.payment_method,
+          shipping_address: orderData.shipping_address,
+        };
 
-      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-order-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-        },
-        body: JSON.stringify(emailPayload),
-      });
+        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-order-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+          },
+          body: JSON.stringify(emailPayload),
+        });
 
-      if (!emailResponse.ok) {
-        console.error('Failed to send confirmation email:', await emailResponse.text());
-      } else {
-        console.log('Confirmation email sent successfully');
+        if (!emailResponse.ok) {
+          console.error('Failed to send confirmation email:', await emailResponse.text());
+        } else {
+          console.log('Confirmation email sent successfully (COD)');
+        }
+      } catch (emailError) {
+        console.error('Error sending confirmation email:', emailError);
       }
-    } catch (emailError) {
-      console.error('Error sending confirmation email:', emailError);
-      // Don't fail the order if email fails
     }
 
     const response: Record<string, unknown> = { 

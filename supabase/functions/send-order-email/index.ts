@@ -16,7 +16,7 @@ interface OrderItem {
 }
 
 interface EmailRequest {
-  type: 'confirmation' | 'status_update' | 'proof_reminder';
+  type: 'confirmation' | 'status_update' | 'proof_reminder' | 'payment_reminder';
   order_id: string;
   customer_email: string;
   customer_name: string;
@@ -29,6 +29,8 @@ interface EmailRequest {
   payment_method?: string;
   shipping_address?: string;
   upload_proof_url?: string;
+  reminder_stage?: 30 | 60 | 90;
+  complete_payment_url?: string;
 }
 
 const formatPrice = (price: number): string => {
@@ -245,6 +247,57 @@ const generateProofReminderEmail = (data: EmailRequest): string => {
   `;
 };
 
+const generatePaymentReminderEmail = (data: EmailRequest): string => {
+  const appUrl = Deno.env.get('APP_URL') || Deno.env.get('BASE_URL') || 'https://reveclothingxnobody.com';
+  const paymentUrl = data.complete_payment_url || `${appUrl}/my-orders`;
+  const paymentMethodLabel = getPaymentMethodLabel(data.payment_method || 'gcash');
+  const isFinal = data.reminder_stage === 90;
+
+  const stageMessage = isFinal
+    ? 'This is our final reminder—we\'d hate for your order to slip away.'
+    : 'We\'re holding your order—just one step left to lock it in.';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div style="background-color: #1a1a1a; padding: 24px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Your Order Is Reserved for You</h1>
+            <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0;">REVE Clothing — Timing is Everything</p>
+          </div>
+          <div style="padding: 24px;">
+            <p style="color: #374151; font-size: 16px; margin: 0 0 16px;">Hi ${data.customer_name},</p>
+            <p style="color: #374151; font-size: 16px; margin: 0 0 16px; line-height: 1.6;">We wanted to reach out—your REVE order is reserved for you! ${stageMessage}</p>
+            <p style="color: #374151; font-size: 16px; margin: 0 0 24px; line-height: 1.6;">Complete your ${paymentMethodLabel} payment to confirm your order, and we'll get your gear on its way.</p>
+            
+            <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px;">Order Number</p>
+              <p style="color: #111827; font-size: 18px; font-weight: 600; margin: 0 0 12px;">${data.order_number}</p>
+              <p style="color: #6b7280; font-size: 14px; margin: 0;">Total — ${formatPrice(data.total || 0)}</p>
+            </div>
+
+            <div style="text-align: center; margin: 28px 0;">
+              <a href="${paymentUrl}" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600;">Complete Payment</a>
+            </div>
+
+            <p style="color: #6b7280; font-size: 14px; margin: 24px 0 0; line-height: 1.5; text-align: center;">From Nobody to Somebody—we're here for your journey. Questions? Reply anytime at shop@reveclothingxnobody.com</p>
+          </div>
+          <div style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">REVE Clothing · Performance apparel born in Bukidnon</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -284,6 +337,12 @@ serve(async (req) => {
     } else if (data.type === 'proof_reminder') {
       subject = `Payment Proof Required - ${data.order_number}`;
       html = generateProofReminderEmail(data);
+    } else if (data.type === 'payment_reminder') {
+      const isFinal = data.reminder_stage === 90;
+      subject = isFinal
+        ? `Last chance: Your order is still reserved for you — ${data.order_number}`
+        : `Your order is reserved for you — Complete payment · ${data.order_number}`;
+      html = generatePaymentReminderEmail(data);
     } else {
       console.error('Invalid email type');
       return new Response(
