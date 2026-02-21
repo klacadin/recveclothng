@@ -265,7 +265,7 @@ Create a welcome email that:
   - ✅ Order Confirmation Email
   - ✅ Order Status Update Emails
   - ✅ OTP Verification Email (during checkout)
-  - ✅ Payment Confirmation Email (if using Xendit)
+  - ✅ Payment Confirmation Email (HitPay)
 
 ### **No Special Guest-Specific Emails:**
 - No "Create Account" prompts in emails

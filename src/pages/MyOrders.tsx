@@ -42,7 +42,7 @@ interface Order {
   created_at: string;
   updated_at: string;
   proof_of_payment_url: string | null;
-  xendit_payment_id?: string | null; // Reused for HitPay payment ID
+  xendit_payment_id?: string | null; // Payment gateway ID (HitPay)
   order_items: OrderItem[];
 }
 
@@ -66,23 +66,15 @@ const paymentLabels: Record<string, string> = {
   bank_transfer: 'Bank Transfer',
 };
 
-// Helper function to get payment label with HitPay prefix if applicable
-const getPaymentLabel = (paymentMethod: string, paymentGatewayId?: string | null): string => {
-  const baseLabels: Record<string, string> = {
+// Payment method labels — clean display, no gateway branding
+const getPaymentLabel = (paymentMethod: string): string => {
+  const labels: Record<string, string> = {
     cod: 'Cash on Delivery',
     gcash: 'GCash',
     maya: 'Maya',
     bank_transfer: 'Bank Transfer',
   };
-  
-  const baseLabel = baseLabels[paymentMethod] || paymentMethod;
-  
-  // If payment was made through HitPay (GCash/Maya), prefix with "HitPay-"
-  if (paymentGatewayId && (paymentMethod === 'gcash' || paymentMethod === 'maya')) {
-    return `HitPay-${baseLabel}`;
-  }
-  
-  return baseLabel;
+  return labels[paymentMethod] || paymentMethod;
 };
 
 const MyOrders = () => {
@@ -226,7 +218,7 @@ const MyOrders = () => {
                             })}
                           </p>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {order.order_items?.length || 0} item(s) • {getPaymentLabel(order.payment_method, order.xendit_payment_id)}
+                            {order.order_items?.length || 0} item(s) • {getPaymentLabel(order.payment_method)}
                           </p>
                         </div>
                         <div className="text-right">
@@ -317,10 +309,10 @@ const MyOrders = () => {
 
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Method</p>
-                      <p className="text-sm">{getPaymentLabel(selectedOrder.payment_method, selectedOrder.xendit_payment_id)}</p>
+                      <p className="text-sm">{getPaymentLabel(selectedOrder.payment_method)}</p>
                       {selectedOrder.xendit_payment_id && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          HitPay Payment ID: <span className="font-mono">{selectedOrder.xendit_payment_id}</span>
+                          Payment ID: <span className="font-mono">{selectedOrder.xendit_payment_id}</span>
                         </p>
                       )}
                       {selectedOrder.xendit_payment_id && selectedOrder.status === 'paid' && (

@@ -419,20 +419,12 @@ serve(async (req) => {
           const webhookUrl = `${supabaseUrl}/functions/v1/hitpay-webhook`;
           const hitpayRedirect = `${appUrl}/payment-success?order_id=${order.id}`;
 
-          // Sandbox only supports PayNow + cards (no GCash/QRPH). Production uses PH payment methods.
+          // HitPay: Omit payment_methods in production → HitPay shows all methods enabled on your account.
+          // Sandbox only supports card/PayNow; PHP methods (gcash_qr, qrph_netbank) are production-only.
           const isSandbox = Deno.env.get('HITPAY_SANDBOX') === 'true';
-          const paymentMethodCodes = isSandbox
-            ? ['card', 'paynow_online']  // Sandbox: test cards + PayNow (PH methods not available)
-            : orderData.payment_method === 'gcash'
-              ? ['gcash_qr']  // GCash app redirect
-              : orderData.payment_method === 'maya'
-                ? ['qrph_netbank']  // Maya app via QR Ph
-                : ['qrph_netbank'];  // Bank transfer: QR Ph
-
-          const hitpayPayload = {
+          const hitpayPayload: Record<string, unknown> = {
             amount: serverTotal,
             currency: 'PHP',
-            payment_methods: paymentMethodCodes,
             email: orderData.customer_email,
             name: orderData.customer_name,
             purpose: `Order ${orderNumber}`,
@@ -442,6 +434,9 @@ serve(async (req) => {
             send_email: 'false',
             send_sms: 'false',
           };
+          if (isSandbox) {
+            hitpayPayload.payment_methods = ['card', 'paynow_online'];
+          }
 
           const hitpayRes = await fetch(`${hitpayBaseUrl}/v1/payment-requests`, {
             method: 'POST',
