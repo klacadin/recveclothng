@@ -33,7 +33,7 @@ interface OrderRequest {
   voucher_code?: string | null;
 }
 
-// Test voucher: 99% off for low-cost payment testing
+// Fallback test voucher (if DB vouchers table not yet populated)
 const TEST_VOUCHER = 'TEST99';
 const TEST_VOUCHER_DISCOUNT = 0.99; // 99% off
 
@@ -308,13 +308,79 @@ serve(async (req) => {
     const shippingFee = Math.max(0, Math.min(orderData.shipping_fee, 10000)); // Cap shipping fee
     let serverTotal = serverSubtotal + shippingFee;
 
-    // Apply test voucher (99% off) for low-cost payment testing
+    // Apply voucher discount: check DB first, fallback to TEST99
     const voucherCode = (orderData.voucher_code || '').trim().toUpperCase();
-    if (voucherCode === TEST_VOUCHER) {
-      const beforeDiscount = serverTotal;
-      const discountAmount = Math.floor(beforeDiscount * TEST_VOUCHER_DISCOUNT);
-      serverTotal = Math.max(1, beforeDiscount - discountAmount);
-      console.log('TEST99 voucher applied:', { original: beforeDiscount, discount: discountAmount, final: serverTotal });
+    if (voucherCode) {
+      const { data: voucher } = await supabase
+        .from('vouchers')
+        .select('id, discount_type, discount_value, min_order_amount, max_uses, times_used, product_ids, category_ids')
+        .ilike('code', voucherCode)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      let discountAmount = 0;
+      if (voucher) {
+        const minOrder = Number(voucher.min_order_amount) || 0;
+        const totalForMinCheck = serverTotal;
+        if (totalForMinCheck >= minOrder) {
+          const productIds = (voucher.product_ids as string[] | null) ?? [];
+          const categoryIds = (voucher.category_ids as string[] | null) ?? [];
+          const hasScope = productIds.length > 0 || categoryIds.length > 0;
+
+          let eligibleAmount = hasScope ? 0 : serverSubtotal;
+          if (hasScope && reservedItems.length > 0) {
+            const productIdList = reservedItems.map((r) => r.product_id);
+            const { data: products } = await supabase
+              .from('products')
+              .select('id, category')
+              .in('id', productIdList);
+            const productByCat = new Map((products ?? []).map((p: { id: string; category: string | null }) => [p.id, p.category ?? '']));
+
+            let categoryNames: string[] = [];
+            if (categoryIds.length) {
+              const { data: cats } = await supabase
+                .from('categories')
+                .select('name')
+                .in('id', categoryIds);
+              categoryNames = (cats ?? []).map((c: { name: string }) => c.name).filter(Boolean);
+            }
+
+            const productIdSet = productIds.length ? new Set(productIds) : null;
+            const categoryNameSet = categoryNames.length ? new Set(categoryNames.map((n) => (n ?? '').toLowerCase())) : null;
+            eligibleAmount = 0;
+            for (const item of reservedItems) {
+              const inProducts = productIdSet?.has(item.product_id);
+              const cat = productByCat.get(item.product_id) ?? '';
+              const inCategory = categoryNameSet?.has(cat.toLowerCase());
+              if (inProducts || inCategory) {
+                eligibleAmount += item.total_price;
+              }
+            }
+          }
+
+          if (eligibleAmount > 0) {
+            const val = Number(voucher.discount_value);
+            if (voucher.discount_type === 'percent') {
+              discountAmount = Math.floor(eligibleAmount * (Math.min(100, val) / 100));
+            } else {
+              discountAmount = Math.min(eligibleAmount, val);
+            }
+            if (discountAmount > 0 && voucher.id) {
+              await supabase
+                .from('vouchers')
+                .update({ times_used: (voucher.times_used ?? 0) + 1, updated_at: new Date().toISOString() })
+                .eq('id', voucher.id);
+            }
+          }
+        }
+      } else if (voucherCode === TEST_VOUCHER) {
+        discountAmount = Math.floor(serverTotal * TEST_VOUCHER_DISCOUNT);
+      }
+
+      if (discountAmount > 0) {
+        serverTotal = Math.max(1, serverTotal - discountAmount);
+        console.log('Voucher applied:', { code: voucherCode, discount: discountAmount, final: serverTotal });
+      }
     }
 
     console.log('Server-calculated totals:', { subtotal: serverSubtotal, shipping: shippingFee, total: serverTotal });

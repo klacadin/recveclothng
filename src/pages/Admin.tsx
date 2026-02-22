@@ -30,7 +30,8 @@ import {
   List,
   Mail,
   Loader2,
-  Menu
+  Menu,
+  Ticket
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,6 +58,7 @@ import UserApprovals from "@/components/admin/UserApprovals";
 import CategoryManagement from "@/components/admin/CategoryManagement";
 import ArticleManagement from "@/components/admin/ArticleManagement";
 import EmailManagement from "@/components/admin/EmailManagement";
+import VoucherManagement from "@/components/admin/VoucherManagement";
 import ProductCard from "@/components/product/ProductCard";
 import { getProductDisplayImage } from "@/data/productImages";
 
@@ -280,6 +282,7 @@ const Admin = () => {
     { id: "news", label: "News & Blog", icon: Newspaper },
     { id: "categories", label: "Categories", icon: Tag },
     { id: "users", label: "User Approvals", icon: Users },
+    { id: "vouchers", label: "Vouchers", icon: Ticket },
     { id: "shipping", label: "Shipping", icon: Truck },
     { id: "settings", label: "Settings", icon: Settings },
   ];
@@ -1548,6 +1551,13 @@ const Admin = () => {
 
           {/* User Approvals Tab */}
           {activeTab === "users" && <UserApprovals />}
+
+          {/* Vouchers Tab */}
+          {activeTab === "vouchers" && (
+            <div className="bg-card rounded-sm border border-border p-4 sm:p-6">
+              <VoucherManagement />
+            </div>
+          )}
 
           {/* Settings Tab */}
           {activeTab === "settings" && <AdminSettings />}

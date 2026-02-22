@@ -12,10 +12,11 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 // OTP verification removed - only COD requires it, but COD is hidden for now
-import { SHIPPING_FEE, CONVENIENCE_FEE, TEST_VOUCHER_CODE, TEST_VOUCHER_DISCOUNT_PERCENT } from '@/config/constants';
+import { SHIPPING_FEE, CONVENIENCE_FEE } from '@/config/constants';
 import PhilippineAddressSelect from '@/components/checkout/PhilippineAddressSelect';
 import { buildAddressString } from '@/hooks/usePhilippineAddress';
 import { getProductDisplayImage } from '@/data/productImages';
+import { supabase } from '@/integrations/supabase/client';
 
 const checkoutSchema = z.object({
   customerName: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
@@ -49,7 +50,7 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>;
 type CheckoutStep = 'auth' | 'details' | 'otp' | 'processing';
 
 const Checkout = () => {
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal, clearCart, isCartLoaded } = useCart();
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -77,11 +78,46 @@ const Checkout = () => {
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherApplied, setVoucherApplied] = useState(false);
+  const [voucherDiscountAmount, setVoucherDiscountAmount] = useState(0);
+  const [voucherMessage, setVoucherMessage] = useState('');
+  const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
 
-  const isTestVoucher = voucherApplied && voucherCode.toUpperCase().trim() === TEST_VOUCHER_CODE;
   // Discount applies to subtotal only — never to shipping or convenience fee
-  const discountAmount = isTestVoucher ? Math.floor(subtotal * (TEST_VOUCHER_DISCOUNT_PERCENT / 100)) : 0;
-  const total = Math.max(1, subtotal - discountAmount + SHIPPING_FEE + CONVENIENCE_FEE);
+  const total = Math.max(1, subtotal - voucherDiscountAmount + SHIPPING_FEE + CONVENIENCE_FEE);
+
+  // Re-validate voucher when subtotal changes (e.g. cart updated) if voucher is applied
+  useEffect(() => {
+    if (!voucherApplied || !voucherCode.trim()) return;
+    let cancelled = false;
+    const validate = async () => {
+      const { data } = await supabase.functions.invoke<{
+        valid: boolean;
+        discount_amount: number;
+        message: string;
+      }>('validate-voucher', {
+        body: {
+          code: voucherCode.trim().toUpperCase(),
+          subtotal,
+          items: items.map((i) => ({
+            product_id: i.product.id,
+            quantity: i.quantity,
+            unit_price: i.product.price,
+            category: i.product.category ?? null,
+          })),
+        },
+      });
+      if (!cancelled && data?.valid) {
+        setVoucherDiscountAmount(data.discount_amount ?? 0);
+        setVoucherMessage(data.message ?? '');
+      } else if (!cancelled && data && !data.valid) {
+        setVoucherApplied(false);
+        setVoucherDiscountAmount(0);
+        setVoucherMessage('');
+      }
+    };
+    validate();
+    return () => { cancelled = true; };
+  }, [subtotal, voucherApplied, voucherCode, items]);
 
   // Initialize step: allow guest checkout (skip auth), or go to details when logged in
   useEffect(() => {
@@ -226,6 +262,15 @@ const Checkout = () => {
     }
   };
 
+  // Wait for cart to load from localStorage before showing empty state
+  if (!isCartLoaded || authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background">
@@ -234,15 +279,6 @@ const Checkout = () => {
           <p className="text-muted-foreground mb-8">Add some products before checking out.</p>
           <Button onClick={() => navigate('/shop')}>Continue Shopping</Button>
         </div>
-      </div>
-    );
-  }
-
-  // Loading state
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -479,7 +515,7 @@ const Checkout = () => {
                         <span className="text-muted-foreground">Convenience fee</span>
                         <span>₱{CONVENIENCE_FEE.toFixed(2)}</span>
                       </div>
-                      {/* Test voucher for low-cost payment testing */}
+                      {/* Voucher code */}
                       <div className="flex gap-2 items-center">
                         <Input
                           placeholder="Voucher code"
@@ -487,6 +523,8 @@ const Checkout = () => {
                           onChange={(e) => {
                             setVoucherCode(e.target.value.toUpperCase());
                             setVoucherApplied(false);
+                            setVoucherDiscountAmount(0);
+                            setVoucherMessage('');
                           }}
                           className="flex-1"
                           disabled={voucherApplied}
@@ -495,30 +533,68 @@ const Checkout = () => {
                           type="button"
                           variant={voucherApplied ? "secondary" : "outline"}
                           size="sm"
-                          onClick={() => {
+                          onClick={async () => {
                             if (voucherApplied) {
                               setVoucherApplied(false);
                               setVoucherCode('');
+                              setVoucherDiscountAmount(0);
+                              setVoucherMessage('');
                               return;
                             }
                             const code = voucherCode.trim().toUpperCase();
-                            if (code === TEST_VOUCHER_CODE) {
-                              setVoucherApplied(true);
-                              setVoucherCode(code);
-                              toast({ title: 'Voucher applied!', description: `${TEST_VOUCHER_DISCOUNT_PERCENT}% off — for testing only.` });
-                            } else if (code) {
-                              toast({ title: 'Invalid voucher', description: 'Code not found.', variant: 'destructive' });
+                            if (!code) return;
+                            setIsValidatingVoucher(true);
+                            try {
+                              const { data, error } = await supabase.functions.invoke<{
+                                valid: boolean;
+                                discount_amount: number;
+                                message: string;
+                                code?: string;
+                              }>('validate-voucher', {
+                                body: {
+                                  code,
+                                  subtotal,
+                                  items: items.map((i) => ({
+                                    product_id: i.product.id,
+                                    quantity: i.quantity,
+                                    unit_price: i.product.price,
+                                    category: i.product.category ?? null,
+                                  })),
+                                },
+                              });
+                              if (error) throw error;
+                              if (data?.valid) {
+                                setVoucherApplied(true);
+                                setVoucherCode(data.code ?? code);
+                                setVoucherDiscountAmount(data.discount_amount ?? 0);
+                                setVoucherMessage(data.message ?? '');
+                                toast({ title: 'Voucher applied!', description: data.message });
+                              } else {
+                                toast({
+                                  title: 'Invalid voucher',
+                                  description: data?.message ?? 'Code not found.',
+                                  variant: 'destructive',
+                                });
+                              }
+                            } catch {
+                              toast({
+                                title: 'Unable to validate',
+                                description: 'Please try again later.',
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsValidatingVoucher(false);
                             }
                           }}
-                          disabled={!voucherCode.trim() && !voucherApplied}
+                          disabled={(!voucherCode.trim() && !voucherApplied) || isValidatingVoucher}
                         >
-                          {voucherApplied ? 'Remove' : 'Apply'}
+                          {isValidatingVoucher ? <Loader2 className="h-4 w-4 animate-spin" /> : voucherApplied ? 'Remove' : 'Apply'}
                         </Button>
                       </div>
-                      {voucherApplied && (
+                      {voucherApplied && voucherDiscountAmount > 0 && (
                         <div className="flex justify-between text-green-600">
-                          <span>Voucher ({TEST_VOUCHER_CODE}) -{TEST_VOUCHER_DISCOUNT_PERCENT}%</span>
-                          <span>-₱{discountAmount.toFixed(2)}</span>
+                          <span>Voucher ({voucherCode}) {voucherMessage}</span>
+                          <span>-₱{voucherDiscountAmount.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-lg font-bold border-t pt-2">

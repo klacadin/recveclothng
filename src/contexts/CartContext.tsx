@@ -15,6 +15,7 @@ const getCartItemKey = (productId: string, size: ProductSize): string => `${prod
 
 type CartContextType = {
   items: CartItem[];
+  isCartLoaded: boolean;
   addToCart: (product: Product, size: ProductSize, quantity?: number) => void;
   removeFromCart: (productId: string, size: ProductSize) => void;
   updateQuantity: (productId: string, size: ProductSize, quantity: number) => void;
@@ -63,6 +64,7 @@ function parseCartFromStorage(savedCart: string): CartItem[] {
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
   const hasLoadedRef = useRef(false);
 
   // Load cart from localStorage on mount (runs once)
@@ -71,6 +73,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const loaded = parseCartFromStorage(savedCart || '[]');
     setItems(loaded);
     hasLoadedRef.current = true;
+    setIsCartLoaded(true);
   }, []);
 
   // Save cart to localStorage when it changes, but never overwrite with [] before load completes
@@ -132,6 +135,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     <CartContext.Provider
       value={{
         items,
+        isCartLoaded,
         addToCart,
         removeFromCart,
         updateQuantity,
