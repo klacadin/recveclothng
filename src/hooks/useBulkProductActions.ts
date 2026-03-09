@@ -52,10 +52,12 @@ export const useBulkProductActions = () => {
   });
 
   const bulkActivate = useMutation({
-    mutationFn: async (ids: string[]) => {
+    mutationFn: async ({ ids, updatedByEmail }: { ids: string[]; updatedByEmail?: string }) => {
+      const updates: Record<string, unknown> = { is_active: true };
+      if (updatedByEmail) updates.updated_by_email = updatedByEmail;
       const { error } = await supabase
         .from('products')
-        .update({ is_active: true })
+        .update(updates)
         .in('id', ids);
 
       if (error) throw error;
@@ -71,10 +73,12 @@ export const useBulkProductActions = () => {
   });
 
   const bulkDeactivate = useMutation({
-    mutationFn: async (ids: string[]) => {
+    mutationFn: async ({ ids, updatedByEmail }: { ids: string[]; updatedByEmail?: string }) => {
+      const updates: Record<string, unknown> = { is_active: false };
+      if (updatedByEmail) updates.updated_by_email = updatedByEmail;
       const { error } = await supabase
         .from('products')
-        .update({ is_active: false })
+        .update(updates)
         .in('id', ids);
 
       if (error) throw error;
@@ -90,10 +94,12 @@ export const useBulkProductActions = () => {
   });
 
   const bulkUpdateCategory = useMutation({
-    mutationFn: async ({ ids, category }: { ids: string[]; category: string }) => {
+    mutationFn: async ({ ids, category, updatedByEmail }: { ids: string[]; category: string; updatedByEmail?: string }) => {
+      const updates: Record<string, unknown> = { category };
+      if (updatedByEmail) updates.updated_by_email = updatedByEmail;
       const { error } = await supabase
         .from('products')
-        .update({ category })
+        .update(updates)
         .in('id', ids);
 
       if (error) throw error;

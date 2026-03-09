@@ -8,7 +8,7 @@ import { Truck, Clock, MapPin, Package, CreditCard } from "lucide-react";
 const Shipping = () => {
   return (
     <div className="min-h-screen bg-background">
-      <SEO 
+      <SEO
         title="Shipping Information"
         description="REVE Clothing ships nationwide via J&T Express. Free shipping on orders ₱1,500+. Flat rate ₱130 shipping. 3-7 business days delivery. COD available."
         url="/shipping"
@@ -154,11 +154,11 @@ const Shipping = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  We ship all orders via <strong className="text-foreground">J&T Express</strong>, 
+                  We ship all orders via <strong className="text-foreground">J&T Express</strong>,
                   one of the most reliable courier services in the Philippines.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Once your order is shipped, you'll receive a tracking number via email or SMS 
+                  Once your order is shipped, you'll receive a tracking number via email or SMS
                   to monitor your package's delivery status.
                 </p>
               </CardContent>
@@ -171,8 +171,8 @@ const Shipping = () => {
               <CardContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 bg-secondary rounded-sm text-center">
-                    <p className="font-medium text-sm">COD</p>
-                    <p className="text-xs text-muted-foreground">Cash on Delivery</p>
+                    <p className="font-medium text-sm">J&T COD</p>
+                    <p className="text-xs text-muted-foreground">Pay courier when order arrives</p>
                   </div>
                   <div className="p-3 bg-secondary rounded-sm text-center">
                     <p className="font-medium text-sm">GCash</p>

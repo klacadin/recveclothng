@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "application/pdf"];
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_SIZE = 2 * 1024 * 1024; // 2MB - NON-NEGOTIABLE
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -50,7 +50,7 @@ serve(async (req: Request) => {
     const binary = Uint8Array.from(atob(fileBase64), (c) => c.charCodeAt(0));
     if (binary.length > MAX_SIZE) {
       return new Response(
-        JSON.stringify({ error: "File too large (max 10MB)" }),
+        JSON.stringify({ error: "File too large (max 2MB)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

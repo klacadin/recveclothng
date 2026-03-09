@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import { MAX_PRODUCTS } from '@/config/constants';
 
 export type Product = Tables<'products'>;
 export type ProductInsert = TablesInsert<'products'>;
@@ -13,7 +14,8 @@ export const useProducts = () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(MAX_PRODUCTS);
 
       if (error) throw error;
       return data as Product[];

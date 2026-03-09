@@ -61,25 +61,20 @@ serve(async (req) => {
       );
     }
 
-    // Fetch user emails using admin client
-    const { data: users, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
-
-    if (usersError) {
-      throw usersError;
-    }
-
-    // Map user IDs to email and name
+    // Fetch each user by ID (reliable lookup; listUsers paginates and may miss users)
     const userEmailMap: Record<string, { email: string; full_name: string; created_at: string }> = {};
-    users.users.forEach((u) => {
-      if (user_ids.includes(u.id)) {
-        const meta = u.user_metadata || {};
-        userEmailMap[u.id] = {
-          email: u.email || "",
-          full_name: meta.full_name || meta.name || "",
-          created_at: u.created_at,
+    await Promise.all(
+      user_ids.map(async (uid: string) => {
+        const { data: { user }, error } = await supabaseAdmin.auth.admin.getUserById(uid);
+        if (error || !user) return;
+        const meta = user.user_metadata || {};
+        userEmailMap[uid] = {
+          email: user.email || "",
+          full_name: meta.full_name || meta.name || meta.user_name || "",
+          created_at: user.created_at,
         };
-      }
-    });
+      })
+    );
 
     return new Response(
       JSON.stringify({ users: userEmailMap }),

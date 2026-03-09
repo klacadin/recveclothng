@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBanner } from "@/contexts/BannerContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +21,6 @@ const Header = () => {
   const { totalItems: cartItems, setIsCartOpen } = useCart();
   const { totalItems: wishlistItems } = useWishlist();
   const { user, signOut } = useAuth();
-  const { bannerVisible } = useBanner();
 
   // Skip navigation link for accessibility
   const handleSkipToContent = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -65,7 +63,7 @@ const Header = () => {
       >
         Skip to main content
       </a>
-      <header className={`fixed left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border transition-[top] duration-200 ${bannerVisible ? "top-11" : "top-0"}`}>
+      <header className="fixed left-0 right-0 top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center">

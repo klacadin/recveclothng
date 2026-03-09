@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { MAX_UPLOAD_SIZE_BYTES } from '@/config/constants';
+import { compressImageForUpload } from '@/utils/compressImageForUpload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,8 +71,8 @@ const UploadProof = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: 'File too large', description: 'Max 10MB.', variant: 'destructive' });
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      toast({ title: 'File too large', description: 'Max 2MB.', variant: 'destructive' });
       return;
     }
     if (file.type.startsWith('image/')) {
@@ -90,6 +92,11 @@ const UploadProof = () => {
     if (!file || !order) return;
     setUploading(true);
     try {
+      // Optimize images before upload (NON-NEGOTIABLE); PDFs use as-is
+      const toSend = file.type.startsWith('image/')
+        ? await compressImageForUpload(file, { maxSizeBytes: MAX_UPLOAD_SIZE_BYTES })
+        : file;
+
       const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
         reader.onload = () => {
@@ -97,7 +104,7 @@ const UploadProof = () => {
           resolve(result.split(',')[1] || result);
         };
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(toSend);
       });
       const { data, error } = await supabase.functions.invoke('upload-order-proof', {
         body: {
@@ -192,7 +199,7 @@ const UploadProof = () => {
                   <div>
                     <Label htmlFor="proofFile" className="flex items-center gap-2 text-sm text-muted-foreground">
                       <ImageIcon className="h-4 w-4" />
-                      Screenshot or receipt (JPG, PNG, PDF — max 10MB)
+                      Screenshot or receipt (JPG, PNG, PDF — max 2MB)
                     </Label>
                     <Input
                       id="proofFile"

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { MAX_UPLOAD_SIZE_BYTES } from '@/config/constants';
+import { compressImageForUpload } from '@/utils/compressImageForUpload';
 
 export const useImageUpload = () => {
   const [isUploading, setIsUploading] = useState(false);
@@ -34,12 +36,11 @@ export const useImageUpload = () => {
       return null;
     }
 
-    // Validate file size (max 10MB for better quality images)
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
+    // Validate file size (max 2MB - NON-NEGOTIABLE)
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
       toast({
         title: 'File too large',
-        description: 'Please upload an image smaller than 10MB.',
+        description: `Please upload an image smaller than 2MB.`,
         variant: 'destructive',
       });
       return null;
@@ -47,14 +48,25 @@ export const useImageUpload = () => {
 
     setIsUploading(true);
     try {
-      // Generate unique filename
-      const fileExt = file.name.split('.').pop();
+      // Optimize image before upload (NON-NEGOTIABLE); fallback to original if compress fails
+      let toUpload: File | Blob;
+      try {
+        toUpload = await compressImageForUpload(file, { maxSizeBytes: MAX_UPLOAD_SIZE_BYTES });
+      } catch {
+        if (file.size <= MAX_UPLOAD_SIZE_BYTES) {
+          toUpload = file;
+        } else {
+          throw new Error('Image could not be processed. Try a smaller file (under 2MB) or different format.');
+        }
+      }
+      const fileExt = (toUpload instanceof File ? toUpload.name : file.name).split('.').pop() || 'jpg';
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `products/${fileName}`;
+      const payload = toUpload instanceof File ? toUpload : new File([toUpload], fileName, { type: toUpload.type || file.type });
 
       const { error: uploadError } = await supabase.storage
         .from('product-images')
-        .upload(filePath, file);
+        .upload(filePath, payload, { contentType: payload.type || file.type });
 
       if (uploadError) {
         throw uploadError;
@@ -66,10 +78,11 @@ export const useImageUpload = () => {
         .getPublicUrl(filePath);
 
       return publicUrl;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const msg = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : 'Failed to upload image');
       toast({
         title: 'Upload failed',
-        description: error.message || 'Failed to upload image',
+        description: msg,
         variant: 'destructive',
       });
       return null;

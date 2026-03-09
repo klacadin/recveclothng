@@ -5,13 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { BannerProvider } from "@/contexts/BannerContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import FeedbackButton from "@/components/FeedbackButton";
-import WinSingletBanner from "@/components/WinSingletBanner";
-import { useBanner } from "@/contexts/BannerContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
@@ -57,49 +54,44 @@ const LoadingFallback = () => (
   </div>
 );
 
-const AppRoutes = () => {
-  const { bannerVisible } = useBanner();
-  return (
-    <div className={bannerVisible ? "mt-11" : ""}>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/shop" element={<Shop />} />
-        <Route path="/product/:id" element={<ProductDetail />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/checkout" element={<Checkout />} />
-        <Route path="/order-confirmation" element={<OrderConfirmation />} />
-        <Route path="/upload-proof" element={<UploadProof />} />
-        <Route path="/payment-success" element={<PaymentSuccess />} />
-        <Route path="/payment-failed" element={<PaymentFailed />} />
-        <Route path="/wishlist" element={<Wishlist />} />
-        <Route path="/my-orders" element={<MyOrders />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/size-guide" element={<SizeGuide />} />
-        <Route path="/shipping" element={<Shipping />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/returns" element={<Returns />} />
-        <Route path="/news" element={<News />} />
-        <Route path="/news/:slug" element={<ArticleDetail />} />
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute requireAdmin>
-              <Suspense fallback={<LoadingFallback />}>
-                <Admin />
-              </Suspense>
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/collections/nobody" element={<NobodyCollection />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </div>
-  );
-};
+const AppRoutes = () => (
+  <Routes>
+    <Route path="/" element={<Index />} />
+    <Route path="/shop" element={<Shop />} />
+    <Route path="/product/:id" element={<ProductDetail />} />
+    <Route path="/about" element={<About />} />
+    <Route path="/contact" element={<Contact />} />
+    <Route path="/checkout" element={<Checkout />} />
+    <Route path="/order-confirmation" element={<OrderConfirmation />} />
+    <Route path="/upload-proof" element={<UploadProof />} />
+    <Route path="/payment-success" element={<PaymentSuccess />} />
+    <Route path="/payment-failed" element={<PaymentFailed />} />
+    <Route path="/wishlist" element={<Wishlist />} />
+    <Route path="/my-orders" element={<MyOrders />} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
+    <Route path="/reset-password" element={<ResetPassword />} />
+    <Route path="/size-guide" element={<SizeGuide />} />
+    <Route path="/shipping" element={<Shipping />} />
+    <Route path="/terms" element={<Terms />} />
+    <Route path="/privacy" element={<Privacy />} />
+    <Route path="/returns" element={<Returns />} />
+    <Route path="/news" element={<News />} />
+    <Route path="/news/:slug" element={<ArticleDetail />} />
+    <Route path="/admin/login" element={<AdminLogin />} />
+    <Route
+      path="/admin"
+      element={
+        <ProtectedRoute requireAdmin>
+          <Suspense fallback={<LoadingFallback />}>
+            <Admin />
+          </Suspense>
+        </ProtectedRoute>
+      }
+    />
+    <Route path="/collections/nobody" element={<NobodyCollection />} />
+    <Route path="*" element={<NotFound />} />
+  </Routes>
+);
 
 const App = () => (
   <ErrorBoundary>
@@ -109,18 +101,15 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <BannerProvider>
-              <CartProvider>
-                <WishlistProvider>
-                  <CartDrawer />
-                  <WinSingletBanner />
-                  <FeedbackButton />
-                  <ErrorBoundary>
-                    <AppRoutes />
-                  </ErrorBoundary>
-                </WishlistProvider>
-              </CartProvider>
-            </BannerProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <CartDrawer />
+                <FeedbackButton />
+                <ErrorBoundary>
+                  <AppRoutes />
+                </ErrorBoundary>
+              </WishlistProvider>
+            </CartProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

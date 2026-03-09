@@ -85,17 +85,20 @@ const ProductCard = ({
         </button>
       )}
 
-      {/* Image Container */}
-      <Link to={`/product/${id}`} className="block relative aspect-[3/4] bg-secondary overflow-hidden">
-        <img 
-          src={image} 
-          alt={name} 
+      {/* Image Container - entire area links to product page */}
+      <Link
+        to={`/product/${id}`}
+        className="block relative aspect-[3/4] bg-secondary overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
+      >
+        <img
+          src={image}
+          alt={name}
           className="w-full h-full object-contain bg-secondary group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
 
         {/* Tags */}
-        <div className="absolute top-3 left-3 flex flex-col gap-2">
+        <div className="absolute top-3 left-3 flex flex-col gap-2 pointer-events-none">
           {isNew && (
             <span className="px-2 py-1 bg-accent text-accent-foreground text-[10px] font-bold uppercase tracking-wider">
               New
@@ -108,21 +111,21 @@ const ProductCard = ({
           )}
         </div>
 
-        {/* Stock Status */}
+        {/* Stock Status - pointer-events-none so clicks pass through to Link */}
         {!inStock && (
-          <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/60 flex items-center justify-center pointer-events-none">
             <span className="px-3 py-1.5 bg-foreground text-background text-xs font-semibold uppercase tracking-wide">
               Sold Out
             </span>
           </div>
         )}
 
-        {/* Quick Add */}
+        {/* Quick Add - has pointer-events, Button stops propagation */}
         {inStock && product && (
           <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <Button 
-              variant="default" 
-              size="sm" 
+            <Button
+              variant="default"
+              size="sm"
               className="w-full gap-2"
               onClick={handleAddToCart}
             >
@@ -133,18 +136,16 @@ const ProductCard = ({
         )}
       </Link>
 
-      {/* Product Info */}
-      <div className="p-4 space-y-1">
+      {/* Product Info - wrap in Link so clicking name/price opens product page */}
+      <Link to={`/product/${id}`} className="block p-4 space-y-1 hover:opacity-90 transition-opacity">
         {category && (
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
             {category}
           </p>
         )}
-        <Link to={`/product/${id}`}>
-          <h3 className="font-medium text-foreground text-sm leading-tight line-clamp-2 group-hover:text-accent transition-colors">
-            {name}
-          </h3>
-        </Link>
+        <h3 className="font-medium text-foreground text-sm leading-tight line-clamp-2 group-hover:text-accent transition-colors">
+          {name}
+        </h3>
         <div className="flex items-baseline gap-2 pt-1">
           <span className="font-display font-semibold text-foreground">
             ₱{price.toLocaleString()}
@@ -155,7 +156,7 @@ const ProductCard = ({
             </span>
           )}
         </div>
-      </div>
+      </Link>
     </div>
   );
 };

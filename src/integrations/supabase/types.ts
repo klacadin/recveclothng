@@ -274,6 +274,7 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          created_by_email: string | null
           description: string | null
           id: string
           image_url: string | null
@@ -285,10 +286,12 @@ export type Database = {
           sku: string | null
           stock_quantity: number
           updated_at: string
+          updated_by_email: string | null
         }
         Insert: {
           category?: string | null
           created_at?: string
+          created_by_email?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -300,6 +303,7 @@ export type Database = {
           sku?: string | null
           stock_quantity?: number
           updated_at?: string
+          updated_by_email?: string | null
         }
         Update: {
           category?: string | null
@@ -315,6 +319,31 @@ export type Database = {
           sku?: string | null
           stock_quantity?: number
           updated_at?: string
+          updated_by_email?: string | null
+        }
+        Relationships: []
+      }
+      event_carousel: {
+        Row: {
+          id: string
+          image_url: string
+          title: string
+          caption: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          image_url: string
+          title: string
+          caption?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          image_url?: string
+          title?: string
+          caption?: string | null
+          created_at?: string
         }
         Relationships: []
       }

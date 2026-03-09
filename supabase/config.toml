@@ -6,6 +6,9 @@ verify_jwt = true
 [functions.create-order]
 verify_jwt = false
 
+[functions.validate-voucher]
+verify_jwt = false
+
 [functions.send-order-email]
 verify_jwt = false
 
@@ -49,4 +52,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.fail-stale-pending-orders]
+verify_jwt = false
+
+[functions.create-jt-waybill]
 verify_jwt = false

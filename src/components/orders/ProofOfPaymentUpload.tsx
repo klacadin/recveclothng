@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, Loader2, CheckCircle, ImageIcon, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { MAX_UPLOAD_SIZE_BYTES } from '@/config/constants';
+import { compressImageForUpload } from '@/utils/compressImageForUpload';
 
 interface ProofOfPaymentUploadProps {
   orderId: string;
@@ -203,7 +205,7 @@ const ProofOfPaymentUpload = ({
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Accepted formats: JPG, PNG, WebP, GIF, PDF (max 10MB)
+            Accepted formats: JPG, PNG, WebP, GIF, PDF (max 2MB)
           </p>
         </div>
       </CardContent>

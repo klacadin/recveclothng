@@ -54,7 +54,7 @@ const Checkout = () => {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [step, setStep] = useState<CheckoutStep>('auth');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<CheckoutFormData>({
@@ -90,29 +90,44 @@ const Checkout = () => {
     if (!voucherApplied || !voucherCode.trim()) return;
     let cancelled = false;
     const validate = async () => {
-      const { data } = await supabase.functions.invoke<{
-        valid: boolean;
-        discount_amount: number;
-        message: string;
-      }>('validate-voucher', {
-        body: {
-          code: voucherCode.trim().toUpperCase(),
-          subtotal,
-          items: items.map((i) => ({
-            product_id: i.product.id,
-            quantity: i.quantity,
-            unit_price: i.product.price,
-            category: i.product.category ?? null,
-          })),
-        },
-      });
-      if (!cancelled && data?.valid) {
-        setVoucherDiscountAmount(data.discount_amount ?? 0);
-        setVoucherMessage(data.message ?? '');
-      } else if (!cancelled && data && !data.valid) {
-        setVoucherApplied(false);
-        setVoucherDiscountAmount(0);
-        setVoucherMessage('');
+      try {
+        const { data, error } = await supabase.functions.invoke<{
+          valid: boolean;
+          discount_amount: number;
+          message: string;
+        }>('validate-voucher', {
+          body: {
+            code: voucherCode.trim().toUpperCase(),
+            subtotal,
+            items: items.map((i) => ({
+              product_id: i.product.id,
+              quantity: i.quantity,
+              unit_price: i.product.price,
+              category: i.product.category ?? null,
+            })),
+          },
+        });
+        if (cancelled) return;
+        if (error) {
+          setVoucherApplied(false);
+          setVoucherDiscountAmount(0);
+          setVoucherMessage('');
+          return;
+        }
+        if (data?.valid) {
+          setVoucherDiscountAmount(data.discount_amount ?? 0);
+          setVoucherMessage(data.message ?? '');
+        } else if (data && !data.valid) {
+          setVoucherApplied(false);
+          setVoucherDiscountAmount(0);
+          setVoucherMessage('');
+        }
+      } catch {
+        if (!cancelled) {
+          setVoucherApplied(false);
+          setVoucherDiscountAmount(0);
+          setVoucherMessage('');
+        }
       }
     };
     validate();
@@ -126,10 +141,6 @@ const Checkout = () => {
       if (user?.email && !formData.customerEmail) {
         setFormData(prev => ({ ...prev, customerEmail: user.email! }));
       }
-      // COD is hidden - ensure a valid payment method is selected
-      if (formData.paymentMethod === 'cod') {
-        setFormData(prev => ({ ...prev, paymentMethod: 'gcash' }));
-      }
     }
   }, [user, authLoading]);
 
@@ -142,7 +153,7 @@ const Checkout = () => {
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (items.length === 0) {
       toast({
         title: 'Cart is empty',
@@ -165,8 +176,7 @@ const Checkout = () => {
       return;
     }
 
-    // Skip OTP for online payments (GCash/Maya/Bank Transfer)
-    // Only COD requires OTP, but COD is hidden, so skip OTP for all payment methods
+    // Skip OTP for all payment methods (simplified flow)
     handleOTPVerified();
   };
 
@@ -248,7 +258,7 @@ const Checkout = () => {
         title: 'Order placed successfully!',
         description: `Your order number is ${data.order_number}. We'll contact you soon.`,
       });
-      navigate('/order-confirmation', { state: { orderNumber: data.order_number } });
+      navigate('/order-confirmation', { state: { orderNumber: data.order_number, paymentMethod: 'cod' } });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to place order. Please try again.';
       toast({
@@ -439,7 +449,15 @@ const Checkout = () => {
                       value={formData.paymentMethod}
                       onValueChange={(value) => handleChange('paymentMethod', value)}
                     >
-                      {/* COD is hidden for now - only online payments available */}
+                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                        <RadioGroupItem value="cod" id="cod" />
+                        <Label htmlFor="cod" className="flex-1 cursor-pointer">
+                          <span className="flex items-center gap-2">
+                            J&T Cash on Delivery
+                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">COD</span>
+                          </span>
+                        </Label>
+                      </div>
                       <div className="flex items-center space-x-2 p-3 border rounded-lg bg-primary/5">
                         <RadioGroupItem value="gcash" id="gcash" />
                         <Label htmlFor="gcash" className="flex-1 cursor-pointer">
@@ -465,6 +483,11 @@ const Checkout = () => {
                         </Label>
                       </div>
                     </RadioGroup>
+                    {formData.paymentMethod === 'cod' && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Pay the J&T courier in cash when your order arrives.
+                      </p>
+                    )}
                     {(formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya' || formData.paymentMethod === 'bank_transfer') && (
                       <p className="text-xs text-muted-foreground mt-2">
                         {formData.paymentMethod === 'gcash' && 'Opens GCash app.'}
@@ -562,7 +585,12 @@ const Checkout = () => {
                                   })),
                                 },
                               });
-                              if (error) throw error;
+                              if (error) {
+                                const errMsg = typeof error === 'object' && error !== null && 'message' in error
+                                  ? String((error as { message?: string }).message)
+                                  : 'Function unavailable';
+                                throw new Error(errMsg);
+                              }
                               if (data?.valid) {
                                 setVoucherApplied(true);
                                 setVoucherCode(data.code ?? code);
@@ -576,10 +604,13 @@ const Checkout = () => {
                                   variant: 'destructive',
                                 });
                               }
-                            } catch {
+                            } catch (err) {
+                              const msg = err instanceof Error ? err.message : 'Please try again later.';
                               toast({
                                 title: 'Unable to validate',
-                                description: 'Please try again later.',
+                                description: msg.includes('Failed to fetch') || msg.includes('NetworkError')
+                                  ? 'Check your connection. Ensure the validate-voucher function is deployed.'
+                                  : msg,
                                 variant: 'destructive',
                               });
                             } finally {

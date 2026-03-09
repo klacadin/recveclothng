@@ -5,6 +5,33 @@
 
 ---
 
+## GitHub Actions Pipeline
+
+A CI/CD pipeline builds and deploys the app (including J&T COD) on every push to `main`.
+
+**Workflow:** `.github/workflows/deploy-cpanel.yml`
+
+### Triggers
+- Push to `main`
+- Manual run via **Actions** → **Deploy to cPanel** → **Run workflow**
+
+### Secrets (Settings → Secrets and variables → Actions)
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase anon key |
+| `FTP_HOST` | For FTP deploy | e.g. ftp.reveclothingxnobody.com |
+| `FTP_USER` | For FTP deploy | cPanel username |
+| `FTP_PASSWORD` | For FTP deploy | cPanel password |
+| `FTP_REMOTE_PATH` | Optional | Default: public_html |
+
+### Outputs
+- **Artifact:** `cpanel-deploy.zip` — Download from the workflow run for manual upload
+- **FTP deploy:** Automatic upload when FTP secrets are configured
+
+---
+
 ## Prerequisites
 
 - ✅ cPanel access
@@ -300,6 +327,13 @@ The build includes:
 - ✅ Browser caching (via .htaccess)
 - ✅ Image optimization (WebP support)
 - ✅ Service worker caching (PWA)
+
+---
+
+## J&T COD Integration
+
+- **J&T Order API reference:** [docs/JT_ORDER_API.md](docs/JT_ORDER_API.md) — For future waybill API integration
+- **VIP portal:** [vip.jtexpress.ph](https://vip.jtexpress.ph) — Quick Order, Order Waybill
 
 ---
 
