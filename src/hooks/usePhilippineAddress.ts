@@ -80,6 +80,8 @@ export async function fetchBarangays(cityMunicipalityCode: string): Promise<PSGC
 export interface AddressSelections {
   regionCode: string;
   regionName: string;
+  /** PSGC island group code (usually 01 Luzon, 02 Visayas, 03 Mindanao) */
+  islandGroupCode: string;
   provinceCode: string;
   provinceName: string;
   cityCode: string;

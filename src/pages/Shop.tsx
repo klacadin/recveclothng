@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Filter, ChevronDown, Search, X, ArrowUpDown, ArrowRight } from "lucide-react";
 import { useActiveProducts, isProductNew } from "@/hooks/useProducts";
+import { useProductsSoldCount } from "@/hooks/useProductSoldCount";
 import { useProductCategories } from "@/hooks/useCategories";
 import { getProductDisplayImage } from "@/data/productImages";
 
@@ -66,6 +67,8 @@ const Shop = () => {
 
   const { data: allProducts = [], isLoading: productsLoading } = useActiveProducts();
   const { data: dbCategories = [] } = useProductCategories();
+  const productIds = useMemo(() => allProducts.map((p) => p.id), [allProducts]);
+  const { soldCountByProductId } = useProductsSoldCount(productIds);
 
   // Categories from DB, or fallback to canonical product categories when DB is empty
   const categories = useMemo(() => {
@@ -210,11 +213,10 @@ const Shop = () => {
                   <button
                     key={cat.slug}
                     onClick={() => handleCategoryChange(cat.slug)}
-                    className={`group relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all duration-300 text-left ${
-                      isSelected
+                    className={`group relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all duration-300 text-left ${isSelected
                         ? "border-foreground ring-2 ring-foreground/20"
                         : "border-border hover:border-foreground/50 hover:shadow-lg"
-                    }`}
+                      }`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-secondary to-secondary" />
                     <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-5 min-h-0">
@@ -320,8 +322,8 @@ const Shop = () => {
                           );
                         }}
                         className={`px-3 py-1.5 text-xs font-medium border rounded transition-colors ${selectedSizes.includes(size)
-                            ? "bg-foreground text-background border-foreground"
-                            : "bg-background text-foreground border-border hover:border-foreground"
+                          ? "bg-foreground text-background border-foreground"
+                          : "bg-background text-foreground border-border hover:border-foreground"
                           }`}
                       >
                         {size}
@@ -355,21 +357,22 @@ const Shop = () => {
                 <p className="text-muted-foreground mt-2">Loading products...</p>
               </div>
             ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                id={product.id}
-                name={product.name}
-                price={Number(product.price)}
-                image={getProductDisplayImage(product)}
-                category={product.category || undefined}
-                isNew={isProductNew(product.created_at)}
-                inStock={(product.stock_quantity ?? 0) > 0}
-                product={product}
-              />
-            ))}
-            </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    id={product.id}
+                    name={product.name}
+                    price={Number(product.price)}
+                    image={getProductDisplayImage(product)}
+                    category={product.category || undefined}
+                    isNew={isProductNew(product.created_at)}
+                    inStock={(product.stock_quantity ?? 0) > 0}
+                    soldCount={soldCountByProductId.get(product.id) ?? 0}
+                    product={product}
+                  />
+                ))}
+              </div>
             )}
           </section>
 

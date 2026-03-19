@@ -9,6 +9,7 @@ export const SERVER_BASE_URL = 'https://reveclothingxnobody.com';
 export const BASE_URL = SERVER_BASE_URL;
 
 // Checkout fees (from REVE CLOTHING spreadsheet)
+// SHIPPING_FEE: fallback only — actual shipping is J&T weight/zone-based (see Checkout + create-order).
 export const SHIPPING_FEE = 130;
 export const CONVENIENCE_FEE = 38;
 

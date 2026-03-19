@@ -10,7 +10,7 @@ const Shipping = () => {
     <div className="min-h-screen bg-background">
       <SEO
         title="Shipping Information"
-        description="REVE Clothing ships nationwide via J&T Express. Free shipping on orders ₱1,500+. Flat rate ₱130 shipping. 3-7 business days delivery. COD available."
+        description="REVE Clothing ships nationwide via J&T Express. Shipping fee varies based on total parcel weight and destination. 3-7 business days delivery. COD available."
         url="/shipping"
       />
       <Header />
@@ -46,8 +46,8 @@ const Shipping = () => {
             <Card className="text-center">
               <CardContent className="pt-6">
                 <CreditCard className="h-8 w-8 mx-auto mb-3 text-accent" />
-                <p className="font-semibold">Flat Rate</p>
-                <p className="text-sm text-muted-foreground">₱130 nationwide</p>
+                <p className="font-semibold">Weight-based</p>
+                <p className="text-sm text-muted-foreground">Depends on weight + location</p>
               </CardContent>
             </Card>
             <Card className="text-center">
@@ -80,24 +80,32 @@ const Shipping = () => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-3 font-semibold">Order Total</th>
-                        <th className="text-left py-3 font-semibold">Shipping Fee</th>
+                        <th className="text-left py-3 font-semibold">Weight</th>
+                        <th className="text-left py-3 font-semibold">Shipping Fee (starts from)</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr className="border-b border-border/50">
-                        <td className="py-3">Below ₱1,500</td>
-                        <td className="py-3">₱130</td>
+                        <td className="py-3">≤ 0.5kg</td>
+                        <td className="py-3">₱85+</td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-3">0.5kg–1kg</td>
+                        <td className="py-3">₱155+</td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-3">1kg–3kg</td>
+                        <td className="py-3">₱180+</td>
                       </tr>
                       <tr className="border-b border-border/50 bg-accent/5">
-                        <td className="py-3 font-medium">₱1,500 and above</td>
-                        <td className="py-3 font-medium text-accent">FREE</td>
+                        <td className="py-3 font-medium">3kg–6kg</td>
+                        <td className="py-3 font-medium text-accent">Calculated at checkout</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  * Shipping fees are calculated at checkout based on your order total.
+                  * Shipping fees are calculated at checkout based on total parcel weight (quantity included) and destination.
                 </p>
               </CardContent>
             </Card>

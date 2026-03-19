@@ -47,6 +47,43 @@ interface ReservedItem {
   size: ProductSize;
 }
 
+type DestinationZone = 'mindanao' | 'visayas' | 'luzon' | 'metro_manila' | 'island';
+
+function zoneFromShippingAddress(addr: string): DestinationZone {
+  const a = (addr || '').toLowerCase();
+  // Best-effort parsing. For accurate zoning, pass region codes in a future iteration.
+  if (a.includes('metro manila') || a.includes('ncr') || a.includes('national capital region')) return 'metro_manila';
+  if (a.includes('visayas')) return 'visayas';
+  if (a.includes('mindanao') || a.includes('bukidnon') || a.includes('davao') || a.includes('cagayan de oro')) return 'mindanao';
+  if (a.includes('luzon')) return 'luzon';
+  return 'island';
+}
+
+function jtMindanaoOriginRatePhp(totalWeightGrams: number, zone: DestinationZone): number | null {
+  const wKg = Math.max(0, totalWeightGrams) / 1000;
+  const bracket: '0_0_5' | '0_5_1' | '1_3' | '3_4' | '4_5' | '5_6' | 'over_6' =
+    wKg <= 0.5 ? '0_0_5'
+      : wKg <= 1 ? '0_5_1'
+        : wKg <= 3 ? '1_3'
+          : wKg <= 4 ? '3_4'
+            : wKg <= 5 ? '4_5'
+              : wKg <= 6 ? '5_6'
+                : 'over_6';
+
+  if (bracket === 'over_6') return null;
+
+  const rates = {
+    '0_0_5': { mindanao: 85, luzon: 105, metro_manila: 105, visayas: 105, island: 115 },
+    '0_5_1': { mindanao: 155, luzon: 195, metro_manila: 195, visayas: 175, island: 205 },
+    '1_3': { mindanao: 180, luzon: 215, metro_manila: 215, visayas: 195, island: 230 },
+    '3_4': { mindanao: 270, luzon: 325, metro_manila: 325, visayas: 285, island: 340 },
+    '4_5': { mindanao: 360, luzon: 435, metro_manila: 435, visayas: 375, island: 450 },
+    '5_6': { mindanao: 455, luzon: 545, metro_manila: 545, visayas: 470, island: 560 },
+  } as const;
+
+  return rates[bracket][zone];
+}
+
 // Extract client IP from request headers
 function getClientIP(req: Request): string {
   const forwarded = req.headers.get('x-forwarded-for');
@@ -69,7 +106,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     // Use service role to bypass RLS for order operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -287,7 +324,7 @@ serve(async (req) => {
       serverSubtotal += itemTotal;
 
       // Build SKU with variant suffix if available
-      const fullSku = result.variant_sku_suffix 
+      const fullSku = result.variant_sku_suffix
         ? `${result.product_sku}-${result.variant_sku_suffix}`
         : result.product_sku;
 
@@ -305,7 +342,52 @@ serve(async (req) => {
     }
 
     // SECURITY: Calculate server-side total
-    const shippingFee = Math.max(0, Math.min(orderData.shipping_fee, 10000)); // Cap shipping fee
+    // SECURITY: Compute shipping fee from database weights (ignore client-provided shipping_fee).
+    const productIds = Array.from(new Set(reservedItems.map((r) => r.product_id)));
+    const { data: weightRows, error: weightErr } = await supabase
+      .from('products')
+      .select('id, weight_grams')
+      .in('id', productIds);
+    if (weightErr) {
+      console.error('Failed to load product weights:', weightErr);
+      // Rollback reserved stock
+      for (const reserved of reservedItems) {
+        await supabase.rpc('restore_variant_stock', {
+          _product_id: reserved.product_id,
+          _size: reserved.size,
+          _quantity: reserved.quantity
+        });
+      }
+      return new Response(
+        JSON.stringify({ error: 'Failed to process order (weights unavailable)' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const weightById = new Map((weightRows ?? []).map((r: { id: string; weight_grams: number | null }) => [r.id, r.weight_grams ?? 250]));
+    const totalWeightGrams = reservedItems.reduce((sum, item) => {
+      const w = weightById.get(item.product_id) ?? 250;
+      return sum + Math.max(0, Number(w)) * item.quantity;
+    }, 0);
+
+    const zone = zoneFromShippingAddress(orderData.shipping_address);
+    const computedShippingFee = jtMindanaoOriginRatePhp(totalWeightGrams, zone);
+    if (computedShippingFee == null) {
+      // Rollback reserved stock
+      for (const reserved of reservedItems) {
+        await supabase.rpc('restore_variant_stock', {
+          _product_id: reserved.product_id,
+          _size: reserved.size,
+          _quantity: reserved.quantity
+        });
+      }
+      return new Response(
+        JSON.stringify({ error: 'Shipping weight too heavy. Please contact support for a custom quote.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const shippingFee = Math.max(0, Math.min(computedShippingFee, 10000)); // Cap shipping fee
     let serverTotal = serverSubtotal + shippingFee;
 
     // Apply voucher discount: check DB first, fallback to TEST99
@@ -576,9 +658,9 @@ serve(async (req) => {
       }
     }
 
-    const response: Record<string, unknown> = { 
-      success: true, 
-      order_id: order.id, 
+    const response: Record<string, unknown> = {
+      success: true,
+      order_id: order.id,
       order_number: orderNumber,
       total: serverTotal
     };

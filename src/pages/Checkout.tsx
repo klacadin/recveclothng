@@ -26,6 +26,7 @@ const checkoutSchema = z.object({
   addressSelections: z.object({
     regionCode: z.string(),
     regionName: z.string().optional(),
+    islandGroupCode: z.string().optional(),
     provinceCode: z.string(),
     provinceName: z.string().optional(),
     cityCode: z.string(),
@@ -65,6 +66,7 @@ const Checkout = () => {
     addressSelections: {
       regionCode: '',
       regionName: '',
+      islandGroupCode: '',
       provinceCode: '',
       provinceName: '',
       cityCode: '',
@@ -82,8 +84,58 @@ const Checkout = () => {
   const [voucherMessage, setVoucherMessage] = useState('');
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
 
+  // Shipping is computed from total weight + destination zone (J&T tiers).
+  // Fallback to flat SHIPPING_FEE until customer selects a region.
+  const totalItemQty = items.reduce((sum, i) => sum + i.quantity, 0);
+  const totalWeightGrams = items.reduce((sum, i) => {
+    const w = Number((i.product as any).weight_grams ?? 250);
+    return sum + Math.max(0, w) * i.quantity;
+  }, 0);
+
+  const destinationZone = (() => {
+    const a = formData.addressSelections;
+    if (a.regionCode === '130000000') return 'metro_manila' as const;
+    const ig = (a as any).islandGroupCode as string | undefined;
+    if (ig === '01') return 'luzon' as const;
+    if (ig === '02') return 'visayas' as const;
+    if (ig === '03') return 'mindanao' as const;
+    return 'island' as const;
+  })();
+
+  const computedShippingFee = (() => {
+    // No region selected yet → show existing flat fee
+    if (!formData.addressSelections.regionCode) return SHIPPING_FEE;
+
+    const wKg = totalWeightGrams / 1000;
+    const bracket: '0_0_5' | '0_5_1' | '1_3' | '3_4' | '4_5' | '5_6' | 'over_6' =
+      wKg <= 0.5 ? '0_0_5'
+        : wKg <= 1 ? '0_5_1'
+          : wKg <= 3 ? '1_3'
+            : wKg <= 4 ? '3_4'
+              : wKg <= 5 ? '4_5'
+                : wKg <= 6 ? '5_6'
+                  : 'over_6';
+
+    if (bracket === 'over_6') return 999999; // handled by UI validation below
+
+    // J&T PH public rates (origin: Mindanao) by weight bracket and destination zone.
+    // Source used during implementation: public rate tables (may change over time).
+    const rates = {
+      '0_0_5': { mindanao: 85, luzon: 105, metro_manila: 105, visayas: 105, island: 115 },
+      '0_5_1': { mindanao: 155, luzon: 195, metro_manila: 195, visayas: 175, island: 205 },
+      '1_3': { mindanao: 180, luzon: 215, metro_manila: 215, visayas: 195, island: 230 },
+      '3_4': { mindanao: 270, luzon: 325, metro_manila: 325, visayas: 285, island: 340 },
+      '4_5': { mindanao: 360, luzon: 435, metro_manila: 435, visayas: 375, island: 450 },
+      '5_6': { mindanao: 455, luzon: 545, metro_manila: 545, visayas: 470, island: 560 },
+    } as const;
+
+    return rates[bracket][destinationZone];
+  })();
+
+  const shippingFee = computedShippingFee === 999999 ? SHIPPING_FEE : computedShippingFee;
+
   // Discount applies to subtotal only — never to shipping or convenience fee
-  const total = Math.max(1, subtotal - voucherDiscountAmount + SHIPPING_FEE + CONVENIENCE_FEE);
+  const total = Math.max(1, subtotal - voucherDiscountAmount + shippingFee + CONVENIENCE_FEE);
 
   // Re-validate voucher when subtotal changes (e.g. cart updated) if voucher is applied
   useEffect(() => {
@@ -163,6 +215,16 @@ const Checkout = () => {
       return;
     }
 
+    // Guardrail: J&T public rate table used here only covers up to 6kg.
+    if (computedShippingFee === 999999) {
+      toast({
+        title: 'Shipping weight too heavy',
+        description: `Your cart is about ${(totalWeightGrams / 1000).toFixed(2)}kg (${totalItemQty} item${totalItemQty === 1 ? '' : 's'}). Please contact us for a custom shipping quote.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Validate form
     const result = checkoutSchema.safeParse(formData);
     if (!result.success) {
@@ -193,7 +255,7 @@ const Checkout = () => {
         notes: formData.notes || null,
         payment_method: formData.paymentMethod,
         subtotal,
-        shipping_fee: SHIPPING_FEE,
+        shipping_fee: shippingFee,
         total,
         voucher_code: voucherApplied ? voucherCode.trim() : null,
         user_id: user?.id || null, // Link order to authenticated user
@@ -532,7 +594,7 @@ const Checkout = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Shipping</span>
-                        <span>₱{SHIPPING_FEE.toFixed(2)}</span>
+                        <span>₱{shippingFee.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Convenience fee</span>
