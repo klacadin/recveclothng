@@ -81,31 +81,29 @@ const Shipping = () => {
                     <thead>
                       <tr className="border-b">
                         <th className="text-left py-3 font-semibold">Weight</th>
-                        <th className="text-left py-3 font-semibold">Shipping Fee (starts from)</th>
+                        <th className="text-center py-3 font-semibold">NCR</th>
+                        <th className="text-center py-3 font-semibold">Luzon</th>
+                        <th className="text-center py-3 font-semibold">Visayas</th>
+                        <th className="text-center py-3 font-semibold">Mindanao</th>
+                        <th className="text-center py-3 font-semibold">Island</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="border-b border-border/50">
-                        <td className="py-3">≤ 0.5kg</td>
-                        <td className="py-3">₱85+</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-3">0.5kg–1kg</td>
-                        <td className="py-3">₱155+</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-3">1kg–3kg</td>
-                        <td className="py-3">₱180+</td>
-                      </tr>
-                      <tr className="border-b border-border/50 bg-accent/5">
-                        <td className="py-3 font-medium">3kg–6kg</td>
-                        <td className="py-3 font-medium text-accent">Calculated at checkout</td>
-                      </tr>
+                      <tr className="border-b border-border/50"><td className="py-2">0g – 500g</td><td className="text-center py-2">105</td><td className="text-center py-2">105</td><td className="text-center py-2">105</td><td className="text-center py-2">85</td><td className="text-center py-2">115</td></tr>
+                      <tr className="border-b border-border/50"><td className="py-2">501g – 1kg</td><td className="text-center py-2">195</td><td className="text-center py-2">195</td><td className="text-center py-2">175</td><td className="text-center py-2">155</td><td className="text-center py-2">185</td></tr>
+                      <tr className="border-b border-border/50"><td className="py-2">1.01kg – 3kg</td><td className="text-center py-2">215</td><td className="text-center py-2">215</td><td className="text-center py-2">195</td><td className="text-center py-2">180</td><td className="text-center py-2">205</td></tr>
+                      <tr className="border-b border-border/50"><td className="py-2">3.01kg – 4kg</td><td className="text-center py-2">325</td><td className="text-center py-2">325</td><td className="text-center py-2">285</td><td className="text-center py-2">270</td><td className="text-center py-2">295</td></tr>
+                      <tr className="border-b border-border/50"><td className="py-2">4.01kg – 5kg</td><td className="text-center py-2">370</td><td className="text-center py-2">370</td><td className="text-center py-2">370</td><td className="text-center py-2">360</td><td className="text-center py-2">380</td></tr>
+                      <tr className="border-b border-border/50"><td className="py-2">5.01kg – 6kg</td><td className="text-center py-2">435</td><td className="text-center py-2">435</td><td className="text-center py-2">435</td><td className="text-center py-2">435</td><td className="text-center py-2">445</td></tr>
+                      <tr className="border-b border-border/50"><td className="py-2">6.01kg – 7kg</td><td className="text-center py-2">505</td><td className="text-center py-2">505</td><td className="text-center py-2">505</td><td className="text-center py-2">505</td><td className="text-center py-2">515</td></tr>
+                      <tr className="border-b border-border/50"><td className="py-2">7.01kg – 8kg</td><td className="text-center py-2">575</td><td className="text-center py-2">575</td><td className="text-center py-2">575</td><td className="text-center py-2">575</td><td className="text-center py-2">585</td></tr>
+                      <tr className="border-b border-border/50"><td className="py-2">8.01kg – 9kg</td><td className="text-center py-2">645</td><td className="text-center py-2">645</td><td className="text-center py-2">645</td><td className="text-center py-2">645</td><td className="text-center py-2">655</td></tr>
+                      <tr className="border-b border-border/50 bg-accent/5"><td className="py-2 font-medium">9.01kg – 10kg</td><td className="text-center py-2 font-medium">715</td><td className="text-center py-2 font-medium">715</td><td className="text-center py-2 font-medium">715</td><td className="text-center py-2 font-medium">715</td><td className="text-center py-2 font-medium">725</td></tr>
                     </tbody>
                   </table>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  * Shipping fees are calculated at checkout based on total parcel weight (quantity included) and destination.
+                  * All amounts in Philippine pesos (₱). Origin: Mindanao. Above 10kg total parcel weight, checkout adds ₱70 per started kg to the 9.01kg–10kg rate for your destination. Fees are computed from product weights × quantity and your shipping region.
                 </p>
               </CardContent>
             </Card>

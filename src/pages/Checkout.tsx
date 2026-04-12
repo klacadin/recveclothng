@@ -13,6 +13,10 @@ import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 // OTP verification removed - only COD requires it, but COD is hidden for now
 import { SHIPPING_FEE, CONVENIENCE_FEE } from '@/config/constants';
+import {
+  computeJtMindanaoOriginShippingPhp,
+  type JtDestinationZone,
+} from '@/utils/jtMindanaoShippingRates';
 import PhilippineAddressSelect from '@/components/checkout/PhilippineAddressSelect';
 import { buildAddressString } from '@/hooks/usePhilippineAddress';
 import { getProductDisplayImage } from '@/data/productImages';
@@ -86,53 +90,28 @@ const Checkout = () => {
 
   // Shipping is computed from total weight + destination zone (J&T tiers).
   // Fallback to flat SHIPPING_FEE until customer selects a region.
-  const totalItemQty = items.reduce((sum, i) => sum + i.quantity, 0);
   const totalWeightGrams = items.reduce((sum, i) => {
     const w = Number((i.product as any).weight_grams ?? 250);
     return sum + Math.max(0, w) * i.quantity;
   }, 0);
 
-  const destinationZone = (() => {
+  const destinationZone: JtDestinationZone = (() => {
     const a = formData.addressSelections;
-    if (a.regionCode === '130000000') return 'metro_manila' as const;
-    const ig = (a as any).islandGroupCode as string | undefined;
-    if (ig === '01') return 'luzon' as const;
-    if (ig === '02') return 'visayas' as const;
-    if (ig === '03') return 'mindanao' as const;
-    return 'island' as const;
+    if (a.regionCode === '130000000') return 'metro_manila';
+    const ig = (a as { islandGroupCode?: string }).islandGroupCode;
+    if (ig === '01') return 'luzon';
+    if (ig === '02') return 'visayas';
+    if (ig === '03') return 'mindanao';
+    return 'island';
   })();
 
+  // Mindanao-origin J&T merchant table (see `jtMindanaoShippingRates.ts`). Auto-calculates by total grams + zone.
   const computedShippingFee = (() => {
-    // No region selected yet → show existing flat fee
     if (!formData.addressSelections.regionCode) return SHIPPING_FEE;
-
-    const wKg = totalWeightGrams / 1000;
-    const bracket: '0_0_5' | '0_5_1' | '1_3' | '3_4' | '4_5' | '5_6' | 'over_6' =
-      wKg <= 0.5 ? '0_0_5'
-        : wKg <= 1 ? '0_5_1'
-          : wKg <= 3 ? '1_3'
-            : wKg <= 4 ? '3_4'
-              : wKg <= 5 ? '4_5'
-                : wKg <= 6 ? '5_6'
-                  : 'over_6';
-
-    if (bracket === 'over_6') return 999999; // handled by UI validation below
-
-    // J&T PH public rates (origin: Mindanao) by weight bracket and destination zone.
-    // Source used during implementation: public rate tables (may change over time).
-    const rates = {
-      '0_0_5': { mindanao: 85, luzon: 105, metro_manila: 105, visayas: 105, island: 115 },
-      '0_5_1': { mindanao: 155, luzon: 195, metro_manila: 195, visayas: 175, island: 205 },
-      '1_3': { mindanao: 180, luzon: 215, metro_manila: 215, visayas: 195, island: 230 },
-      '3_4': { mindanao: 270, luzon: 325, metro_manila: 325, visayas: 285, island: 340 },
-      '4_5': { mindanao: 360, luzon: 435, metro_manila: 435, visayas: 375, island: 450 },
-      '5_6': { mindanao: 455, luzon: 545, metro_manila: 545, visayas: 470, island: 560 },
-    } as const;
-
-    return rates[bracket][destinationZone];
+    return computeJtMindanaoOriginShippingPhp(totalWeightGrams, destinationZone);
   })();
 
-  const shippingFee = computedShippingFee === 999999 ? SHIPPING_FEE : computedShippingFee;
+  const shippingFee = computedShippingFee;
 
   // Discount applies to subtotal only — never to shipping or convenience fee
   const total = Math.max(1, subtotal - voucherDiscountAmount + shippingFee + CONVENIENCE_FEE);
@@ -215,16 +194,6 @@ const Checkout = () => {
       return;
     }
 
-    // Guardrail: J&T public rate table used here only covers up to 6kg.
-    if (computedShippingFee === 999999) {
-      toast({
-        title: 'Shipping weight too heavy',
-        description: `Your cart is about ${(totalWeightGrams / 1000).toFixed(2)}kg (${totalItemQty} item${totalItemQty === 1 ? '' : 's'}). Please contact us for a custom shipping quote.`,
-        variant: 'destructive',
-      });
-      return;
-    }
-
     // Validate form
     const result = checkoutSchema.safeParse(formData);
     if (!result.success) {
@@ -252,6 +221,7 @@ const Checkout = () => {
         customer_email: formData.customerEmail,
         customer_phone: formData.customerPhone,
         shipping_address: buildAddressString(formData.streetAddress, formData.addressSelections),
+        destination_zone: destinationZone,
         notes: formData.notes || null,
         payment_method: formData.paymentMethod,
         subtotal,
