@@ -11,6 +11,7 @@ import type { Product, ProductInsert } from '@/hooks/useProducts';
 import SizeStockInput from './SizeStockInput';
 import { type SizeStock, type ProductVariant, variantsToSizeStock } from '@/hooks/useProductVariants';
 import { useProductCategories } from '@/hooks/useCategories';
+import { DEFAULT_PRODUCT_WEIGHT_GRAMS } from '@/config/constants';
 
 interface ProductFormProps {
   product?: Product | null;
@@ -31,7 +32,7 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
     images: [],
     stock_quantity: 0,
     low_stock_threshold: 10,
-    weight_grams: 250,
+    weight_grams: DEFAULT_PRODUCT_WEIGHT_GRAMS,
     is_active: true,
   });
   const [sizeStocks, setSizeStocks] = useState<SizeStock>({ XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 });
@@ -53,7 +54,7 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
         images: (product as any).images || [],
         stock_quantity: product.stock_quantity,
         low_stock_threshold: product.low_stock_threshold,
-        weight_grams: (product as any).weight_grams ?? 250,
+        weight_grams: (product as any).weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS,
         is_active: product.is_active,
       });
     }
@@ -190,8 +191,8 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
                 type="number"
                 min="1"
                 step="1"
-                value={(formData as any).weight_grams ?? 250}
-                onChange={(e) => setFormData({ ...(formData as any), weight_grams: parseInt(e.target.value, 10) || 250 })}
+                value={(formData as any).weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS}
+                onChange={(e) => setFormData({ ...(formData as any), weight_grams: parseInt(e.target.value, 10) || DEFAULT_PRODUCT_WEIGHT_GRAMS })}
                 required
               />
             </div>

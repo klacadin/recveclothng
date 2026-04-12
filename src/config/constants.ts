@@ -16,6 +16,9 @@ export const CONVENIENCE_FEE = 38;
 /** Merchandise subtotal (pre-voucher) at or above this → ₱0 shipping (COD and online use the same rule). */
 export const FREE_SHIPPING_MIN_SUBTOTAL = 1500;
 
+/** Default weight per product line item for shipping when unset (0.5 kg). Sync with create-order fallback. */
+export const DEFAULT_PRODUCT_WEIGHT_GRAMS = 500;
+
 // Test voucher for low-cost payment testing (99% off)
 export const TEST_VOUCHER_CODE = 'TEST99';
 export const TEST_VOUCHER_DISCOUNT_PERCENT = 99;

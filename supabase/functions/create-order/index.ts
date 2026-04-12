@@ -10,6 +10,8 @@ const corsHeaders = {
 const CONVENIENCE_FEE_PHP = 38;
 /** Sync with `src/config/constants.ts` FREE_SHIPPING_MIN_SUBTOTAL — merchandise subtotal before voucher. */
 const FREE_SHIPPING_MIN_SUBTOTAL_PHP = 1500;
+/** Sync with `src/config/constants.ts` DEFAULT_PRODUCT_WEIGHT_GRAMS (0.5 kg per line item when unset). */
+const DEFAULT_PRODUCT_WEIGHT_GRAMS = 500;
 
 type ProductSize = 'XS' | 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 
@@ -378,9 +380,9 @@ serve(async (req) => {
       );
     }
 
-    const weightById = new Map((weightRows ?? []).map((r: { id: string; weight_grams: number | null }) => [r.id, r.weight_grams ?? 250]));
+    const weightById = new Map((weightRows ?? []).map((r: { id: string; weight_grams: number | null }) => [r.id, r.weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS]));
     const totalWeightGrams = reservedItems.reduce((sum, item) => {
-      const w = weightById.get(item.product_id) ?? 250;
+      const w = weightById.get(item.product_id) ?? DEFAULT_PRODUCT_WEIGHT_GRAMS;
       return sum + Math.max(0, Number(w)) * item.quantity;
     }, 0);
 

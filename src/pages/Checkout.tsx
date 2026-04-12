@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 // OTP verification removed - only COD requires it, but COD is hidden for now
-import { CONVENIENCE_FEE, FREE_SHIPPING_MIN_SUBTOTAL } from '@/config/constants';
+import { CONVENIENCE_FEE, DEFAULT_PRODUCT_WEIGHT_GRAMS, FREE_SHIPPING_MIN_SUBTOTAL } from '@/config/constants';
 import {
   resolveCheckoutShippingFeePhp,
   type JtDestinationZone,
@@ -90,7 +90,7 @@ const Checkout = () => {
 
   // Shipping: total weight + destination zone (J&T Mindanao-origin table), same for all payment methods.
   const totalWeightGrams = items.reduce((sum, i) => {
-    const w = Number((i.product as any).weight_grams ?? 250);
+    const w = Number((i.product as any).weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS);
     return sum + Math.max(0, w) * i.quantity;
   }, 0);
 
