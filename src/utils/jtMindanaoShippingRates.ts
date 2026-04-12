@@ -1,3 +1,5 @@
+import { FREE_SHIPPING_MIN_SUBTOTAL, SHIPPING_FEE } from '@/config/constants';
+
 /**
  * J&T-style shipping from Mindanao origin (₱ PHP).
  * Brackets match merchant table: 0–500g, 501g–1kg, 1.01kg–3kg … 9.01kg–10kg;
@@ -36,4 +38,21 @@ export function computeJtMindanaoOriginShippingPhp(
   const base = last.rates[zone];
   const extraBands = Math.ceil(wKg - 10);
   return base + INCREMENT_PER_KG_ABOVE_10 * extraBands;
+}
+
+/**
+ * Shipping fee for checkout and orders — identical for COD, GCash, Maya, and bank transfer.
+ * Uses free-shipping threshold on merchandise subtotal (before voucher), then J&T table when region is known.
+ */
+export function resolveCheckoutShippingFeePhp(params: {
+  totalWeightGrams: number;
+  zone: JtDestinationZone;
+  /** Cart merchandise subtotal before voucher discount */
+  merchandiseSubtotal: number;
+  hasSelectedRegion: boolean;
+}): number {
+  const { totalWeightGrams, zone, merchandiseSubtotal, hasSelectedRegion } = params;
+  if (merchandiseSubtotal >= FREE_SHIPPING_MIN_SUBTOTAL) return 0;
+  if (!hasSelectedRegion) return SHIPPING_FEE;
+  return computeJtMindanaoOriginShippingPhp(totalWeightGrams, zone);
 }

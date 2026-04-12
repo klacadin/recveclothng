@@ -6,6 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-forwarded-for, x-real-ip',
 };
 
+/** Sync with `src/config/constants.ts` — included in order total for COD and online (HitPay) alike. */
+const CONVENIENCE_FEE_PHP = 38;
+/** Sync with `src/config/constants.ts` FREE_SHIPPING_MIN_SUBTOTAL — merchandise subtotal before voucher. */
+const FREE_SHIPPING_MIN_SUBTOTAL_PHP = 1500;
+
 type ProductSize = 'XS' | 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 
 interface OrderItem {
@@ -379,11 +384,15 @@ serve(async (req) => {
       return sum + Math.max(0, Number(w)) * item.quantity;
     }, 0);
 
+    // Shipping: same rules for COD and online (GCash / Maya / bank) — payment_method is not used here.
     const zone = resolveDestinationZone(orderData);
-    const computedShippingFee = jtMindanaoOriginRatePhp(totalWeightGrams, zone);
+    let weightBasedShipping = jtMindanaoOriginRatePhp(totalWeightGrams, zone);
+    const shippingFee =
+      serverSubtotal >= FREE_SHIPPING_MIN_SUBTOTAL_PHP
+        ? 0
+        : Math.max(0, Math.min(weightBasedShipping, 10000));
 
-    const shippingFee = Math.max(0, Math.min(computedShippingFee, 10000)); // Cap shipping fee
-    let serverTotal = serverSubtotal + shippingFee;
+    let serverTotal = serverSubtotal + shippingFee + CONVENIENCE_FEE_PHP;
 
     // Apply voucher discount: check DB first, fallback to TEST99
     const voucherCode = (orderData.voucher_code || '').trim().toUpperCase();

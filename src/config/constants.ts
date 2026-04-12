@@ -13,6 +13,9 @@ export const BASE_URL = SERVER_BASE_URL;
 export const SHIPPING_FEE = 130;
 export const CONVENIENCE_FEE = 38;
 
+/** Merchandise subtotal (pre-voucher) at or above this → ₱0 shipping (COD and online use the same rule). */
+export const FREE_SHIPPING_MIN_SUBTOTAL = 1500;
+
 // Test voucher for low-cost payment testing (99% off)
 export const TEST_VOUCHER_CODE = 'TEST99';
 export const TEST_VOUCHER_DISCOUNT_PERCENT = 99;

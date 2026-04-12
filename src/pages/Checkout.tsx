@@ -12,9 +12,9 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 // OTP verification removed - only COD requires it, but COD is hidden for now
-import { SHIPPING_FEE, CONVENIENCE_FEE } from '@/config/constants';
+import { CONVENIENCE_FEE, FREE_SHIPPING_MIN_SUBTOTAL } from '@/config/constants';
 import {
-  computeJtMindanaoOriginShippingPhp,
+  resolveCheckoutShippingFeePhp,
   type JtDestinationZone,
 } from '@/utils/jtMindanaoShippingRates';
 import PhilippineAddressSelect from '@/components/checkout/PhilippineAddressSelect';
@@ -88,8 +88,7 @@ const Checkout = () => {
   const [voucherMessage, setVoucherMessage] = useState('');
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
 
-  // Shipping is computed from total weight + destination zone (J&T tiers).
-  // Fallback to flat SHIPPING_FEE until customer selects a region.
+  // Shipping: total weight + destination zone (J&T Mindanao-origin table), same for all payment methods.
   const totalWeightGrams = items.reduce((sum, i) => {
     const w = Number((i.product as any).weight_grams ?? 250);
     return sum + Math.max(0, w) * i.quantity;
@@ -105,13 +104,13 @@ const Checkout = () => {
     return 'island';
   })();
 
-  // Mindanao-origin J&T merchant table (see `jtMindanaoShippingRates.ts`). Auto-calculates by total grams + zone.
-  const computedShippingFee = (() => {
-    if (!formData.addressSelections.regionCode) return SHIPPING_FEE;
-    return computeJtMindanaoOriginShippingPhp(totalWeightGrams, destinationZone);
-  })();
-
-  const shippingFee = computedShippingFee;
+  // Same shipping rules for COD and online (GCash / Maya / bank): free ship threshold, then J&T table by weight + zone.
+  const shippingFee = resolveCheckoutShippingFeePhp({
+    totalWeightGrams,
+    zone: destinationZone,
+    merchandiseSubtotal: subtotal,
+    hasSelectedRegion: !!formData.addressSelections.regionCode,
+  });
 
   // Discount applies to subtotal only — never to shipping or convenience fee
   const total = Math.max(1, subtotal - voucherDiscountAmount + shippingFee + CONVENIENCE_FEE);
@@ -564,7 +563,11 @@ const Checkout = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Shipping</span>
-                        <span>₱{shippingFee.toFixed(2)}</span>
+                        <span>
+                          {shippingFee === 0 && subtotal >= FREE_SHIPPING_MIN_SUBTOTAL
+                            ? '₱0.00 (Free — order ≥ ₱1,500)'
+                            : `₱${shippingFee.toFixed(2)}`}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Convenience fee</span>
