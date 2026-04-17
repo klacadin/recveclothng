@@ -4,13 +4,14 @@ import Footer from "@/components/layout/Footer";
 import SEO from "@/components/SEO";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck, Clock, MapPin, Package, CreditCard } from "lucide-react";
+import { MAX_ORDER_PIECES, SHIPPING_PHP_BY_PIECE_COUNT } from "@/config/constants";
 
 const Shipping = () => {
   return (
     <div className="min-h-screen bg-background">
       <SEO
         title="Shipping Information"
-        description="REVE Clothing ships nationwide via J&T Express. Shipping fee varies based on total parcel weight and destination. 3-7 business days delivery. COD available."
+        description="REVE Clothing ships nationwide via J&T Express. Shipping by exact piece count (1–10), max 10 items per order. 3-7 business days delivery. COD available."
         url="/shipping"
       />
       <Header />
@@ -39,15 +40,15 @@ const Shipping = () => {
             <Card className="text-center">
               <CardContent className="pt-6">
                 <Truck className="h-8 w-8 mx-auto mb-3 text-accent" />
-                <p className="font-semibold">Free Shipping</p>
-                <p className="text-sm text-muted-foreground">On orders ₱1,500+</p>
+                <p className="font-semibold">Order limit</p>
+                <p className="text-sm text-muted-foreground">Up to {MAX_ORDER_PIECES} pieces per order</p>
               </CardContent>
             </Card>
             <Card className="text-center">
               <CardContent className="pt-6">
                 <CreditCard className="h-8 w-8 mx-auto mb-3 text-accent" />
-                <p className="font-semibold">Weight-based</p>
-                <p className="text-sm text-muted-foreground">Depends on weight + location</p>
+                <p className="font-semibold">Piece-based shipping</p>
+                <p className="text-sm text-muted-foreground">Flat tiers by total quantity</p>
               </CardContent>
             </Card>
             <Card className="text-center">
@@ -80,30 +81,29 @@ const Shipping = () => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-3 font-semibold">Weight</th>
-                        <th className="text-center py-3 font-semibold">NCR</th>
-                        <th className="text-center py-3 font-semibold">Luzon</th>
-                        <th className="text-center py-3 font-semibold">Visayas</th>
-                        <th className="text-center py-3 font-semibold">Mindanao</th>
-                        <th className="text-center py-3 font-semibold">Island</th>
+                        <th className="text-left py-3 font-semibold">Pieces (exact total)</th>
+                        <th className="text-right py-3 font-semibold">Shipping (₱)</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="border-b border-border/50"><td className="py-2">0g – 500g</td><td className="text-center py-2">105</td><td className="text-center py-2">105</td><td className="text-center py-2">105</td><td className="text-center py-2">85</td><td className="text-center py-2">115</td></tr>
-                      <tr className="border-b border-border/50"><td className="py-2">501g – 1kg</td><td className="text-center py-2">195</td><td className="text-center py-2">195</td><td className="text-center py-2">175</td><td className="text-center py-2">155</td><td className="text-center py-2">185</td></tr>
-                      <tr className="border-b border-border/50"><td className="py-2">1.01kg – 3kg</td><td className="text-center py-2">215</td><td className="text-center py-2">215</td><td className="text-center py-2">195</td><td className="text-center py-2">180</td><td className="text-center py-2">205</td></tr>
-                      <tr className="border-b border-border/50"><td className="py-2">3.01kg – 4kg</td><td className="text-center py-2">325</td><td className="text-center py-2">325</td><td className="text-center py-2">285</td><td className="text-center py-2">270</td><td className="text-center py-2">295</td></tr>
-                      <tr className="border-b border-border/50"><td className="py-2">4.01kg – 5kg</td><td className="text-center py-2">370</td><td className="text-center py-2">370</td><td className="text-center py-2">370</td><td className="text-center py-2">360</td><td className="text-center py-2">380</td></tr>
-                      <tr className="border-b border-border/50"><td className="py-2">5.01kg – 6kg</td><td className="text-center py-2">435</td><td className="text-center py-2">435</td><td className="text-center py-2">435</td><td className="text-center py-2">435</td><td className="text-center py-2">445</td></tr>
-                      <tr className="border-b border-border/50"><td className="py-2">6.01kg – 7kg</td><td className="text-center py-2">505</td><td className="text-center py-2">505</td><td className="text-center py-2">505</td><td className="text-center py-2">505</td><td className="text-center py-2">515</td></tr>
-                      <tr className="border-b border-border/50"><td className="py-2">7.01kg – 8kg</td><td className="text-center py-2">575</td><td className="text-center py-2">575</td><td className="text-center py-2">575</td><td className="text-center py-2">575</td><td className="text-center py-2">585</td></tr>
-                      <tr className="border-b border-border/50"><td className="py-2">8.01kg – 9kg</td><td className="text-center py-2">645</td><td className="text-center py-2">645</td><td className="text-center py-2">645</td><td className="text-center py-2">645</td><td className="text-center py-2">655</td></tr>
-                      <tr className="border-b border-border/50 bg-accent/5"><td className="py-2 font-medium">9.01kg – 10kg</td><td className="text-center py-2 font-medium">715</td><td className="text-center py-2 font-medium">715</td><td className="text-center py-2 font-medium">715</td><td className="text-center py-2 font-medium">715</td><td className="text-center py-2 font-medium">725</td></tr>
+                      {Array.from({ length: MAX_ORDER_PIECES }, (_, i) => {
+                        const n = i + 1;
+                        const fee = SHIPPING_PHP_BY_PIECE_COUNT[n];
+                        return (
+                          <tr
+                            key={n}
+                            className={`border-b border-border/50 ${n === MAX_ORDER_PIECES ? 'bg-accent/5' : ''}`}
+                          >
+                            <td className={`py-2 ${n === MAX_ORDER_PIECES ? 'font-medium' : ''}`}>{n}</td>
+                            <td className={`text-right py-2 ${n === MAX_ORDER_PIECES ? 'font-medium' : ''}`}>{fee}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  * All amounts in Philippine pesos (₱). Origin: Mindanao. Above 10kg total parcel weight, checkout adds ₱70 per started kg to the 9.01kg–10kg rate for your destination. Fees are computed from product weights × quantity and your shipping region.
+                  * All amounts in Philippine pesos (₱). Shipping is based only on the total number of pieces in your cart (all sizes combined). Orders cannot exceed {MAX_ORDER_PIECES} pieces.
                 </p>
               </CardContent>
             </Card>

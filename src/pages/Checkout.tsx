@@ -12,11 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 // OTP verification removed - only COD requires it, but COD is hidden for now
-import { CONVENIENCE_FEE, DEFAULT_PRODUCT_WEIGHT_GRAMS, FREE_SHIPPING_MIN_SUBTOTAL } from '@/config/constants';
-import {
-  resolveCheckoutShippingFeePhp,
-  type JtDestinationZone,
-} from '@/utils/jtMindanaoShippingRates';
+import { CONVENIENCE_FEE, MAX_ORDER_PIECES } from '@/config/constants';
+import { shippingFeeByTotalPiecesPhp, totalPiecesFromLineItems } from '@/utils/orderShippingRates';
 import PhilippineAddressSelect from '@/components/checkout/PhilippineAddressSelect';
 import { buildAddressString } from '@/hooks/usePhilippineAddress';
 import { getProductDisplayImage } from '@/data/productImages';
@@ -88,29 +85,11 @@ const Checkout = () => {
   const [voucherMessage, setVoucherMessage] = useState('');
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
 
-  // Shipping: total weight + destination zone (J&T Mindanao-origin table), same for all payment methods.
-  const totalWeightGrams = items.reduce((sum, i) => {
-    const w = Number((i.product as any).weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS);
-    return sum + Math.max(0, w) * i.quantity;
-  }, 0);
+  const totalPieces = totalPiecesFromLineItems(items);
+  const pieceCapExceeded = totalPieces > MAX_ORDER_PIECES;
 
-  const destinationZone: JtDestinationZone = (() => {
-    const a = formData.addressSelections;
-    if (a.regionCode === '130000000') return 'metro_manila';
-    const ig = (a as { islandGroupCode?: string }).islandGroupCode;
-    if (ig === '01') return 'luzon';
-    if (ig === '02') return 'visayas';
-    if (ig === '03') return 'mindanao';
-    return 'island';
-  })();
-
-  // Same shipping rules for COD and online (GCash / Maya / bank): free ship threshold, then J&T table by weight + zone.
-  const shippingFee = resolveCheckoutShippingFeePhp({
-    totalWeightGrams,
-    zone: destinationZone,
-    merchandiseSubtotal: subtotal,
-    hasSelectedRegion: !!formData.addressSelections.regionCode,
-  });
+  // Flat tiers by total piece count — same for COD and online.
+  const shippingFee = shippingFeeByTotalPiecesPhp(totalPieces);
 
   // Discount applies to subtotal only — never to shipping or convenience fee
   const total = Math.max(1, subtotal - voucherDiscountAmount + shippingFee + CONVENIENCE_FEE);
@@ -193,6 +172,16 @@ const Checkout = () => {
       return;
     }
 
+    const pieces = totalPiecesFromLineItems(items);
+    if (pieces > MAX_ORDER_PIECES) {
+      toast({
+        title: 'Too many items',
+        description: `Orders are limited to ${MAX_ORDER_PIECES} pieces total. Reduce quantities in your cart.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Validate form
     const result = checkoutSchema.safeParse(formData);
     if (!result.success) {
@@ -220,7 +209,6 @@ const Checkout = () => {
         customer_email: formData.customerEmail,
         customer_phone: formData.customerPhone,
         shipping_address: buildAddressString(formData.streetAddress, formData.addressSelections),
-        destination_zone: destinationZone,
         notes: formData.notes || null,
         payment_method: formData.paymentMethod,
         subtotal,
@@ -537,8 +525,13 @@ const Checkout = () => {
                     <CardTitle>Order Summary</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {items.map(({ product, quantity }) => (
-                      <div key={product.id} className="flex gap-3">
+                    {pieceCapExceeded && (
+                      <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                        This order exceeds the {MAX_ORDER_PIECES}-piece limit. Remove or reduce quantities before placing your order.
+                      </p>
+                    )}
+                    {items.map(({ product, quantity, size }) => (
+                      <div key={`${product.id}-${size}`} className="flex gap-3">
                         <div className="w-16 h-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
                           <img
                             src={getProductDisplayImage(product)}
@@ -563,11 +556,7 @@ const Checkout = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Shipping</span>
-                        <span>
-                          {shippingFee === 0 && subtotal >= FREE_SHIPPING_MIN_SUBTOTAL
-                            ? '₱0.00 (Free — order ≥ ₱1,500)'
-                            : `₱${shippingFee.toFixed(2)}`}
-                        </span>
+                        <span>₱{shippingFee.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Convenience fee</span>
@@ -673,7 +662,7 @@ const Checkout = () => {
                       type="submit"
                       className="w-full"
                       size="lg"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || pieceCapExceeded}
                     >
                       {user ? 'Continue to Verification' : 'Proceed to Payment'}
                     </Button>

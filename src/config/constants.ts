@@ -9,14 +9,22 @@ export const SERVER_BASE_URL = 'https://reveclothingxnobody.com';
 export const BASE_URL = SERVER_BASE_URL;
 
 // Checkout fees (from REVE CLOTHING spreadsheet)
-// SHIPPING_FEE: fallback only — actual shipping is J&T weight/zone-based (see Checkout + create-order).
-export const SHIPPING_FEE = 130;
 export const CONVENIENCE_FEE = 38;
 
-/** Merchandise subtotal (pre-voucher) at or above this → ₱0 shipping (COD and online use the same rule). */
-export const FREE_SHIPPING_MIN_SUBTOTAL = 1500;
+/** Max total units (pieces) per order — enforced in cart, checkout UI, and create-order. */
+export const MAX_ORDER_PIECES = 10;
 
-/** Default weight per product line item for shipping when unset (0.5 kg). Sync with create-order fallback. */
+/**
+ * Shipping (PHP) by exact total piece count in the order (nationwide).
+ * Index 0 unused; `SHIPPING_PHP_BY_PIECE_COUNT[n]` = fee when total pieces === n (1..10).
+ * Sync array with `supabase/functions/create-order/index.ts`.
+ */
+export const SHIPPING_PHP_BY_PIECE_COUNT: readonly number[] = [
+    0,
+    130, 130, 180, 180, 230, 250, 250, 300, 350, 350,
+];
+
+/** Default weight per product when unset (0.5 kg) — admin catalog; not used for checkout shipping. */
 export const DEFAULT_PRODUCT_WEIGHT_GRAMS = 500;
 
 // Test voucher for low-cost payment testing (99% off)

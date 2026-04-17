@@ -64,7 +64,13 @@ import EmailManagement from "@/components/admin/EmailManagement";
 import VoucherManagement from "@/components/admin/VoucherManagement";
 import ProductCard from "@/components/product/ProductCard";
 import { getProductDisplayImage } from "@/data/productImages";
-import { JNT_VIP_QUICK_ORDER_URL, JNT_VIP_ORDER_WAYBILL_URL, JNT_MERCHANT_CODE, JNT_DROP_POINT } from "@/config/constants";
+import {
+  JNT_VIP_QUICK_ORDER_URL,
+  JNT_VIP_ORDER_WAYBILL_URL,
+  JNT_MERCHANT_CODE,
+  JNT_DROP_POINT,
+  DEFAULT_PRODUCT_WEIGHT_GRAMS,
+} from "@/config/constants";
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   new: { label: "New", color: "bg-blue-100 text-blue-800", icon: AlertCircle },
@@ -425,6 +431,7 @@ const Admin = () => {
         images: product.images || [],
         stock_quantity: 0, // Start with 0 stock for duplicates
         low_stock_threshold: product.low_stock_threshold,
+        weight_grams: product.weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS,
         is_active: false, // Duplicates start as inactive
         created_by_email: user?.email ?? null,
       };

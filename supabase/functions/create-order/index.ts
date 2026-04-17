@@ -8,10 +8,16 @@ const corsHeaders = {
 
 /** Sync with `src/config/constants.ts` — included in order total for COD and online (HitPay) alike. */
 const CONVENIENCE_FEE_PHP = 38;
-/** Sync with `src/config/constants.ts` FREE_SHIPPING_MIN_SUBTOTAL — merchandise subtotal before voucher. */
-const FREE_SHIPPING_MIN_SUBTOTAL_PHP = 1500;
-/** Sync with `src/config/constants.ts` DEFAULT_PRODUCT_WEIGHT_GRAMS (0.5 kg per line item when unset). */
-const DEFAULT_PRODUCT_WEIGHT_GRAMS = 500;
+/** Sync with `src/config/constants.ts` MAX_ORDER_PIECES */
+const MAX_ORDER_PIECES = 10;
+/** Sync with `src/config/constants.ts` SHIPPING_PHP_BY_PIECE_COUNT — index = exact piece count */
+const SHIPPING_PHP_BY_PIECE_COUNT = [0, 130, 130, 180, 180, 230, 250, 250, 300, 350, 350];
+
+function shippingFeeByTotalPiecesPhp(totalPieces: number): number {
+  if (totalPieces <= 0) return 0;
+  const n = Math.min(totalPieces, MAX_ORDER_PIECES);
+  return SHIPPING_PHP_BY_PIECE_COUNT[n] ?? 0;
+}
 
 type ProductSize = 'XS' | 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 
@@ -38,8 +44,6 @@ interface OrderRequest {
   items: OrderItem[];
   user_id?: string;
   voucher_code?: string | null;
-  /** PSGC-derived zone from checkout (must match `jtMindanaoShippingRates`); falls back to address parsing. */
-  destination_zone?: string | null;
 }
 
 // Fallback test voucher (if DB vouchers table not yet populated)
@@ -54,50 +58,6 @@ interface ReservedItem {
   unit_price: number;
   total_price: number;
   size: ProductSize;
-}
-
-type DestinationZone = 'mindanao' | 'visayas' | 'luzon' | 'metro_manila' | 'island';
-
-function zoneFromShippingAddress(addr: string): DestinationZone {
-  const a = (addr || '').toLowerCase();
-  // Best-effort parsing. For accurate zoning, pass region codes in a future iteration.
-  if (a.includes('metro manila') || a.includes('ncr') || a.includes('national capital region')) return 'metro_manila';
-  if (a.includes('visayas')) return 'visayas';
-  if (a.includes('mindanao') || a.includes('bukidnon') || a.includes('davao') || a.includes('cagayan de oro')) return 'mindanao';
-  if (a.includes('luzon')) return 'luzon';
-  return 'island';
-}
-
-const ALLOWED_DESTINATION_ZONES: DestinationZone[] = ['mindanao', 'visayas', 'luzon', 'metro_manila', 'island'];
-
-function resolveDestinationZone(orderData: OrderRequest): DestinationZone {
-  const z = (orderData.destination_zone || '').trim().toLowerCase();
-  if (z && (ALLOWED_DESTINATION_ZONES as string[]).includes(z)) return z as DestinationZone;
-  return zoneFromShippingAddress(orderData.shipping_address);
-}
-
-/** Mindanao-origin J&T merchant table — keep in sync with `src/utils/jtMindanaoShippingRates.ts`. */
-function jtMindanaoOriginRatePhp(totalWeightGrams: number, zone: DestinationZone): number {
-  const wKg = Math.max(0, totalWeightGrams) / 1000;
-  const brackets: { maxKg: number; rates: Record<DestinationZone, number> }[] = [
-    { maxKg: 0.5, rates: { metro_manila: 105, luzon: 105, visayas: 105, mindanao: 85, island: 115 } },
-    { maxKg: 1, rates: { metro_manila: 195, luzon: 195, visayas: 175, mindanao: 155, island: 185 } },
-    { maxKg: 3, rates: { metro_manila: 215, luzon: 215, visayas: 195, mindanao: 180, island: 205 } },
-    { maxKg: 4, rates: { metro_manila: 325, luzon: 325, visayas: 285, mindanao: 270, island: 295 } },
-    { maxKg: 5, rates: { metro_manila: 370, luzon: 370, visayas: 370, mindanao: 360, island: 380 } },
-    { maxKg: 6, rates: { metro_manila: 435, luzon: 435, visayas: 435, mindanao: 435, island: 445 } },
-    { maxKg: 7, rates: { metro_manila: 505, luzon: 505, visayas: 505, mindanao: 505, island: 515 } },
-    { maxKg: 8, rates: { metro_manila: 575, luzon: 575, visayas: 575, mindanao: 575, island: 585 } },
-    { maxKg: 9, rates: { metro_manila: 645, luzon: 645, visayas: 645, mindanao: 645, island: 655 } },
-    { maxKg: 10, rates: { metro_manila: 715, luzon: 715, visayas: 715, mindanao: 715, island: 725 } },
-  ];
-  for (const b of brackets) {
-    if (wKg <= b.maxKg) return b.rates[zone];
-  }
-  const last = brackets[brackets.length - 1];
-  const base = last.rates[zone];
-  const extraBands = Math.ceil(wKg - 10);
-  return base + 70 * extraBands;
 }
 
 // Extract client IP from request headers
@@ -191,10 +151,10 @@ serve(async (req) => {
     // Validate quantities and sizes
     const validSizes: ProductSize[] = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
     for (const item of orderData.items) {
-      if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 100) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > MAX_ORDER_PIECES) {
         console.error('Invalid quantity:', item);
         return new Response(
-          JSON.stringify({ error: 'Item quantity must be between 1 and 100' }),
+          JSON.stringify({ error: `Each line item quantity must be between 1 and ${MAX_ORDER_PIECES}` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -214,6 +174,16 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+    }
+
+    const totalPieces = orderData.items.reduce((sum, i) => sum + i.quantity, 0);
+    if (totalPieces > MAX_ORDER_PIECES) {
+      return new Response(
+        JSON.stringify({
+          error: `Orders are limited to ${MAX_ORDER_PIECES} pieces total. Reduce quantities and try again.`,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // SECURITY: Check rate limits
@@ -357,42 +327,9 @@ serve(async (req) => {
       console.log(`Reserved ${item.quantity} of ${result.product_name} (${item.size}) at ${serverPrice} each`);
     }
 
-    // SECURITY: Calculate server-side total
-    // SECURITY: Compute shipping fee from database weights (ignore client-provided shipping_fee).
-    const productIds = Array.from(new Set(reservedItems.map((r) => r.product_id)));
-    const { data: weightRows, error: weightErr } = await supabase
-      .from('products')
-      .select('id, weight_grams')
-      .in('id', productIds);
-    if (weightErr) {
-      console.error('Failed to load product weights:', weightErr);
-      // Rollback reserved stock
-      for (const reserved of reservedItems) {
-        await supabase.rpc('restore_variant_stock', {
-          _product_id: reserved.product_id,
-          _size: reserved.size,
-          _quantity: reserved.quantity
-        });
-      }
-      return new Response(
-        JSON.stringify({ error: 'Failed to process order (weights unavailable)' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const weightById = new Map((weightRows ?? []).map((r: { id: string; weight_grams: number | null }) => [r.id, r.weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS]));
-    const totalWeightGrams = reservedItems.reduce((sum, item) => {
-      const w = weightById.get(item.product_id) ?? DEFAULT_PRODUCT_WEIGHT_GRAMS;
-      return sum + Math.max(0, Number(w)) * item.quantity;
-    }, 0);
-
-    // Shipping: same rules for COD and online (GCash / Maya / bank) — payment_method is not used here.
-    const zone = resolveDestinationZone(orderData);
-    let weightBasedShipping = jtMindanaoOriginRatePhp(totalWeightGrams, zone);
-    const shippingFee =
-      serverSubtotal >= FREE_SHIPPING_MIN_SUBTOTAL_PHP
-        ? 0
-        : Math.max(0, Math.min(weightBasedShipping, 10000));
+    // SECURITY: Calculate server-side total — shipping from total piece count (ignore client shipping_fee).
+    const serverTotalPieces = reservedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const shippingFee = Math.max(0, Math.min(shippingFeeByTotalPiecesPhp(serverTotalPieces), 10000));
 
     let serverTotal = serverSubtotal + shippingFee + CONVENIENCE_FEE_PHP;
 
