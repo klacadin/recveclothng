@@ -1869,11 +1869,19 @@ UPDATE public.products
 SET weight_grams = COALESCE(weight_grams, 250)
 WHERE weight_grams IS NULL;
 -- Basic guardrail
-ALTER TABLE public.products
-ADD CONSTRAINT products_weight_grams_positive CHECK (
-        weight_grams IS NULL
-        OR weight_grams > 0
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'products_weight_grams_positive'
+  ) THEN
+    ALTER TABLE public.products
+    ADD CONSTRAINT products_weight_grams_positive CHECK (
+      weight_grams IS NULL
+      OR weight_grams > 0
     );
+  END IF;
+END $$;
 
 
 -- =====================================================
@@ -2003,5 +2011,26 @@ INSERT INTO public.user_approvals (user_id, status)
 SELECT id, 'approved'
 FROM auth.users
 WHERE email = 'khlacadin@gmail.com'
+ON CONFLICT (user_id) DO UPDATE SET status = 'approved';
+
+
+-- =====================================================
+-- Migration 40: 20260506010000_admin_recovery.sql
+-- Source: supabase/migrations/20260506010000_admin_recovery.sql
+-- =====================================================
+
+-- Restore admin access for the two known operator accounts after project migration.
+-- This only applies to users that already exist in auth.users.
+
+INSERT INTO public.user_roles (user_id, role)
+SELECT id, 'admin'::app_role
+FROM auth.users
+WHERE lower(email) IN ('khlacadin@gmail.com', 'reveclothing214@gmail.com')
+ON CONFLICT (user_id, role) DO NOTHING;
+
+INSERT INTO public.user_approvals (user_id, status)
+SELECT id, 'approved'
+FROM auth.users
+WHERE lower(email) IN ('khlacadin@gmail.com', 'reveclothing214@gmail.com')
 ON CONFLICT (user_id) DO UPDATE SET status = 'approved';
 
