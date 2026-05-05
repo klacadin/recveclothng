@@ -6,6 +6,18 @@
 
 ## 📋 Next Steps Required
 
+### 0. Run Wiring Checks (Recommended First)
+
+Use the repo-wired checks before migrating:
+
+```powershell
+.\scripts\check-migration-status.ps1
+```
+
+Full validation checklist:
+
+- `MIGRATION_VALIDATION_CHECKLIST.md`
+
 ### 1. Update Environment Variables
 
 Update your `.env` file (or create one if it doesn't exist) with the new project credentials:
@@ -59,8 +71,9 @@ All edge functions need to be deployed to the new project:
 supabase functions deploy send-otp
 supabase functions deploy verify-otp
 supabase functions deploy create-order
-supabase functions deploy create-xendit-payment
-supabase functions deploy xendit-webhook
+supabase functions deploy create-hitpay-payment
+supabase functions deploy hitpay-webhook
+supabase functions deploy get-hitpay-payment-status
 supabase functions deploy send-order-email
 supabase functions deploy notify-payment-proof
 ```
@@ -75,8 +88,9 @@ Set up environment variables for edge functions:
    - `TWILIO_ACCOUNT_SID` - Twilio Account SID (for SMS OTP, optional)
    - `TWILIO_AUTH_TOKEN` - Twilio Auth Token (for SMS OTP, optional)
    - `TWILIO_PHONE_NUMBER` - Twilio Phone Number (for SMS OTP, optional)
-   - `XENDIT_SECRET_KEY` - Xendit Secret Key (for payments)
-   - `XENDIT_WEBHOOK_TOKEN` - Xendit Webhook Token (for webhooks)
+   - `HITPAY_API_KEY` - HitPay API key (for payment creation/status)
+   - `HITPAY_WEBHOOK_SALT` - HitPay webhook signature salt
+   - `HITPAY_SANDBOX` - Set to `true` only when using HitPay sandbox
 
 **Note:** `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are automatically available to edge functions.
 

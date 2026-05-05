@@ -106,7 +106,9 @@ serve(async (req: Request) => {
           proof_url: proofUrl,
         }),
       });
-    } catch (_) {}
+    } catch (notifyError) {
+      console.warn("Failed to send payment proof notification:", notifyError);
+    }
 
     return new Response(
       JSON.stringify({ success: true, proof_url: proofUrl }),

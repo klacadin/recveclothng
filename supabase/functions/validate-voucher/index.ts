@@ -137,12 +137,18 @@ serve(async (req) => {
     }
 
     const productIds = (voucher.product_ids ?? voucher["product_ids"]) as string[] | null | undefined;
-    const cartItems: CartItemInput[] = items.map((i: { product_id?: string; quantity?: number; unit_price?: number; category?: string | null }) => ({
-      product_id: String(i.product_id ?? ""),
-      quantity: Math.max(0, Number(i.quantity) ?? 0),
-      unit_price: Math.max(0, Number(i.unit_price) ?? 0),
-      category: i.category ?? null,
-    })).filter((i: CartItemInput) => i.product_id);
+    const cartItems: CartItemInput[] = items
+      .map((i: { product_id?: string; quantity?: number; unit_price?: number; category?: string | null }) => {
+        const quantity = Number(i.quantity);
+        const unitPrice = Number(i.unit_price);
+        return {
+          product_id: String(i.product_id ?? ""),
+          quantity: Math.max(0, Number.isFinite(quantity) ? quantity : 0),
+          unit_price: Math.max(0, Number.isFinite(unitPrice) ? unitPrice : 0),
+          category: i.category ?? null,
+        };
+      })
+      .filter((i: CartItemInput) => i.product_id);
 
     const eligibleAmount = cartItems.length
       ? computeEligibleAmount(cartItems, productIds ?? null, categoryNames)

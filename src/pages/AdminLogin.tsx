@@ -13,6 +13,20 @@ const authSchema = z.object({
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }).max(100),
 });
 
+const mapAuthErrorMessage = (rawMessage?: string) => {
+  if (!rawMessage) return 'Invalid credentials';
+
+  const normalized = rawMessage.toLowerCase();
+  if (
+    normalized.includes('exceed_cached_egress_quota') ||
+    (normalized.includes('restricted') && normalized.includes('violations'))
+  ) {
+    return 'Login service is temporarily unavailable because the Supabase project hit an egress quota restriction. This is not a password issue. Please switch to a new Supabase project or restore service quota.';
+  }
+
+  return rawMessage;
+};
+
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,7 +34,7 @@ const AdminLogin = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  
+
   const { signIn, signUp, user, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -51,9 +65,9 @@ const AdminLogin = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsSubmitting(true);
 
     try {
@@ -69,7 +83,7 @@ const AdminLogin = () => {
           } else {
             toast({
               title: 'Login failed',
-              description: error.message || 'Invalid credentials',
+              description: mapAuthErrorMessage(error.message),
               variant: 'destructive',
             });
           }
@@ -91,7 +105,7 @@ const AdminLogin = () => {
           } else {
             toast({
               title: 'Sign up failed',
-              description: error.message,
+              description: mapAuthErrorMessage(error.message),
               variant: 'destructive',
             });
           }
@@ -121,15 +135,15 @@ const AdminLogin = () => {
       <div className="w-full max-w-md">
         <div className="bg-card rounded-sm border border-border p-8">
           <div className="mb-8">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to store
             </Link>
           </div>
-          
+
           <div className="text-center mb-8">
             <h1 className="font-display text-2xl font-bold text-foreground">
               REVE Admin
@@ -196,8 +210,8 @@ const AdminLogin = () => {
               )}
               {isLogin && (
                 <div className="text-right">
-                  <Link 
-                    to="/forgot-password" 
+                  <Link
+                    to="/forgot-password"
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Forgot password?

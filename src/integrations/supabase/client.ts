@@ -17,15 +17,14 @@ export const SUPABASE_CONFIG_ERROR =
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+const throwingClient = new Proxy({} as ReturnType<typeof createClient<Database>>, {
+  get() {
+    throw new Error(SUPABASE_CONFIG_ERROR ?? 'Supabase is not configured.');
+  },
+});
+
 export const supabase: ReturnType<typeof createClient<Database>> = SUPABASE_CONFIG_ERROR
-  ? (new Proxy(
-    {},
-    {
-      get() {
-        throw new Error(SUPABASE_CONFIG_ERROR);
-      },
-    }
-  ) as any)
+  ? throwingClient
   : createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
     auth: {
       storage: localStorage,

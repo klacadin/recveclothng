@@ -11,6 +11,8 @@
     "deploy:zip": "node scripts/create-deploy-zip.mjs",
     "deploy:staging": "npm run build:cpanel && npm run deploy:zip",
     "deploy:cpanel": "npm run build:cpanel && npm run deploy:ftp",
+    "migrations:bundle": "node scripts/build-migration-bundle.mjs",
+    "media:validate": "node scripts/validate-media-links.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
