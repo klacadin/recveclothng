@@ -1,10 +1,10 @@
 -- =====================================================
 -- Combined Migration Script for Supabase Project
--- Project ID: txiwvjfdlxgwjtaibbpb
+-- Project ID: unaodlytdymouicuuywb
 --
 -- Auto-generated from supabase/migrations/*.sql
 -- Run this in:
--- https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+-- https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
 -- =====================================================
 
 -- IMPORTANT:
@@ -27,6 +27,37 @@ CREATE TABLE IF NOT EXISTS public.user_approvals (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
+
+-- Create role enum and helper up front so later RLS policies can call has_role()
+DO $$ BEGIN
+  CREATE TYPE public.app_role AS ENUM ('admin', 'user');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Minimal roles table bootstrap so has_role() can be created immediately
+CREATE TABLE IF NOT EXISTS public.user_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role app_role NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  UNIQUE (user_id, role)
+);
+
+CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_id = _user_id
+      AND role = _role
+  )
+$$;
 
 -- Enable RLS on user_approvals
 ALTER TABLE public.user_approvals ENABLE ROW LEVEL SECURITY;
@@ -1607,8 +1638,8 @@ ALTER TYPE public.order_status ADD VALUE IF NOT EXISTS 'failed';
 -- =====================================================
 
 -- Cron: Mark pending_payment orders as failed after 2 hours (runs every 15 min)
--- Prerequisite: Enable Cron in Supabase Dashboard → Project Settings → Integrations → Cron
--- Then run: supabase migration up (or run this file in SQL Editor)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
 SELECT cron.schedule(
   'fail-stale-pending-payments',
   '*/15 * * * *',
@@ -1943,4 +1974,34 @@ ADD CONSTRAINT products_weight_grams_positive CHECK (
   );
 END IF;
 END $$;
+
+
+-- =====================================================
+-- Migration 39: 20260506000000_backfill_existing_auth_users.sql
+-- Source: supabase/migrations/20260506000000_backfill_existing_auth_users.sql
+-- =====================================================
+
+-- Backfill approval rows for existing users after project migration.
+-- Existing authenticated users without an approval row should not be blocked.
+INSERT INTO public.user_approvals (user_id, status)
+SELECT u.id, 'approved'
+FROM auth.users u
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM public.user_approvals ua
+  WHERE ua.user_id = u.id
+);
+
+-- Restore the known admin account used by the app documentation.
+INSERT INTO public.user_roles (user_id, role)
+SELECT id, 'admin'::app_role
+FROM auth.users
+WHERE email = 'khlacadin@gmail.com'
+ON CONFLICT (user_id, role) DO NOTHING;
+
+INSERT INTO public.user_approvals (user_id, status)
+SELECT id, 'approved'
+FROM auth.users
+WHERE email = 'khlacadin@gmail.com'
+ON CONFLICT (user_id) DO UPDATE SET status = 'approved';
 

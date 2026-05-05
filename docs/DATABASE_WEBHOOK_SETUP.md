@@ -26,7 +26,7 @@ This document describes how to create the Supabase Database Webhook that trigger
 | | `Authorization: Bearer <YOUR_SERVICE_ROLE_KEY>` |
 
 4. Replace:
-   - `<YOUR_PROJECT_REF>` with your Supabase project reference (e.g. `txiwvjfdlxgwjtaibbpb`)
+   - `<YOUR_PROJECT_REF>` with your Supabase project reference (e.g. `unaodlytdymouicuuywb`)
    - `<YOUR_SERVICE_ROLE_KEY>` with your project's service role key (Settings → API)
 
 5. Save the webhook

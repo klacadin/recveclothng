@@ -1,15 +1,15 @@
 # Supabase Migration Validation Checklist
 
-Use this after switching to project `txiwvjfdlxgwjtaibbpb`.
+Use this after switching to project `unaodlytdymouicuuywb`.
 
 ## 1) Environment and Template Checks
 
 - [ ] `.env.example` exists with:
-  - `VITE_SUPABASE_URL=https://txiwvjfdlxgwjtaibbpb.supabase.co`
+  - `VITE_SUPABASE_URL=https://unaodlytdymouicuuywb.supabase.co`
   - `VITE_SUPABASE_PUBLISHABLE_KEY=...`
 - [ ] `.env` exists and has the same `VITE_SUPABASE_URL`.
 - [ ] `.env` has a real `VITE_SUPABASE_PUBLISHABLE_KEY` (not placeholder).
-- [ ] `supabase/config.toml` includes `project_id = "txiwvjfdlxgwjtaibbpb"`.
+- [ ] `supabase/config.toml` includes `project_id = "unaodlytdymouicuuywb"`.
 
 Quick check command:
 
@@ -22,7 +22,7 @@ Quick check command:
 - [ ] Link local CLI to target project:
 
 ```powershell
-npx supabase link --project-ref txiwvjfdlxgwjtaibbpb
+npx supabase link --project-ref unaodlytdymouicuuywb
 ```
 
 - [ ] Push schema migrations:

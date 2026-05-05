@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const migrationsDir = path.join(repoRoot, "supabase", "migrations");
 const outputFile = path.join(repoRoot, "scripts", "combined-migration.sql");
-const projectRef = "txiwvjfdlxgwjtaibbpb";
+const projectRef = "unaodlytdymouicuuywb";
 
 const banner = [
   "-- =====================================================",

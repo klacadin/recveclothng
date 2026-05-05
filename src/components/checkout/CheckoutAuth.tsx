@@ -32,7 +32,7 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
 
-    // Check approval status
+    // Allow users without an approval row during/after migration.
     if (data.user) {
       const { data: approval } = await supabase
         .from('user_approvals')
@@ -40,7 +40,7 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
         .eq('user_id', data.user.id)
         .maybeSingle();
 
-      if (approval && approval.status !== 'approved') {
+      if (approval?.status === 'pending' || approval?.status === 'rejected') {
         await supabase.auth.signOut();
         throw new Error('Your account is pending admin approval. Please wait for an admin to approve your account before logging in.');
       }

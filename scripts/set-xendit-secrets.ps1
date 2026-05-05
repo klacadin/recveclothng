@@ -4,7 +4,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$projectRef = "txiwvjfdlxgwjtaibbpb"
+$projectRef = "unaodlytdymouicuuywb"
 
 # Xendit Production Secret Key
 $secretKey = "xnd_production_ZmnuUjwuD2KYcMuJCtKFSUmuTipOQOVkkMOCj5v9JN7S98C3b7gqqvduGFO"

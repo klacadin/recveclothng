@@ -44,7 +44,7 @@
 
 ### Step 1: Run Database Migration
 
-Open [SQL Editor](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new) and run:
+Open [SQL Editor](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new) and run:
 
 **File:** `ADMIN_UPGRADE.sql`
 
@@ -84,7 +84,7 @@ npx supabase secrets set HITPAY_API_URL=https://api.hit-pay.com/v1
 
 In your HitPay Dashboard:
 1. Go to **Settings > API Keys**
-2. Add webhook URL: `https://txiwvjfdlxgwjtaibbpb.supabase.co/functions/v1/hitpay-webhook`
+2. Add webhook URL: `https://unaodlytdymouicuuywb.supabase.co/functions/v1/hitpay-webhook`
 3. Copy the webhook salt and set it as `HITPAY_SALT` secret
 
 ---

@@ -1,6 +1,6 @@
 -- =====================================================
 -- ADMIN DASHBOARD UPGRADE - Category Management
--- Run this in: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+-- Run this in: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
 -- =====================================================
 
 -- Create categories table

@@ -4,11 +4,11 @@
 
 Your `.env` file exists. Update it with new project credentials:
 
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/api
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/api
 2. Copy the values and update your `.env` file:
 
 ```env
-VITE_SUPABASE_URL=https://txiwvjfdlxgwjtaibbpb.supabase.co
+VITE_SUPABASE_URL=https://unaodlytdymouicuuywb.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=<paste_anon_key_here>
 ```
 
@@ -16,7 +16,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=<paste_anon_key_here>
 
 You have 17 migration files. Run them in order via Supabase Dashboard:
 
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
 2. Run each migration file in chronological order (oldest first)
 3. Start with: `20251228213122_d7b1b660-3777-4c0c-b5ff-963862f04e0a.sql`
 4. End with: `20260101140944_fae4e0fb-1690-46df-8982-ad8958a9eda5.sql`
@@ -25,7 +25,7 @@ You have 17 migration files. Run them in order via Supabase Dashboard:
 
 Deploy all 7 functions via Dashboard:
 
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/functions
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/functions
 2. For each function, click "Deploy new function" and paste the code
 
 Functions to deploy:
@@ -39,7 +39,7 @@ Functions to deploy:
 
 ## Step 4: Configure Secrets
 
-Add secrets at: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/functions
+Add secrets at: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/functions
 
 Required secrets:
 - RESEND_API_KEY (for email OTP)

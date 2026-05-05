@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import heroImage from "@/assets/athlete-trail-run.jpg";
+import heroImage from "@/assets/optimized/athlete-trail-run.webp";
 
 const HeroSection = () => {
   return (
@@ -12,6 +12,8 @@ const HeroSection = () => {
           src={heroImage} 
           alt="Trail runner in NOBODY performance gear on Bukidnon trail" 
           className="w-full h-full object-cover object-top"
+          fetchPriority="high"
+          decoding="async"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
       </div>

@@ -1,5 +1,5 @@
 -- Make khlacadin@gmail.com superadmin
--- Run in: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+-- Run in: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
 
 -- 1. Grant admin role
 INSERT INTO public.user_roles (user_id, role)

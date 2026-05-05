@@ -17,7 +17,7 @@
 - ✅ **SUPABASE_SERVICE_ROLE_KEY** - Already set
 
 ### Project Linked
-- ✅ Linked to project: **txiwvjfdlxgwjtaibbpb**
+- ✅ Linked to project: **unaodlytdymouicuuywb**
 
 ---
 
@@ -26,7 +26,7 @@
 You need to run 3 SQL migrations in the Supabase SQL Editor to complete the setup.
 
 ### Open SQL Editor
-👉 [https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new)
+👉 [https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new)
 
 ### Run these migrations in order:
 
@@ -132,8 +132,8 @@ After running all 3 migrations, test the complete checkout flow:
 
 1. **Check browser console (F12)** - The error messages now show detailed information
 2. **Verify migrations ran successfully** - Check for "success" message at the end of each SQL script
-3. **Check Edge Functions** - [Functions Dashboard](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/functions)
-4. **Check tables exist** - [Database Tables](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/editor)
+3. **Check Edge Functions** - [Functions Dashboard](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/functions)
+4. **Check tables exist** - [Database Tables](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/editor)
 
 **Expected tables after migrations:**
 - `checkout_otps`

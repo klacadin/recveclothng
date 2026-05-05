@@ -92,7 +92,7 @@ After uploading, verify:
 3. Re-upload `dist/` folder
 
 Current values (verify these are correct):
-- `VITE_SUPABASE_URL=https://txiwvjfdlxgwjtaibbpb.supabase.co`
+- `VITE_SUPABASE_URL=https://unaodlytdymouicuuywb.supabase.co`
 - `VITE_SUPABASE_PUBLISHABLE_KEY=[your_key]`
 
 ---

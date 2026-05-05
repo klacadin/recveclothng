@@ -47,7 +47,7 @@ A CI/CD pipeline builds and deploys the app (including J&T COD) on every push to
 
 1. Ensure your `.env` file contains:
    ```env
-   VITE_SUPABASE_URL=https://txiwvjfdlxgwjtaibbpb.supabase.co
+   VITE_SUPABASE_URL=https://unaodlytdymouicuuywb.supabase.co
    VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key_here
    ```
 

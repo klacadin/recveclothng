@@ -2,7 +2,7 @@
 
 ## ✅ Completed Automatically
 
-1. **Updated `supabase/config.toml`** - Project ID changed to `txiwvjfdlxgwjtaibbpb`
+1. **Updated `supabase/config.toml`** - Project ID changed to `unaodlytdymouicuuywb`
 2. **Created helper scripts** - Migration status checker and deployment helper
 
 ## 📋 Manual Steps Required
@@ -13,13 +13,13 @@ Since Supabase CLI is not installed and some operations require dashboard access
 
 **Action:** Update your `.env` file with new project credentials
 
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/api
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/api
 2. Copy these values:
    - **Project URL** → `VITE_SUPABASE_URL`
    - **anon public key** → `VITE_SUPABASE_PUBLISHABLE_KEY`
 3. Update your `.env` file:
    ```env
-   VITE_SUPABASE_URL=https://txiwvjfdlxgwjtaibbpb.supabase.co
+   VITE_SUPABASE_URL=https://unaodlytdymouicuuywb.supabase.co
    VITE_SUPABASE_PUBLISHABLE_KEY=<paste_key_here>
    ```
 
@@ -28,7 +28,7 @@ Since Supabase CLI is not installed and some operations require dashboard access
 **Action:** Apply all 17 database migrations to the new project
 
 **Option A: Via Supabase Dashboard (Recommended)**
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
 2. Open each migration file from `supabase/migrations/` in order:
    - Start with: `20251228213122_d7b1b660-3777-4c0c-b5ff-963862f04e0a.sql`
    - End with: `20260101140944_fae4e0fb-1690-46df-8982-ad8958a9eda5.sql`
@@ -39,7 +39,7 @@ Since Supabase CLI is not installed and some operations require dashboard access
 ```bash
 npm install -g supabase
 supabase login
-supabase link --project-ref txiwvjfdlxgwjtaibbpb
+supabase link --project-ref unaodlytdymouicuuywb
 supabase db push
 ```
 
@@ -47,7 +47,7 @@ supabase db push
 
 **Action:** Deploy all 7 edge functions to the new project
 
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/functions
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/functions
 2. For each function, click **"Deploy new function"**:
    - **Function name:** `send-otp` → Copy code from `supabase/functions/send-otp/index.ts`
    - **Function name:** `verify-otp` → Copy code from `supabase/functions/verify-otp/index.ts`
@@ -61,7 +61,7 @@ supabase db push
 
 **Action:** Add environment variables for edge functions
 
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/functions
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/functions
 2. Add these secrets:
 
    **Required:**
@@ -101,11 +101,11 @@ supabase db push
 
 ## 🔗 Quick Access Links
 
-- **Project Dashboard:** https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb
-- **API Settings:** https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/api
-- **Edge Functions:** https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/functions
-- **SQL Editor:** https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
-- **Function Secrets:** https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/functions
+- **Project Dashboard:** https://supabase.com/dashboard/project/unaodlytdymouicuuywb
+- **API Settings:** https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/api
+- **Edge Functions:** https://supabase.com/dashboard/project/unaodlytdymouicuuywb/functions
+- **SQL Editor:** https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
+- **Function Secrets:** https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/functions
 
 ## 📊 Migration Checklist
 
@@ -133,7 +133,7 @@ supabase db push
 
 **If connection fails:**
 - Verify `.env` file has correct `VITE_SUPABASE_URL`
-- Check that project ID matches: `txiwvjfdlxgwjtaibbpb`
+- Check that project ID matches: `unaodlytdymouicuuywb`
 - Ensure project is active (not paused)
 
 **If OTP doesn't work:**

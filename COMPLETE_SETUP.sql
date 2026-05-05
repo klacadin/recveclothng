@@ -1,6 +1,6 @@
 -- =====================================================
 -- COMPLETE DATABASE SETUP for REVE Clothing
--- Run this in: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+-- Run this in: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
 -- =====================================================
 -- This is a comprehensive setup that includes ALL required:
 -- - Types and enums

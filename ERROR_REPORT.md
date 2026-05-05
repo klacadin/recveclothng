@@ -21,7 +21,7 @@
 
 **Issue:** The `.env` file contains duplicate `VITE_SUPABASE_URL` entries:
 ```
-VITE_SUPABASE_URL=https://txiwvjfdlxgwjtaibbpb.supabase.co
+VITE_SUPABASE_URL=https://unaodlytdymouicuuywb.supabase.co
 VITE_SUPABASE_URL="https://mcvnceiugqyvgfmgnizf.supabase.co"
 ```
 
@@ -31,7 +31,7 @@ VITE_SUPABASE_URL="https://mcvnceiugqyvgfmgnizf.supabase.co"
 
 **Fix Required:**
 - Remove the duplicate entry with the old project URL
-- Keep only: `VITE_SUPABASE_URL=https://txiwvjfdlxgwjtaibbpb.supabase.co`
+- Keep only: `VITE_SUPABASE_URL=https://unaodlytdymouicuuywb.supabase.co`
 
 ---
 
@@ -95,7 +95,7 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 
 **Issue:** Inconsistent quoting:
 ```
-VITE_SUPABASE_URL=https://txiwvjfdlxgwjtaibbpb.supabase.co
+VITE_SUPABASE_URL=https://unaodlytdymouicuuywb.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_U6vW_sHLQmPN7EnrhQRYag_ElIv2SiI"
 ```
 

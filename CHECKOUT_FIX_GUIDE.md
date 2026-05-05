@@ -13,14 +13,14 @@ The checkout system requires database tables and Edge Functions that aren't depl
 ### Step 1: Set up the OTP system
 
 **1.1 Run the OTP migration**
-- Open: [SQL Editor](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new)
+- Open: [SQL Editor](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new)
 - Copy all contents from: **`OTP_SETUP.sql`**
 - Paste and run in SQL Editor
 - ✅ This creates the `checkout_otps` table
 
 **1.2 Deploy OTP Edge Functions**
 ```bash
-npx supabase link --project-ref txiwvjfdlxgwjtaibbpb
+npx supabase link --project-ref unaodlytdymouicuuywb
 npx supabase functions deploy send-otp
 npx supabase functions deploy verify-otp
 ```
@@ -33,7 +33,7 @@ Already done: `RESEND_API_KEY=re_UKRcJqR7_F8JKzTGRw7FkkdPKf57n2csH`
 ### Step 2: Set up the Order system
 
 **2.1 Run the Order system migration**
-- Open: [SQL Editor](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new)
+- Open: [SQL Editor](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new)
 - Copy all contents from: **`ORDER_SYSTEM_SETUP.sql`**
 - Paste and run in SQL Editor
 - ✅ This creates:
@@ -49,7 +49,7 @@ npx supabase functions deploy create-order
 ```
 
 Or via Dashboard:
-- Go to: [Edge Functions](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/functions)
+- Go to: [Edge Functions](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/functions)
 - Deploy **create-order** → paste code from `supabase/functions/create-order/index.ts`
 
 ⚠️ **Important:** If you already deployed `create-order` before, redeploy it now to include the updated size validation (XS, S, M, L, XL, 2XL, 3XL).
@@ -59,7 +59,7 @@ Or via Dashboard:
 ### Step 3: Sync product data (NOBODY collection)
 
 **3.1 Run the product migration**
-- Open: [SQL Editor](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new)
+- Open: [SQL Editor](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new)
 - Copy all contents from: **`supabase/migrations/20260130000000_sync_canonical_nobody_products.sql`**
 - Paste and run in SQL Editor
 - ✅ This:
@@ -87,7 +87,7 @@ If you have Supabase CLI set up:
 
 ```bash
 # Link project
-npx supabase link --project-ref txiwvjfdlxgwjtaibbpb
+npx supabase link --project-ref unaodlytdymouicuuywb
 
 # Deploy all Edge Functions
 npx supabase functions deploy send-otp
@@ -108,15 +108,15 @@ Then run the 3 SQL files in the SQL Editor (in order):
 ## Troubleshooting
 
 **Still seeing "Failed to send code"?**
-- Check that `send-otp` is deployed: [Functions Dashboard](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/functions)
-- Check that `RESEND_API_KEY` secret is set: [Function Secrets](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/functions)
+- Check that `send-otp` is deployed: [Functions Dashboard](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/functions)
+- Check that `RESEND_API_KEY` secret is set: [Function Secrets](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/functions)
 
 **Still seeing "Invalid or expired code"?**
 - Check that `verify-otp` is deployed
 - Check that `OTP_SETUP.sql` was run successfully (table `checkout_otps` should exist)
 
 **Still seeing "Order failed" or "Edge Function returned a non-2xx status code"?**
-- Check that `create-order` is deployed: [Functions Dashboard](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/functions)
+- Check that `create-order` is deployed: [Functions Dashboard](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/functions)
 - Check that `ORDER_SYSTEM_SETUP.sql` was run successfully (tables `orders`, `order_items`, `product_variants`, `order_rate_limits` should exist)
 - **Redeploy `create-order`** if you deployed it before the size fix (it now accepts XS, S, M, L, XL, 2XL, 3XL)
 - Check browser console (F12) for detailed error messages — the error now shows the actual failure reason

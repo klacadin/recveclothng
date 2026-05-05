@@ -1,6 +1,6 @@
 -- =====================================================
 -- ORDER SYSTEM SETUP for REVE Clothing
--- Run this in: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+-- Run this in: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
 -- =====================================================
 -- This sets up the complete order processing system including:
 -- - Order status and payment method enums

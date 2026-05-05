@@ -74,11 +74,11 @@
      - `VITE_SUPABASE_PUBLISHABLE_KEY` → same project’s anon key
 
 2. **Supabase project**
-   - Current project: `txiwvjfdlxgwjtaibbpb`
-   - URL: `https://txiwvjfdlxgwjtaibbpb.supabase.co`
+   - Current project: `unaodlytdymouicuuywb`
+   - URL: `https://unaodlytdymouicuuywb.supabase.co`
 
 3. **Re-run migrations if needed**
-   - Open [SQL Editor](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new)
+   - Open [SQL Editor](https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new)
    - Run in this order:
      1. `COMPLETE_SETUP.sql`
      2. `ADMIN_UPGRADE.sql`

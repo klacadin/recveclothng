@@ -2,7 +2,7 @@
 
 ## ✅ Completed
 
-1. **Updated `supabase/config.toml`** - Project ID changed to `txiwvjfdlxgwjtaibbpb`
+1. **Updated `supabase/config.toml`** - Project ID changed to `unaodlytdymouicuuywb`
 
 ## 📋 Next Steps Required
 
@@ -23,12 +23,12 @@ Full validation checklist:
 Update your `.env` file (or create one if it doesn't exist) with the new project credentials:
 
 ```env
-VITE_SUPABASE_URL=https://txiwvjfdlxgwjtaibbpb.supabase.co
+VITE_SUPABASE_URL=https://unaodlytdymouicuuywb.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your_new_anon_key_here
 ```
 
 **Where to find these:**
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/api
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/api
 2. Copy the "Project URL" → `VITE_SUPABASE_URL`
 3. Copy the "anon public" key → `VITE_SUPABASE_PUBLISHABLE_KEY`
 
@@ -36,7 +36,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your_new_anon_key_here
 
 If you have Supabase CLI installed:
 ```bash
-supabase link --project-ref txiwvjfdlxgwjtaibbpb
+supabase link --project-ref unaodlytdymouicuuywb
 ```
 
 If not installed, you can skip this step and manage everything through the dashboard.
@@ -46,7 +46,7 @@ If not installed, you can skip this step and manage everything through the dashb
 The new project needs all your database tables and schema. You have two options:
 
 **Option A: Using Supabase Dashboard**
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
 2. Run each migration file from `supabase/migrations/` in order
 3. Start with the oldest migration first
 
@@ -60,7 +60,7 @@ supabase db push
 All edge functions need to be deployed to the new project:
 
 **Using Supabase Dashboard:**
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/functions
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/functions
 2. For each function in `supabase/functions/`:
    - Click "Deploy new function"
    - Copy the code from the function file
@@ -82,7 +82,7 @@ supabase functions deploy notify-payment-proof
 
 Set up environment variables for edge functions:
 
-1. Go to: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/functions
+1. Go to: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/functions
 2. Add these secrets:
    - `RESEND_API_KEY` - Your Resend API key (for email OTP)
    - `TWILIO_ACCOUNT_SID` - Twilio Account SID (for SMS OTP, optional)
@@ -125,11 +125,11 @@ After setting up `RESEND_API_KEY`:
 
 ## 🔗 Useful Links
 
-- **New Project Dashboard:** https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb
-- **API Settings:** https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/api
-- **Edge Functions:** https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/functions
-- **Database:** https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/editor
-- **SQL Editor:** https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+- **New Project Dashboard:** https://supabase.com/dashboard/project/unaodlytdymouicuuywb
+- **API Settings:** https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/api
+- **Edge Functions:** https://supabase.com/dashboard/project/unaodlytdymouicuuywb/functions
+- **Database:** https://supabase.com/dashboard/project/unaodlytdymouicuuywb/editor
+- **SQL Editor:** https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
 
 ## ⚠️ Important Notes
 
