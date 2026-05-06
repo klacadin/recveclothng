@@ -60,6 +60,31 @@ interface ReservedItem {
   size: ProductSize;
 }
 
+async function rollbackOnlineOrder(
+  supabase: ReturnType<typeof createClient>,
+  orderId: string,
+  reservedItems: ReservedItem[],
+) {
+  await supabase.from('order_items').delete().eq('order_id', orderId);
+  await supabase.from('orders').delete().eq('id', orderId);
+
+  for (const reserved of reservedItems) {
+    const { error } = await supabase.rpc('restore_variant_stock', {
+      _product_id: reserved.product_id,
+      _size: reserved.size,
+      _quantity: reserved.quantity,
+    });
+    if (error) {
+      console.error('Failed to restore stock during online payment rollback:', {
+        product_id: reserved.product_id,
+        size: reserved.size,
+        quantity: reserved.quantity,
+        error,
+      });
+    }
+  }
+}
+
 // Extract client IP from request headers
 function getClientIP(req: Request): string {
   const forwarded = req.headers.get('x-forwarded-for');
@@ -501,60 +526,85 @@ serve(async (req) => {
     const hitpayMethods = ['gcash', 'maya', 'bank_transfer'];
     if (hitpayMethods.includes(orderData.payment_method)) {
       const hitpayApiKey = Deno.env.get('HITPAY_API_KEY');
-      if (hitpayApiKey) {
-        try {
-          const appUrl = Deno.env.get('APP_URL') || 'https://reveclothingxnobody.com';
-          const hitpayBaseUrl = Deno.env.get('HITPAY_SANDBOX') === 'true'
-            ? 'https://api.sandbox.hit-pay.com'
-            : 'https://api.hit-pay.com';
-          const webhookUrl = `${supabaseUrl}/functions/v1/hitpay-webhook`;
-          const hitpayRedirect = `${appUrl}/payment-success?order_id=${order.id}`;
+      if (!hitpayApiKey) {
+        console.error('HITPAY_API_KEY not configured - rolling back online order');
+        await rollbackOnlineOrder(supabase, order.id, reservedItems);
+        return new Response(
+          JSON.stringify({
+            error: 'Payment service is not configured. Please contact support.',
+            code: 'payment_not_configured',
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-          // HitPay: Omit payment_methods in production → HitPay shows all methods enabled on your account.
-          // Sandbox only supports card/PayNow; PHP methods (gcash_qr, qrph_netbank) are production-only.
-          const isSandbox = Deno.env.get('HITPAY_SANDBOX') === 'true';
-          const hitpayPayload: Record<string, unknown> = {
-            amount: serverTotal,
-            currency: 'PHP',
-            email: orderData.customer_email,
-            name: orderData.customer_name,
-            purpose: `Order ${orderNumber}`,
-            reference_number: order.id,
-            redirect_url: hitpayRedirect,
-            webhook: webhookUrl,
-            send_email: 'false',
-            send_sms: 'false',
-          };
-          if (isSandbox) {
-            hitpayPayload.payment_methods = ['card', 'paynow_online'];
-          }
+      try {
+        const appUrl = Deno.env.get('APP_URL') || 'https://reveclothingxnobody.com';
+        const hitpayBaseUrl = Deno.env.get('HITPAY_SANDBOX') === 'true'
+          ? 'https://api.sandbox.hit-pay.com'
+          : 'https://api.hit-pay.com';
+        const webhookUrl = `${supabaseUrl}/functions/v1/hitpay-webhook`;
+        const hitpayRedirect = `${appUrl}/payment-success?order_id=${order.id}`;
 
-          const hitpayRes = await fetch(`${hitpayBaseUrl}/v1/payment-requests`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-BUSINESS-API-KEY': hitpayApiKey,
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: JSON.stringify(hitpayPayload),
-          });
-
-          const hitpayResult = await hitpayRes.json();
-          if (hitpayRes.ok && hitpayResult.url && hitpayResult.id) {
-            redirectUrl = hitpayResult.url;
-            await supabase.from('orders').update({
-              xendit_payment_id: hitpayResult.id,
-              updated_at: new Date().toISOString(),
-            }).eq('id', order.id);
-            console.log('HitPay payment created:', hitpayResult.id);
-          } else {
-            console.error('HitPay API error:', hitpayResult);
-          }
-        } catch (hitpayErr) {
-          console.error('HitPay create error:', hitpayErr);
+        // HitPay: Omit payment_methods in production → HitPay shows all methods enabled on your account.
+        // Sandbox only supports card/PayNow; PHP methods (gcash_qr, qrph_netbank) are production-only.
+        const isSandbox = Deno.env.get('HITPAY_SANDBOX') === 'true';
+        const hitpayPayload: Record<string, unknown> = {
+          amount: serverTotal,
+          currency: 'PHP',
+          email: orderData.customer_email,
+          name: orderData.customer_name,
+          purpose: `Order ${orderNumber}`,
+          reference_number: order.id,
+          redirect_url: hitpayRedirect,
+          webhook: webhookUrl,
+          send_email: 'false',
+          send_sms: 'false',
+        };
+        if (isSandbox) {
+          hitpayPayload.payment_methods = ['card', 'paynow_online'];
         }
-      } else {
-        console.warn('HITPAY_API_KEY not configured - skipping HitPay payment');
+
+        const hitpayRes = await fetch(`${hitpayBaseUrl}/v1/payment-requests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-BUSINESS-API-KEY': hitpayApiKey,
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify(hitpayPayload),
+        });
+
+        const hitpayResult = await hitpayRes.json().catch(() => ({}));
+        if (hitpayRes.ok && hitpayResult.url && hitpayResult.id) {
+          redirectUrl = hitpayResult.url;
+          await supabase.from('orders').update({
+            xendit_payment_id: hitpayResult.id,
+            updated_at: new Date().toISOString(),
+          }).eq('id', order.id);
+          console.log('HitPay payment created:', hitpayResult.id);
+        } else {
+          console.error('HitPay API error:', hitpayResult);
+          await rollbackOnlineOrder(supabase, order.id, reservedItems);
+          return new Response(
+            JSON.stringify({
+              error: hitpayResult?.message || 'Payment gateway rejected the request. Please try again or contact support.',
+              code: 'hitpay_create_failed',
+              details: hitpayResult,
+            }),
+            { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (hitpayErr) {
+        console.error('HitPay create error:', hitpayErr);
+        await rollbackOnlineOrder(supabase, order.id, reservedItems);
+        return new Response(
+          JSON.stringify({
+            error: 'Payment gateway is temporarily unavailable. Please try again.',
+            code: 'hitpay_unavailable',
+          }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
 
