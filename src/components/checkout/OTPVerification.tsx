@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Mail, Phone, RefreshCw } from 'lucide-react';
+import { getErrorMessage } from '@/utils/errors';
 
 type VerificationMethod = 'email' | 'sms';
 
@@ -17,6 +18,14 @@ interface OTPVerificationProps {
   onVerified: () => void;
   onBack: () => void;
 }
+
+type FunctionErrorWithContext = Error & {
+  context?: {
+    body?: {
+      json: () => Promise<{ error?: string }>;
+    };
+  };
+};
 
 const OTPVerification = ({ email, phone, customerName, onVerified, onBack }: OTPVerificationProps) => {
   const [otp, setOtp] = useState('');
@@ -58,9 +67,9 @@ const OTPVerification = ({ email, phone, customerName, onVerified, onBack }: OTP
           ? `We sent a verification code to ${email}`
           : `We sent a verification code to ${phone}`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending OTP:', error);
-      const msg = error?.message ?? '';
+      const msg = getErrorMessage(error, '');
       const isEdgeFunctionError =
         msg.includes('Edge Function') ||
         msg.includes('Failed to send a request') ||
@@ -97,9 +106,10 @@ const OTPVerification = ({ email, phone, customerName, onVerified, onBack }: OTP
       if (error) {
         // Try to extract the actual error message from the response
         let errorMessage = 'Invalid or expired code. Please try again.';
-        if (error.context?.body) {
+        const functionError = error as FunctionErrorWithContext;
+        if (functionError.context?.body) {
           try {
-            const errorBody = await error.context.body.json();
+            const errorBody = await functionError.context.body.json();
             if (errorBody?.error) {
               errorMessage = errorBody.error;
             }
@@ -117,11 +127,11 @@ const OTPVerification = ({ email, phone, customerName, onVerified, onBack }: OTP
         });
         onVerified();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error verifying OTP:', error);
       toast({
         title: 'Verification failed',
-        description: error.message || 'Invalid or expired code. Please try again.',
+        description: getErrorMessage(error, 'Invalid or expired code. Please try again.'),
         variant: 'destructive',
       });
       setOtp('');

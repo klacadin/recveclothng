@@ -129,11 +129,12 @@ const ProofOfPaymentUpload = ({
       });
 
       onUploadComplete(proofUrl);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading proof:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload proof of payment.';
       toast({
         title: 'Upload failed',
-        description: error.message || 'Failed to upload proof of payment.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

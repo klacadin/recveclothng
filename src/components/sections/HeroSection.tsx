@@ -8,11 +8,11 @@ const HeroSection = () => {
     <section className="relative min-h-[90vh] flex items-center bg-background overflow-hidden">
       {/* Hero Image */}
       <div className="absolute inset-0">
-        <img 
+        <img
           src={heroImage} 
           alt="Trail runner in NOBODY performance gear on Bukidnon trail" 
           className="w-full h-full object-cover object-top"
-          fetchPriority="high"
+          {...({ fetchpriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement> & { fetchpriority: string })}
           decoding="async"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />

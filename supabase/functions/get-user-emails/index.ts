@@ -67,10 +67,10 @@ serve(async (req) => {
       user_ids.map(async (uid: string) => {
         const { data: { user }, error } = await supabaseAdmin.auth.admin.getUserById(uid);
         if (error || !user) return;
-        const meta = user.user_metadata || {};
+        const meta = (user.user_metadata || {}) as Record<string, unknown>;
         userEmailMap[uid] = {
           email: user.email || "",
-          full_name: meta.full_name || meta.name || meta.user_name || "",
+          full_name: String(meta.full_name || meta.name || meta.user_name || ""),
           created_at: user.created_at,
         };
       })
@@ -80,10 +80,11 @@ serve(async (req) => {
       JSON.stringify({ users: userEmailMap }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error:", error);
+    const message = error instanceof Error ? error.message : "Internal server error";
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

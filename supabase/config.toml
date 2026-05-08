@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.create-jt-waybill]
 verify_jwt = false
+
+[functions.jt-tracking-webhook]
+verify_jwt = false

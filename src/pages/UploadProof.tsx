@@ -96,6 +96,10 @@ const UploadProof = () => {
       const toSend = file.type.startsWith('image/')
         ? await compressImageForUpload(file, { maxSizeBytes: MAX_UPLOAD_SIZE_BYTES })
         : file;
+      const uploadMimeType = toSend.type || (file.type.startsWith('image/') ? 'image/jpeg' : file.type);
+      const uploadFileName = toSend !== file && uploadMimeType === 'image/jpeg'
+        ? file.name.replace(/\.[^.]+$/, '.jpg')
+        : file.name;
 
       const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
@@ -111,7 +115,8 @@ const UploadProof = () => {
           order_number: order.order_number,
           customer_email: order.customer_email,
           file_base64: base64,
-          file_name: file.name,
+          file_name: uploadFileName,
+          file_mime_type: uploadMimeType,
         },
       });
       if (error) throw error;

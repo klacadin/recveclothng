@@ -8,7 +8,8 @@
  * Fetches order, calls J&T Order API, saves waybill_number to orders.
  *
  * Secrets: JNT_API_ACCOUNT, JNT_PRIVATE_KEY, JNT_API_URL, JNT_API_ENABLED,
- *          JNT_SENDER_NAME, JNT_SENDER_PHONE, JNT_SENDER_ADDRESS
+ *          JNT_SENDER_NAME, JNT_SENDER_PHONE, JNT_SENDER_ADDRESS,
+ *          JNT_WEBHOOK_SECRET
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -64,6 +65,65 @@ function shouldProcessFromWebhook(record: Record<string, unknown>, oldRecord: Re
     READY_STATUSES.includes(status) &&
     (waybill == null || waybill === "") &&
     (oldWaybill == null || oldWaybill === "")
+  );
+}
+
+function bearerToken(req: Request): string | null {
+  const header = req.headers.get("authorization") ?? "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] ?? null;
+}
+
+async function requireAdmin(req: Request, supabase: ReturnType<typeof createClient>) {
+  const token = bearerToken(req);
+  if (!token) {
+    return { ok: false, response: unauthorized("Missing authorization token") };
+  }
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData.user) {
+    return { ok: false, response: unauthorized("Invalid authorization token") };
+  }
+
+  const { data: role, error: roleError } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userData.user.id)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  if (roleError || !role) {
+    return { ok: false, response: unauthorized("Admin access required") };
+  }
+
+  return { ok: true, response: null };
+}
+
+function verifyWebhookSecret(req: Request): Response | null {
+  const configuredSecret = Deno.env.get("JNT_WEBHOOK_SECRET");
+  if (!configuredSecret) {
+    return new Response(
+      JSON.stringify({ error: "J&T webhook verification is not configured" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  const suppliedSecret =
+    req.headers.get("x-jnt-webhook-secret") ??
+    req.headers.get("x-webhook-secret") ??
+    "";
+
+  if (suppliedSecret !== configuredSecret) {
+    return unauthorized("Invalid webhook signature");
+  }
+
+  return null;
+}
+
+function unauthorized(message: string) {
+  return new Response(
+    JSON.stringify({ error: message }),
+    { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 }
 
@@ -173,6 +233,9 @@ serve(async (req) => {
     let orderId: string | null = null;
 
     if (isWebhookPayload(body)) {
+      const secretError = verifyWebhookSecret(req);
+      if (secretError) return secretError;
+
       const { record, old_record } = body;
       if (!shouldProcessFromWebhook(record, old_record)) {
         return new Response(JSON.stringify({ success: true, message: "No action needed" }), {
@@ -182,6 +245,9 @@ serve(async (req) => {
       }
       orderId = record.id as string;
     } else if (isDirectInvokePayload(body)) {
+      const admin = await requireAdmin(req, supabase);
+      if (!admin.ok) return admin.response;
+
       orderId = body.order_id;
     } else {
       return new Response(

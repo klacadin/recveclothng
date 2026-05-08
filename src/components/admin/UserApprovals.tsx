@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { getErrorMessage } from '@/utils/errors';
 
 const UserApprovals = () => {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -40,10 +41,10 @@ const UserApprovals = () => {
         title: 'User approved',
         description: 'The user can now log in to their account.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to approve user',
+        description: getErrorMessage(error, 'Failed to approve user'),
         variant: 'destructive',
       });
     }
@@ -64,10 +65,10 @@ const UserApprovals = () => {
       setRejectDialogOpen(false);
       setSelectedUserId(null);
       setRejectionReason('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to reject user',
+        description: getErrorMessage(error, 'Failed to reject user'),
         variant: 'destructive',
       });
     }

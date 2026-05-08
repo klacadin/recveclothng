@@ -7,6 +7,14 @@ const corsHeaders = {
 };
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "application/pdf"];
+const EXTENSION_TO_TYPE: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  pdf: "application/pdf",
+};
 const MAX_SIZE = 2 * 1024 * 1024; // 2MB - NON-NEGOTIABLE
 
 serve(async (req: Request) => {
@@ -24,6 +32,7 @@ serve(async (req: Request) => {
     const customer_email = (body.customer_email || body.customerEmail || "").trim().toLowerCase();
     const fileBase64 = body.file_base64;
     const fileName = body.file_name || "proof.jpg";
+    const fileMimeType = (body.file_mime_type || body.fileMimeType || "").trim().toLowerCase();
 
     if (!order_number || !customer_email || !fileBase64) {
       return new Response(
@@ -56,11 +65,19 @@ serve(async (req: Request) => {
     }
 
     const ext = fileName.split(".").pop()?.toLowerCase() || "jpg";
+    const contentType = fileMimeType || EXTENSION_TO_TYPE[ext];
+    if (!contentType || !ALLOWED_TYPES.includes(contentType) || EXTENSION_TO_TYPE[ext] !== contentType) {
+      return new Response(
+        JSON.stringify({ error: "Invalid file type. Upload JPG, PNG, WebP, GIF, or PDF only." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const safeName = `guest/${order.id}/${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("payment-proofs")
-      .upload(safeName, binary, { upsert: true, contentType: ALLOWED_TYPES[0] });
+      .upload(safeName, binary, { upsert: true, contentType });
 
     if (uploadError) {
       console.error("Storage upload error:", uploadError);

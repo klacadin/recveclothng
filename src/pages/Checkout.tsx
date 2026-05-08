@@ -17,7 +17,7 @@ import { shippingFeeByTotalPiecesPhp, totalPiecesFromLineItems } from '@/utils/o
 import PhilippineAddressSelect from '@/components/checkout/PhilippineAddressSelect';
 import { buildAddressString } from '@/hooks/usePhilippineAddress';
 import { getProductDisplayImage } from '@/data/productImages';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '@/integrations/supabase/client';
 
 const checkoutSchema = z.object({
   customerName: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
@@ -228,13 +228,15 @@ const Checkout = () => {
       };
 
       // Create order via direct fetch (avoids Supabase client JWT/session edge function errors)
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const orderRes = await fetch(`${supabaseUrl}/functions/v1/create-order`, {
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Checkout is temporarily unavailable. Store configuration is missing.');
+      }
+
+      const orderRes = await fetch(`${SUPABASE_URL}/functions/v1/create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
+          'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify(orderData),
       });
