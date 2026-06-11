@@ -5,10 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Package, 
-  ArrowLeft, 
-  Loader2, 
+import {
+  Package,
+  ArrowLeft,
+  Loader2,
   ShoppingBag,
   Clock,
   CheckCircle,
@@ -31,7 +31,7 @@ interface OrderItem {
 interface Order {
   id: string;
   order_number: string;
-  status: 'new' | 'paid' | 'packed' | 'shipped' | 'completed' | 'cancelled';
+  status: 'new' | 'pending_payment' | 'for_verification' | 'paid' | 'preparing' | 'packed' | 'for_pickup' | 'shipped' | 'completed' | 'cancelled';
   payment_method: string;
   subtotal: number;
   shipping_fee: number;
@@ -42,23 +42,39 @@ interface Order {
   created_at: string;
   updated_at: string;
   proof_of_payment_url: string | null;
+  xendit_payment_id?: string | null; // Payment gateway ID (HitPay)
   order_items: OrderItem[];
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   new: { label: 'Order Placed', color: 'bg-blue-100 text-blue-800', icon: Clock },
+  pending_payment: { label: 'Pending payment', color: 'bg-amber-100 text-amber-800', icon: Clock },
+  for_verification: { label: 'For verification', color: 'bg-orange-100 text-orange-800', icon: Clock },
   paid: { label: 'Payment Confirmed', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  packed: { label: 'Being Prepared', color: 'bg-yellow-100 text-yellow-800', icon: PackageCheck },
+  preparing: { label: 'Preparing', color: 'bg-yellow-100 text-yellow-800', icon: PackageCheck },
+  packed: { label: 'Packed', color: 'bg-yellow-100 text-yellow-800', icon: PackageCheck },
+  for_pickup: { label: 'For pickup', color: 'bg-indigo-100 text-indigo-800', icon: Truck },
   shipped: { label: 'Shipped', color: 'bg-purple-100 text-purple-800', icon: Truck },
   completed: { label: 'Delivered', color: 'bg-gray-100 text-gray-800', icon: CheckCircle },
   cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: XCircle },
 };
 
 const paymentLabels: Record<string, string> = {
-  cod: 'Cash on Delivery',
+  cod: 'J&T Cash on Delivery',
   gcash: 'GCash',
   maya: 'Maya',
   bank_transfer: 'Bank Transfer',
+};
+
+// Payment method labels — clean display, no gateway branding
+const getPaymentLabel = (paymentMethod: string): string => {
+  const labels: Record<string, string> = {
+    cod: 'J&T Cash on Delivery',
+    gcash: 'GCash',
+    maya: 'Maya',
+    bank_transfer: 'Bank Transfer',
+  };
+  return labels[paymentMethod] || paymentMethod;
 };
 
 const MyOrders = () => {
@@ -96,13 +112,15 @@ const MyOrders = () => {
             created_at,
             updated_at,
             proof_of_payment_url,
+            xendit_payment_id,
             order_items (
               id,
               product_name,
               product_sku,
               quantity,
               unit_price,
-              total_price
+              total_price,
+              size
             )
           `)
           .eq('user_id', user.id)
@@ -173,10 +191,10 @@ const MyOrders = () => {
               {orders.map((order) => {
                 const status = statusConfig[order.status] || statusConfig.new;
                 const StatusIcon = status.icon;
-                
+
                 return (
-                  <Card 
-                    key={order.id} 
+                  <Card
+                    key={order.id}
                     className={`cursor-pointer transition-all hover:shadow-md ${selectedOrder?.id === order.id ? 'ring-2 ring-primary' : ''}`}
                     onClick={() => setSelectedOrder(order)}
                   >
@@ -200,7 +218,7 @@ const MyOrders = () => {
                             })}
                           </p>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {order.order_items?.length || 0} item(s) • {paymentLabels[order.payment_method] || order.payment_method}
+                            {order.order_items?.length || 0} item(s) • {getPaymentLabel(order.payment_method)}
                           </p>
                         </div>
                         <div className="text-right">
@@ -229,24 +247,26 @@ const MyOrders = () => {
                     {/* Order Status Tracker */}
                     <OrderStatusTracker status={selectedOrder.status} />
 
-                    {/* Proof of Payment Upload - Show for unpaid orders with bank_transfer/gcash/maya */}
-                    {selectedOrder.status === 'new' && ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) && (
-                      <ProofOfPaymentUpload
-                        orderId={selectedOrder.id}
-                        orderNumber={selectedOrder.order_number}
-                        customerName={selectedOrder.customer_name}
-                        customerEmail={selectedOrder.customer_email}
-                        total={selectedOrder.total}
-                        userId={user.id}
-                        existingProofUrl={selectedOrder.proof_of_payment_url}
-                        onUploadComplete={(url) => {
-                          setSelectedOrder({ ...selectedOrder, proof_of_payment_url: url });
-                          setOrders(orders.map(o => 
-                            o.id === selectedOrder.id ? { ...o, proof_of_payment_url: url } : o
-                          ));
-                        }}
-                      />
-                    )}
+                    {/* Proof of Payment Upload - Show for unpaid orders with bank_transfer/gcash/maya, but NOT for HitPay payments */}
+                    {(selectedOrder.status === 'new' || selectedOrder.status === 'pending_payment' || selectedOrder.status === 'for_verification') &&
+                      ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) &&
+                      !selectedOrder.xendit_payment_id && (
+                        <ProofOfPaymentUpload
+                          orderId={selectedOrder.id}
+                          orderNumber={selectedOrder.order_number}
+                          customerName={selectedOrder.customer_name}
+                          customerEmail={selectedOrder.customer_email}
+                          total={selectedOrder.total}
+                          userId={user.id}
+                          existingProofUrl={selectedOrder.proof_of_payment_url}
+                          onUploadComplete={(url) => {
+                            setSelectedOrder({ ...selectedOrder, proof_of_payment_url: url, status: 'for_verification' });
+                            setOrders(orders.map(o =>
+                              o.id === selectedOrder.id ? { ...o, proof_of_payment_url: url, status: 'for_verification' } : o
+                            ));
+                          }}
+                        />
+                      )}
 
                     <div>
                       <p className="text-sm text-muted-foreground mb-2">Items</p>
@@ -255,6 +275,11 @@ const MyOrders = () => {
                           <div key={item.id} className="flex justify-between text-sm">
                             <span>
                               {item.product_name} × {item.quantity}
+                              {item.size && (
+                                <span className="ml-2 px-1.5 py-0.5 bg-primary/10 text-primary rounded text-xs">
+                                  Size: {item.size}
+                                </span>
+                              )}
                             </span>
                             <span>₱{Number(item.total_price).toLocaleString()}</span>
                           </div>
@@ -284,7 +309,17 @@ const MyOrders = () => {
 
                     <div>
                       <p className="text-sm text-muted-foreground">Payment Method</p>
-                      <p className="text-sm">{paymentLabels[selectedOrder.payment_method] || selectedOrder.payment_method}</p>
+                      <p className="text-sm">{getPaymentLabel(selectedOrder.payment_method)}</p>
+                      {selectedOrder.xendit_payment_id && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Payment ID: <span className="font-mono">{selectedOrder.xendit_payment_id}</span>
+                        </p>
+                      )}
+                      {selectedOrder.xendit_payment_id && selectedOrder.status === 'paid' && (
+                        <p className="text-xs text-green-600 mt-1">
+                          ✓ Payment verified automatically via HitPay
+                        </p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

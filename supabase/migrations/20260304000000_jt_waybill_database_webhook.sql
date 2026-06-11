@@ -1,0 +1,18 @@
+-- JT Waybill Database Webhook
+--
+-- Create the webhook in Supabase Dashboard (Database -> Webhooks -> Create a new hook):
+--
+--   Name:     jt-waybill-on-orders-update
+--   Table:    public.orders
+--   Events:   Update
+--   URL:      https://<PROJECT_REF>.supabase.co/functions/v1/create-jt-waybill
+--   Method:   POST
+--   Headers:  Content-Type: application/json
+--             Authorization: Bearer <SERVICE_ROLE_KEY>
+--
+-- The create-jt-waybill Edge Function will:
+-- - Process only when record.status IN ('preparing','packed') AND record.waybill_number IS NULL
+-- - Call J&T Order API to create waybill
+-- - UPDATE orders SET waybill_number = <result>, status = 'for_pickup'
+--
+-- See docs/DATABASE_WEBHOOK_SETUP.md and docs/JT_ORDER_API.md for details.

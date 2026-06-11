@@ -15,6 +15,10 @@ cpanel-deploy
 *-build.zip
 cpanel-deploy.zip
 
+# Supabase CLI cache
+supabase/.temp
+supabase/.temp/**
+
 # Environment variables
 .env
 .env.local

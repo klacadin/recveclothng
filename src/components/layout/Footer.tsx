@@ -1,11 +1,18 @@
 import { Link } from "react-router-dom";
 import { Facebook, Instagram, Mail, MapPin, Phone } from "lucide-react";
+import nobodyLogo from "@/assets/nobody-logo.png";
 
 const Footer = () => {
   return (
-    <footer className="bg-primary text-primary-foreground">
-      <div className="container py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-8">
+    <footer className="bg-primary text-primary-foreground relative overflow-hidden">
+      {/* Subtle NOBODY logo background */}
+      <div
+        className="absolute inset-0 opacity-[0.06] pointer-events-none bg-center bg-no-repeat bg-contain"
+        style={{ backgroundImage: `url(${nobodyLogo})` }}
+        aria-hidden
+      />
+      <div className="container py-12 md:py-16 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 md:gap-8">
           {/* Brand */}
           <div className="md:col-span-2 space-y-4">
             <div>
@@ -41,7 +48,7 @@ const Footer = () => {
                 <Instagram className="h-5 w-5" />
               </a>
               <a 
-                href="mailto:reveclothing214@gmail.com"
+                href="mailto:shop@reveclothingxnobody.com"
                 className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
                 aria-label="Send us an email"
               >
@@ -87,6 +94,9 @@ const Footer = () => {
               <Link to="/about" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
                 About Us
               </Link>
+              <Link to="/news" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
+                News & Updates
+              </Link>
               <Link to="/contact" className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors">
                 Contact Us
               </Link>
@@ -106,7 +116,7 @@ const Footer = () => {
           </div>
           
           {/* Legal */}
-          <div className="space-y-4 md:col-span-1 lg:col-span-1">
+          <div className="space-y-4">
             <h4 className="font-display text-sm font-semibold uppercase tracking-wider">
               Legal
             </h4>
@@ -118,29 +128,44 @@ const Footer = () => {
                 Privacy Policy
               </Link>
             </nav>
-            <div className="pt-2 space-y-1 text-sm text-primary-foreground/70">
-              <p>Email: reveclothing214@gmail.com</p>
+          </div>
+
+          {/* Contact */}
+          <div className="space-y-4">
+            <h4 className="font-display text-sm font-semibold uppercase tracking-wider">
+              Contact
+            </h4>
+            <div className="space-y-1 text-sm text-primary-foreground/70">
+              <p>Email: shop@reveclothingxnobody.com</p>
               <p>Phone: 0955 446 5207</p>
+              <p className="flex items-start gap-1.5">
+                <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>P5 North Poblacion, Maramag, Bukidnon</span>
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-primary-foreground/10 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2 text-primary-foreground/50">
-            <MapPin className="h-4 w-4" />
-            <span className="text-xs">P5 North Poblacion, Maramag, Bukidnon</span>
+        {/* Bottom Bar — 3 columns: copyright | payment methods | powered by */}
+        <div className="mt-12 pt-8 border-t border-primary-foreground/10 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <div className="text-primary-foreground/50 text-xs text-center md:text-left order-2 md:order-1">
+            <p>© 2025 REVE Clothing. Timing is Everything.</p>
           </div>
-          <div className="flex items-center gap-6 text-xs text-primary-foreground/50">
-            <span>COD Available</span>
-            <span>•</span>
+          <div className="flex items-center justify-center gap-6 text-xs text-primary-foreground/50 order-1 md:order-2">
             <span>GCash / Maya</span>
             <span>•</span>
             <span>Nationwide via J&T</span>
           </div>
-          <p className="text-primary-foreground/50 text-xs">
-            © 2025 REVE Clothing. Timing is Everything.
-          </p>
+          <div className="text-primary-foreground/50 text-xs text-center md:text-right order-3">
+            <a
+              href="https://haturikonet.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-primary-foreground transition-colors"
+            >
+              Powered by Haturiko Services Inc.
+            </a>
+          </div>
         </div>
       </div>
     </footer>

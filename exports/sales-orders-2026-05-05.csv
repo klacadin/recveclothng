@@ -1,0 +1,2 @@
+order_number,created_at,updated_at,customer_name,customer_email,customer_phone,status,payment_method,subtotal,shipping_fee,total,item_count,waybill_number,payment_reference_number,proof_of_payment_url,notes,user_id
+ORD-20260505-9387,2026-05-05T17:50:01.830Z,2026-05-05T17:50:01.830Z,keren happuch,khlacadin@gmail.com,9359830397,new,cod,350,130,518,1,,,,,

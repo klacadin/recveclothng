@@ -2,23 +2,33 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+export const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_PUBLIC_KEY ||
+  import.meta.env.VITE_SUPABASE_KEY;
 
-// Validate environment variables
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env file and ensure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are set.'
-  );
-}
+export const SUPABASE_CONFIG_ERROR =
+  !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY
+    ? 'Missing Supabase environment variables. Please check your build-time env and ensure VITE_SUPABASE_URL and one of VITE_SUPABASE_PUBLISHABLE_KEY / VITE_SUPABASE_ANON_KEY are set.'
+    : null;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
+const throwingClient = new Proxy({} as ReturnType<typeof createClient<Database>>, {
+  get() {
+    throw new Error(SUPABASE_CONFIG_ERROR ?? 'Supabase is not configured.');
+  },
 });
+
+export const supabase: ReturnType<typeof createClient<Database>> = SUPABASE_CONFIG_ERROR
+  ? throwingClient
+  : createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  });

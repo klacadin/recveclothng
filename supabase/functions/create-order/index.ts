@@ -6,6 +6,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-forwarded-for, x-real-ip',
 };
 
+/** Sync with `src/config/constants.ts` — included in order total for COD and online (HitPay) alike. */
+const CONVENIENCE_FEE_PHP = 38;
+/** Sync with `src/config/constants.ts` MAX_ORDER_PIECES */
+const MAX_ORDER_PIECES = 10;
+/** Sync with `src/config/constants.ts` SHIPPING_PHP_BY_PIECE_COUNT — index = exact piece count */
+const SHIPPING_PHP_BY_PIECE_COUNT = [0, 130, 130, 180, 180, 230, 250, 250, 300, 350, 350];
+
+function shippingFeeByTotalPiecesPhp(totalPieces: number): number {
+  if (totalPieces <= 0) return 0;
+  const n = Math.min(totalPieces, MAX_ORDER_PIECES);
+  return SHIPPING_PHP_BY_PIECE_COUNT[n] ?? 0;
+}
+
 type ProductSize = 'XS' | 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 
 interface OrderItem {
@@ -30,7 +43,12 @@ interface OrderRequest {
   total: number;
   items: OrderItem[];
   user_id?: string;
+  voucher_code?: string | null;
 }
+
+// Fallback test voucher (if DB vouchers table not yet populated)
+const TEST_VOUCHER = 'TEST99';
+const TEST_VOUCHER_DISCOUNT = 0.99; // 99% off
 
 interface ReservedItem {
   product_id: string;
@@ -40,6 +58,31 @@ interface ReservedItem {
   unit_price: number;
   total_price: number;
   size: ProductSize;
+}
+
+async function rollbackOnlineOrder(
+  supabase: ReturnType<typeof createClient>,
+  orderId: string,
+  reservedItems: ReservedItem[],
+) {
+  await supabase.from('order_items').delete().eq('order_id', orderId);
+  await supabase.from('orders').delete().eq('id', orderId);
+
+  for (const reserved of reservedItems) {
+    const { error } = await supabase.rpc('restore_variant_stock', {
+      _product_id: reserved.product_id,
+      _size: reserved.size,
+      _quantity: reserved.quantity,
+    });
+    if (error) {
+      console.error('Failed to restore stock during online payment rollback:', {
+        product_id: reserved.product_id,
+        size: reserved.size,
+        quantity: reserved.quantity,
+        error,
+      });
+    }
+  }
 }
 
 // Extract client IP from request headers
@@ -64,7 +107,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     // Use service role to bypass RLS for order operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -79,10 +122,10 @@ serve(async (req) => {
     }));
 
     // Validate required fields
-    if (!orderData.customer_name || !orderData.customer_email || !orderData.shipping_address) {
+    if (!orderData.customer_name || !orderData.customer_email || !orderData.shipping_address || !orderData.customer_phone) {
       console.error('Missing required fields');
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ error: 'Missing required fields: customer name, email, phone, and shipping address are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -133,10 +176,10 @@ serve(async (req) => {
     // Validate quantities and sizes
     const validSizes: ProductSize[] = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
     for (const item of orderData.items) {
-      if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 100) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > MAX_ORDER_PIECES) {
         console.error('Invalid quantity:', item);
         return new Response(
-          JSON.stringify({ error: 'Item quantity must be between 1 and 100' }),
+          JSON.stringify({ error: `Each line item quantity must be between 1 and ${MAX_ORDER_PIECES}` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -156,6 +199,16 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+    }
+
+    const totalPieces = orderData.items.reduce((sum, i) => sum + i.quantity, 0);
+    if (totalPieces > MAX_ORDER_PIECES) {
+      return new Response(
+        JSON.stringify({
+          error: `Orders are limited to ${MAX_ORDER_PIECES} pieces total. Reduce quantities and try again.`,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // SECURITY: Check rate limits
@@ -282,7 +335,7 @@ serve(async (req) => {
       serverSubtotal += itemTotal;
 
       // Build SKU with variant suffix if available
-      const fullSku = result.variant_sku_suffix 
+      const fullSku = result.variant_sku_suffix
         ? `${result.product_sku}-${result.variant_sku_suffix}`
         : result.product_sku;
 
@@ -299,9 +352,86 @@ serve(async (req) => {
       console.log(`Reserved ${item.quantity} of ${result.product_name} (${item.size}) at ${serverPrice} each`);
     }
 
-    // SECURITY: Calculate server-side total
-    const shippingFee = Math.max(0, Math.min(orderData.shipping_fee, 10000)); // Cap shipping fee
-    const serverTotal = serverSubtotal + shippingFee;
+    // SECURITY: Calculate server-side total — shipping from total piece count (ignore client shipping_fee).
+    const serverTotalPieces = reservedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const shippingFee = Math.max(0, Math.min(shippingFeeByTotalPiecesPhp(serverTotalPieces), 10000));
+
+    let serverTotal = serverSubtotal + shippingFee + CONVENIENCE_FEE_PHP;
+
+    // Apply voucher discount: check DB first, fallback to TEST99
+    const voucherCode = (orderData.voucher_code || '').trim().toUpperCase();
+    if (voucherCode) {
+      const { data: voucher } = await supabase
+        .from('vouchers')
+        .select('id, discount_type, discount_value, min_order_amount, max_uses, times_used, product_ids, category_ids')
+        .ilike('code', voucherCode)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      let discountAmount = 0;
+      if (voucher) {
+        const minOrder = Number(voucher.min_order_amount) || 0;
+        const totalForMinCheck = serverTotal;
+        if (totalForMinCheck >= minOrder) {
+          const productIds = (voucher.product_ids as string[] | null) ?? [];
+          const categoryIds = (voucher.category_ids as string[] | null) ?? [];
+          const hasScope = productIds.length > 0 || categoryIds.length > 0;
+
+          let eligibleAmount = hasScope ? 0 : serverSubtotal;
+          if (hasScope && reservedItems.length > 0) {
+            const productIdList = reservedItems.map((r) => r.product_id);
+            const { data: products } = await supabase
+              .from('products')
+              .select('id, category')
+              .in('id', productIdList);
+            const productByCat = new Map((products ?? []).map((p: { id: string; category: string | null }) => [p.id, p.category ?? '']));
+
+            let categoryNames: string[] = [];
+            if (categoryIds.length) {
+              const { data: cats } = await supabase
+                .from('categories')
+                .select('name')
+                .in('id', categoryIds);
+              categoryNames = (cats ?? []).map((c: { name: string }) => c.name).filter(Boolean);
+            }
+
+            const productIdSet = productIds.length ? new Set(productIds) : null;
+            const categoryNameSet = categoryNames.length ? new Set(categoryNames.map((n) => (n ?? '').toLowerCase())) : null;
+            eligibleAmount = 0;
+            for (const item of reservedItems) {
+              const inProducts = productIdSet?.has(item.product_id);
+              const cat = productByCat.get(item.product_id) ?? '';
+              const inCategory = categoryNameSet?.has(cat.toLowerCase());
+              if (inProducts || inCategory) {
+                eligibleAmount += item.total_price;
+              }
+            }
+          }
+
+          if (eligibleAmount > 0) {
+            const val = Number(voucher.discount_value);
+            if (voucher.discount_type === 'percent') {
+              discountAmount = Math.floor(eligibleAmount * (Math.min(100, val) / 100));
+            } else {
+              discountAmount = Math.min(eligibleAmount, val);
+            }
+            if (discountAmount > 0 && voucher.id) {
+              await supabase
+                .from('vouchers')
+                .update({ times_used: (voucher.times_used ?? 0) + 1, updated_at: new Date().toISOString() })
+                .eq('id', voucher.id);
+            }
+          }
+        }
+      } else if (voucherCode === TEST_VOUCHER) {
+        discountAmount = Math.floor(serverTotal * TEST_VOUCHER_DISCOUNT);
+      }
+
+      if (discountAmount > 0) {
+        serverTotal = Math.max(1, serverTotal - discountAmount);
+        console.log('Voucher applied:', { code: voucherCode, discount: discountAmount, final: serverTotal });
+      }
+    }
 
     console.log('Server-calculated totals:', { subtotal: serverSubtotal, shipping: shippingFee, total: serverTotal });
 
@@ -313,6 +443,10 @@ serve(async (req) => {
         customer_email: orderData.customer_email,
       });
 
+    // For non-COD: status is pending_payment until proof is uploaded and validated. COD stays new.
+    const needsProof = ['gcash', 'maya', 'bank_transfer'].includes(orderData.payment_method);
+    const initialStatus = needsProof ? 'pending_payment' : 'new';
+
     // Create order with SERVER-CALCULATED values
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -320,14 +454,14 @@ serve(async (req) => {
         order_number: orderNumber,
         customer_name: orderData.customer_name.substring(0, 255),
         customer_email: orderData.customer_email.substring(0, 320),
-        customer_phone: orderData.customer_phone?.substring(0, 50) || null,
+        customer_phone: orderData.customer_phone.substring(0, 50),
         shipping_address: orderData.shipping_address.substring(0, 1000),
         notes: orderData.notes?.substring(0, 500) || null,
         payment_method: orderData.payment_method,
         subtotal: serverSubtotal,
         shipping_fee: shippingFee,
         total: serverTotal,
-        status: 'new',
+        status: initialStatus,
         user_id: orderData.user_id || null,
       })
       .select()
@@ -386,51 +520,148 @@ serve(async (req) => {
 
     console.log('Order items created successfully');
 
-    // Send confirmation email (non-blocking)
-    try {
-      const emailPayload = {
-        type: 'confirmation',
-        order_id: order.id,
-        customer_email: orderData.customer_email,
-        customer_name: orderData.customer_name,
-        order_number: orderNumber,
-        items: reservedItems.map(item => ({
-          ...item,
-          size: item.size, // Include size in email
-        })),
-        subtotal: serverSubtotal,
-        shipping_fee: shippingFee,
-        total: serverTotal,
-        payment_method: orderData.payment_method,
-        shipping_address: orderData.shipping_address,
-      };
-
-      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-order-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-        },
-        body: JSON.stringify(emailPayload),
-      });
-
-      if (!emailResponse.ok) {
-        console.error('Failed to send confirmation email:', await emailResponse.text());
-      } else {
-        console.log('Confirmation email sent successfully');
+    // HitPay: Create payment for GCash/Maya/Bank Transfer and return redirect URL
+    // GCash: gcash_qr → opens GCash app; Maya: qrph_netbank → Maya app; Bank Transfer: qrph_netbank → bank apps via QR Ph
+    let redirectUrl: string | null = null;
+    const hitpayMethods = ['gcash', 'maya', 'bank_transfer'];
+    if (hitpayMethods.includes(orderData.payment_method)) {
+      const hitpayApiKey = Deno.env.get('HITPAY_API_KEY');
+      if (!hitpayApiKey) {
+        console.error('HITPAY_API_KEY not configured - rolling back online order');
+        await rollbackOnlineOrder(supabase, order.id, reservedItems);
+        return new Response(
+          JSON.stringify({
+            error: 'Payment service is not configured. Please contact support.',
+            code: 'payment_not_configured',
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-    } catch (emailError) {
-      console.error('Error sending confirmation email:', emailError);
-      // Don't fail the order if email fails
+
+      try {
+        const appUrl = Deno.env.get('APP_URL') || 'https://reveclothingxnobody.com';
+        const hitpayBaseUrl = Deno.env.get('HITPAY_SANDBOX') === 'true'
+          ? 'https://api.sandbox.hit-pay.com'
+          : 'https://api.hit-pay.com';
+        const webhookUrl = `${supabaseUrl}/functions/v1/hitpay-webhook`;
+        const hitpayRedirect = `${appUrl}/payment-success?order_id=${order.id}`;
+
+        // HitPay: Omit payment_methods in production → HitPay shows all methods enabled on your account.
+        // Sandbox only supports card/PayNow; PHP methods (gcash_qr, qrph_netbank) are production-only.
+        const isSandbox = Deno.env.get('HITPAY_SANDBOX') === 'true';
+        const hitpayPayload: Record<string, unknown> = {
+          amount: serverTotal,
+          currency: 'PHP',
+          email: orderData.customer_email,
+          name: orderData.customer_name,
+          purpose: `Order ${orderNumber}`,
+          reference_number: order.id,
+          redirect_url: hitpayRedirect,
+          webhook: webhookUrl,
+          send_email: 'false',
+          send_sms: 'false',
+        };
+        if (isSandbox) {
+          hitpayPayload.payment_methods = ['card', 'paynow_online'];
+        }
+
+        const hitpayRes = await fetch(`${hitpayBaseUrl}/v1/payment-requests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-BUSINESS-API-KEY': hitpayApiKey,
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify(hitpayPayload),
+        });
+
+        const hitpayResult = await hitpayRes.json().catch(() => ({}));
+        if (hitpayRes.ok && hitpayResult.url && hitpayResult.id) {
+          redirectUrl = hitpayResult.url;
+          await supabase.from('orders').update({
+            xendit_payment_id: hitpayResult.id,
+            updated_at: new Date().toISOString(),
+          }).eq('id', order.id);
+          console.log('HitPay payment created:', hitpayResult.id);
+        } else {
+          console.error('HitPay API error:', hitpayResult);
+          await rollbackOnlineOrder(supabase, order.id, reservedItems);
+          return new Response(
+            JSON.stringify({
+              error: hitpayResult?.message || 'Payment gateway rejected the request. Please try again or contact support.',
+              code: 'hitpay_create_failed',
+              details: hitpayResult,
+            }),
+            { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (hitpayErr) {
+        console.error('HitPay create error:', hitpayErr);
+        await rollbackOnlineOrder(supabase, order.id, reservedItems);
+        return new Response(
+          JSON.stringify({
+            error: 'Payment gateway is temporarily unavailable. Please try again.',
+            code: 'hitpay_unavailable',
+          }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
+    // Send confirmation email only for COD orders. HitPay orders (GCash/Maya/Bank Transfer)
+    // receive confirmation when payment is confirmed via hitpay-webhook.
+    if (orderData.payment_method === 'cod') {
+      try {
+        const emailPayload = {
+          type: 'confirmation',
+          order_id: order.id,
+          customer_email: orderData.customer_email,
+          customer_name: orderData.customer_name,
+          order_number: orderNumber,
+          items: reservedItems.map(item => ({
+            product_name: item.product_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            size: item.size,
+          })),
+          subtotal: serverSubtotal,
+          shipping_fee: shippingFee,
+          total: serverTotal,
+          payment_method: orderData.payment_method,
+          shipping_address: orderData.shipping_address,
+        };
+
+        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-order-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+          },
+          body: JSON.stringify(emailPayload),
+        });
+
+        if (!emailResponse.ok) {
+          console.error('Failed to send confirmation email:', await emailResponse.text());
+        } else {
+          console.log('Confirmation email sent successfully (COD)');
+        }
+      } catch (emailError) {
+        console.error('Error sending confirmation email:', emailError);
+      }
+    }
+
+    const response: Record<string, unknown> = {
+      success: true,
+      order_id: order.id,
+      order_number: orderNumber,
+      total: serverTotal
+    };
+    if (redirectUrl) {
+      response.redirect_url = redirectUrl;
+    }
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        order_id: order.id, 
-        order_number: orderNumber,
-        total: serverTotal
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

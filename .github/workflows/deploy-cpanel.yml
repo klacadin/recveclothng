@@ -1,0 +1,61 @@
+# REVE Clothing - cPanel Deployment Pipeline
+# Builds the app (incl. J&T COD) and deploys to cPanel via FTP or produces zip for manual upload
+#
+# Triggers:
+#   - Push to main
+#   - Manual workflow_dispatch
+#
+# Secrets required for FTP deploy:
+#   FTP_HOST, FTP_USER, FTP_PASSWORD
+# Optional: FTP_REMOTE_PATH (default: public_html), FTP_PORT, FTP_SECURE
+
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for cPanel
+        run: npm run build:cpanel
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Create deploy zip
+        run: npm run deploy:zip
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpanel-deploy
+          path: cpanel-deploy.zip
+
+      - name: Deploy via FTP
+        if: ${{ secrets.FTP_HOST != '' && secrets.FTP_USER != '' && secrets.FTP_PASSWORD != '' }}
+        run: npm run deploy:ftp
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_REMOTE_PATH: ${{ secrets.FTP_REMOTE_PATH || 'public_html' }}
+          FTP_PORT: ${{ secrets.FTP_PORT || '21' }}
+          FTP_SECURE: ${{ secrets.FTP_SECURE || 'false' }}

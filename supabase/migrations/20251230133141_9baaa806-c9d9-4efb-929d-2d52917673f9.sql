@@ -1,9 +1,8 @@
--- Drop existing policies that use 'public' role
+-- Drop existing policies that use 'public' role, then recreate with 'authenticated' role only (idempotent)
 DROP POLICY IF EXISTS "Users can view their own orders" ON public.orders;
 DROP POLICY IF EXISTS "Users can update proof of payment on their orders" ON public.orders;
 DROP POLICY IF EXISTS "Users can view their own order items" ON public.order_items;
 
--- Recreate policies with 'authenticated' role only
 CREATE POLICY "Users can view their own orders" 
 ON public.orders 
 FOR SELECT 

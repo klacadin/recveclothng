@@ -10,6 +10,8 @@ export type UserApproval = {
   rejection_reason: string | null;
   created_at: string;
   updated_at: string;
+  email: string | null;
+  full_name: string | null;
 };
 
 export type UserApprovalWithEmail = UserApproval & {

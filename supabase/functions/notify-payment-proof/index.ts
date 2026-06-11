@@ -53,7 +53,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get admin emails from auth.users
-    let adminEmails: string[] = [];
+    const adminEmails: string[] = [];
     if (adminRoles && adminRoles.length > 0) {
       const adminUserIds = adminRoles.map(r => r.user_id);
       
@@ -115,7 +115,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: "shop@reveclothingxnobody.com",
+      from: "REVE <shop@reveclothingxnobody.com>",
       to: adminEmails,
       subject: `Payment Proof Uploaded - ${data.order_number}`,
       html: emailHtml,
@@ -127,10 +127,11 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ success: true, emailResponse }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in notify-payment-proof function:", error);
+    const message = error instanceof Error ? error.message : "Internal server error";
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

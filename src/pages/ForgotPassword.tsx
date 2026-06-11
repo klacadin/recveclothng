@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { BASE_URL } from '@/config/constants';
 import { Loader2, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
@@ -33,23 +34,23 @@ const ForgotPassword = () => {
     setIsSubmitting(true);
 
     try {
-      const { BASE_URL } = await import('@/config/constants');
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${BASE_URL}/reset-password`,
       });
-      
+
       if (error) throw error;
-      
+
       setEmailSent(true);
       toast({
         title: 'Check your email',
         description: 'We sent you a password reset link.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Password reset error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send reset email. Please try again.';
       toast({
         title: 'Request failed',
-        description: error.message || 'Failed to send reset email. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -67,7 +68,7 @@ const ForgotPassword = () => {
             </div>
             <CardTitle>Check Your Email</CardTitle>
             <CardDescription>
-              We sent a password reset link to <strong>{email}</strong>. 
+              We sent a password reset link to <strong>{email}</strong>.
               Click the link in the email to reset your password.
             </CardDescription>
           </CardHeader>
@@ -75,8 +76,8 @@ const ForgotPassword = () => {
             <p className="text-sm text-muted-foreground text-center">
               Didn't receive the email? Check your spam folder or try again.
             </p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full"
               onClick={() => setEmailSent(false)}
             >

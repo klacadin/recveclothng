@@ -8,23 +8,50 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Filter, ChevronDown, Search, X, ArrowUpDown, ArrowRight } from "lucide-react";
-import { NOBODY_PRODUCTS, getProductsByCategory } from "@/data/products";
+import { useActiveProducts, isProductNew } from "@/hooks/useProducts";
+import { useProductsSoldCount } from "@/hooks/useProductSoldCount";
+import { useProductCategories } from "@/hooks/useCategories";
+import { getProductDisplayImage } from "@/data/productImages";
 
-// Running apparel categories under NOBODY
-const categories = [
-  "All",
+/** Canonical product.category values from DB migrations - used when categories table is empty or mismatched */
+const PRODUCT_CATEGORY_VALUES = [
   "Running Shirt",
   "Running Shorts",
   "Running Singlets",
   "Running Long Sleeves",
 ] as const;
 
-const SHOP_CATEGORY_BOXES = [
-  { name: "Running Shirt", slug: "Running Shirt", code: "SHRT" },
-  { name: "Running Shorts", slug: "Running Shorts", code: "SHORT" },
-  { name: "Running Singlets", slug: "Running Singlets", code: "SING" },
-  { name: "Running Long Sleeves", slug: "Running Long Sleeves", code: "LSLV" },
-];
+/** Category code -> product.category values (products use these exact strings) */
+const CODE_TO_PRODUCT_CATEGORIES: Record<string, readonly string[]> = {
+  SHRT: ["Running Shirt", "Running Shirts"],
+  SHORT: ["Running Shorts"],
+  SING: ["Running Singlets"],
+  LSLV: ["Running Long Sleeves", "Running Long Sleeve"],
+};
+
+/** Match product.category to DB category (by name or code) */
+function matchesProductCategory(
+  productCategory: string | null,
+  categoryName: string,
+  categoryCode?: string | null
+): boolean {
+  const p = (productCategory || "").trim().toLowerCase();
+  if (!p) return false;
+
+  // Match by category code first (most reliable)
+  if (categoryCode) {
+    const allowed = CODE_TO_PRODUCT_CATEGORIES[categoryCode.toUpperCase()];
+    if (allowed?.some((c) => p === c.toLowerCase())) return true;
+  }
+
+  // Match by name (exact or plural/singular)
+  const c = (categoryName || "").trim().toLowerCase();
+  if (!c) return false;
+  if (p === c) return true;
+  if (c.endsWith("s") && p === c.slice(0, -1)) return true;
+  if (p.endsWith("s") && c === p.slice(0, -1)) return true;
+  return false;
+}
 const sizes = ["XS", "S", "M", "L", "XL", "2XL", "XXL", "XXXL"];
 
 type SortOption = "newest" | "price-low" | "price-high" | "name-asc";
@@ -38,19 +65,75 @@ const Shop = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
-  // Only display available products (canonical NOBODY list)
-  const baseProducts = useMemo(() => {
-    if (selectedCategory === "All") return NOBODY_PRODUCTS;
-    return getProductsByCategory(selectedCategory);
-  }, [selectedCategory]);
+  const { data: allProducts = [], isLoading: productsLoading } = useActiveProducts();
+  const { data: dbCategories = [] } = useProductCategories();
+  const productIds = useMemo(() => allProducts.map((p) => p.id), [allProducts]);
+  const { soldCountByProductId } = useProductsSoldCount(productIds);
 
-  // Update category from URL params on mount
+  // Categories from DB, or fallback to canonical product categories when DB is empty
+  const categories = useMemo(() => {
+    if (dbCategories.length > 0) {
+      return ["All", ...dbCategories.map((c) => c.name)];
+    }
+    return ["All", ...PRODUCT_CATEGORY_VALUES];
+  }, [dbCategories]);
+
+  // Category boxes for "Shop by Category" section (DB-first, fallback to canonical)
+  const shopCategoryBoxes = useMemo(() => {
+    const allBox = { slug: "All", name: "All Products", code: "ALL", sub: "Browse everything" as string | null };
+    if (dbCategories.length > 0) {
+      return [
+        allBox,
+        ...dbCategories.map((c) => ({
+          slug: c.name,
+          name: c.name,
+          code: c.code || c.slug?.toUpperCase().slice(0, 4) || "",
+          sub: null as string | null,
+        })),
+      ];
+    }
+    return [
+      allBox,
+      ...PRODUCT_CATEGORY_VALUES.map((name, i) => ({
+        slug: name,
+        name,
+        code: ["SHRT", "SHORT", "SING", "LSLV"][i] || "",
+        sub: null as string | null,
+      })),
+    ];
+  }, [dbCategories]);
+
+  // Build lookup: category name -> category (for code when filtering)
+  const categoryByName = useMemo(
+    () => new Map(dbCategories.map((c) => [c.name, c])),
+    [dbCategories]
+  );
+
+  // Filter by category — match product.category to DB category (by name + code)
+  const baseProducts = useMemo(() => {
+    if (selectedCategory === "All") return allProducts;
+    const dbCat = categoryByName.get(selectedCategory);
+    const code = dbCat?.code ?? (selectedCategory === "Running Shirt" ? "SHRT" : selectedCategory === "Running Shorts" ? "SHORT" : selectedCategory === "Running Singlets" ? "SING" : selectedCategory === "Running Long Sleeves" ? "LSLV" : null);
+    return allProducts.filter((p) => matchesProductCategory(p.category, selectedCategory, code));
+  }, [allProducts, selectedCategory, categoryByName]);
+
+  // Update category from URL params on mount (normalize URL param to match our category list)
   useEffect(() => {
     const categoryParam = searchParams.get("category");
-    if (categoryParam && categories.includes(categoryParam)) {
+    if (!categoryParam) return;
+    if (categories.includes(categoryParam)) {
       setSelectedCategory(categoryParam);
+      return;
     }
-  }, [searchParams]);
+    // Normalize: URL may have "Running Shirt" but DB has "Running Shirts" (or vice versa)
+    const normalized = categories.find(
+      (c) =>
+        c.toLowerCase() === categoryParam.toLowerCase() ||
+        (c.toLowerCase().endsWith("s") && c.toLowerCase().slice(0, -1) === categoryParam.toLowerCase()) ||
+        (categoryParam.toLowerCase().endsWith("s") && c.toLowerCase() === categoryParam.toLowerCase().slice(0, -1))
+    );
+    if (normalized) setSelectedCategory(normalized);
+  }, [searchParams, categories]);
 
   // Update URL when category changes
   const handleCategoryChange = (category: string) => {
@@ -74,7 +157,9 @@ const Shop = () => {
 
     switch (sortBy) {
       case "newest":
-        filtered = [...filtered];
+        filtered = [...filtered].sort((a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
         break;
       case "price-low":
         filtered = [...filtered].sort((a, b) => a.price - b.price);
@@ -122,20 +207,16 @@ const Shop = () => {
               Shop by Category
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5">
-              {[
-                { slug: "All", name: "All Products", code: "ALL", sub: "Browse everything" },
-                ...SHOP_CATEGORY_BOXES.map((c) => ({ ...c, sub: null })),
-              ].map((cat) => {
+              {shopCategoryBoxes.map((cat) => {
                 const isSelected = selectedCategory === cat.slug;
                 return (
                   <button
                     key={cat.slug}
                     onClick={() => handleCategoryChange(cat.slug)}
-                    className={`group relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all duration-300 text-left ${
-                      isSelected
+                    className={`group relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all duration-300 text-left ${isSelected
                         ? "border-foreground ring-2 ring-foreground/20"
                         : "border-border hover:border-foreground/50 hover:shadow-lg"
-                    }`}
+                      }`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-secondary to-secondary" />
                     <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-5 min-h-0">
@@ -241,8 +322,8 @@ const Shop = () => {
                           );
                         }}
                         className={`px-3 py-1.5 text-xs font-medium border rounded transition-colors ${selectedSizes.includes(size)
-                            ? "bg-foreground text-background border-foreground"
-                            : "bg-background text-foreground border-border hover:border-foreground"
+                          ? "bg-foreground text-background border-foreground"
+                          : "bg-background text-foreground border-border hover:border-foreground"
                           }`}
                       >
                         {size}
@@ -270,23 +351,32 @@ const Shop = () => {
                 {filteredProducts.length} {filteredProducts.length === 1 ? "item" : "items"}
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                id={product.id}
-                name={product.name}
-                price={product.price}
-                image={product.image}
-                category={product.category}
-                isNew={false}
-                inStock={true}
-              />
-            ))}
-            </div>
+            {productsLoading ? (
+              <div className="py-16 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+                <p className="text-muted-foreground mt-2">Loading products...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    id={product.id}
+                    name={product.name}
+                    price={Number(product.price)}
+                    image={getProductDisplayImage(product)}
+                    category={product.category || undefined}
+                    isNew={isProductNew(product.created_at)}
+                    inStock={(product.stock_quantity ?? 0) > 0}
+                    soldCount={soldCountByProductId.get(product.id) ?? 0}
+                    product={product}
+                  />
+                ))}
+              </div>
+            )}
           </section>
 
-          {filteredProducts.length === 0 && (
+          {!productsLoading && filteredProducts.length === 0 && (
             <div className="text-center py-16">
               <p className="text-muted-foreground">No products found matching your filters.</p>
               <Button variant="outline" className="mt-4" onClick={() => {

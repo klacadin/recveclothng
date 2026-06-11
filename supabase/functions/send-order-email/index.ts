@@ -12,10 +12,11 @@ interface OrderItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  size?: string | null;
 }
 
 interface EmailRequest {
-  type: 'confirmation' | 'status_update';
+  type: 'confirmation' | 'status_update' | 'proof_reminder' | 'payment_reminder';
   order_id: string;
   customer_email: string;
   customer_name: string;
@@ -27,6 +28,9 @@ interface EmailRequest {
   new_status?: string;
   payment_method?: string;
   shipping_address?: string;
+  upload_proof_url?: string;
+  reminder_stage?: 30 | 60 | 90;
+  complete_payment_url?: string;
 }
 
 const formatPrice = (price: number): string => {
@@ -47,7 +51,7 @@ const getStatusLabel = (status: string): string => {
 
 const getPaymentMethodLabel = (method: string): string => {
   const labels: Record<string, string> = {
-    'cod': 'Cash on Delivery',
+    'cod': 'J&T Cash on Delivery',
     'gcash': 'GCash',
     'maya': 'Maya',
     'bank_transfer': 'Bank Transfer'
@@ -58,7 +62,10 @@ const getPaymentMethodLabel = (method: string): string => {
 const generateConfirmationEmail = (data: EmailRequest): string => {
   const itemsHtml = data.items?.map(item => `
     <tr>
-      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.product_name}</td>
+      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+        ${item.product_name}
+        ${item.size ? `<span style="display: inline-block; background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; margin-left: 8px;">Size: ${item.size}</span>` : ''}
+      </td>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatPrice(item.unit_price)}</td>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatPrice(item.total_price)}</td>
@@ -124,7 +131,7 @@ const generateConfirmationEmail = (data: EmailRequest): string => {
 const generateStatusUpdateEmail = (data: EmailRequest): string => {
   const statusLabel = getStatusLabel(data.new_status || '');
   const statusColor = data.new_status === 'cancelled' ? '#ef4444' : '#10b981';
-  
+
   let statusMessage = '';
   switch (data.new_status) {
     case 'paid':
@@ -180,6 +187,117 @@ const generateStatusUpdateEmail = (data: EmailRequest): string => {
   `;
 };
 
+const generateProofReminderEmail = (data: EmailRequest): string => {
+  const appUrl = Deno.env.get('APP_URL') || Deno.env.get('BASE_URL') || 'https://reveclothingxnobody.com';
+  const uploadUrl = data.upload_proof_url || `${appUrl}/upload-proof?order=${encodeURIComponent(data.order_number)}`;
+  const paymentMethodLabel = getPaymentMethodLabel(data.payment_method || 'bank_transfer');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div style="background-color: #f59e0b; padding: 24px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Payment Proof Required</h1>
+          </div>
+          <div style="padding: 24px;">
+            <p style="color: #374151; font-size: 16px; margin: 0 0 16px;">Hi ${data.customer_name},</p>
+            <p style="color: #374151; font-size: 16px; margin: 0 0 24px;">We noticed that your order is still pending payment verification. To complete your order, please upload proof of payment.</p>
+            
+            <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px;">Order Number</p>
+              <p style="color: #111827; font-size: 18px; font-weight: 600; margin: 0 0 16px;">${data.order_number}</p>
+              
+              <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px;">
+                <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px;">Payment Method</p>
+                <p style="color: #111827; font-size: 16px; font-weight: 500; margin: 0 0 16px;">${paymentMethodLabel}</p>
+                
+                <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px;">Total Amount</p>
+                <p style="color: #111827; font-size: 18px; font-weight: 600; margin: 0;">${formatPrice(data.total || 0)}</p>
+              </div>
+            </div>
+
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${uploadUrl}" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600;">Upload Proof of Payment</a>
+            </div>
+
+            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 24px 0; border-radius: 4px;">
+              <p style="color: #92400e; font-size: 14px; margin: 0 0 8px; font-weight: 600;">📸 What to upload:</p>
+              <ul style="color: #92400e; font-size: 14px; margin: 0; padding-left: 20px;">
+                <li>Screenshot of your ${paymentMethodLabel} payment confirmation</li>
+                <li>Bank transfer receipt</li>
+                <li>Any proof showing the transaction amount and reference number</li>
+              </ul>
+            </div>
+
+            <p style="color: #6b7280; font-size: 14px; margin: 24px 0 0; text-align: center;">If you've already paid, please upload your proof of payment so we can process your order.</p>
+          </div>
+          <div style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">If you have any questions, please contact us at shop@reveclothingxnobody.com</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+const generatePaymentReminderEmail = (data: EmailRequest): string => {
+  const appUrl = Deno.env.get('APP_URL') || Deno.env.get('BASE_URL') || 'https://reveclothingxnobody.com';
+  const paymentUrl = data.complete_payment_url || `${appUrl}/my-orders`;
+  const paymentMethodLabel = getPaymentMethodLabel(data.payment_method || 'gcash');
+  const isFinal = data.reminder_stage === 90;
+
+  const stageMessage = isFinal
+    ? 'This is our final reminder—we\'d hate for your order to slip away.'
+    : 'We\'re holding your order—just one step left to lock it in.';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div style="background-color: #1a1a1a; padding: 24px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Your Order Is Reserved for You</h1>
+            <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0;">REVE Clothing — Timing is Everything</p>
+          </div>
+          <div style="padding: 24px;">
+            <p style="color: #374151; font-size: 16px; margin: 0 0 16px;">Hi ${data.customer_name},</p>
+            <p style="color: #374151; font-size: 16px; margin: 0 0 16px; line-height: 1.6;">We wanted to reach out—your REVE order is reserved for you! ${stageMessage}</p>
+            <p style="color: #374151; font-size: 16px; margin: 0 0 24px; line-height: 1.6;">Complete your ${paymentMethodLabel} payment to confirm your order, and we'll get your gear on its way.</p>
+            
+            <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px;">Order Number</p>
+              <p style="color: #111827; font-size: 18px; font-weight: 600; margin: 0 0 12px;">${data.order_number}</p>
+              <p style="color: #6b7280; font-size: 14px; margin: 0;">Total — ${formatPrice(data.total || 0)}</p>
+            </div>
+
+            <div style="text-align: center; margin: 28px 0;">
+              <a href="${paymentUrl}" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600;">Complete Payment</a>
+            </div>
+
+            <p style="color: #6b7280; font-size: 14px; margin: 24px 0 0; line-height: 1.5; text-align: center;">From Nobody to Somebody—we're here for your journey. Questions? Reply anytime at shop@reveclothingxnobody.com</p>
+          </div>
+          <div style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">REVE Clothing · Performance apparel born in Bukidnon</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -216,6 +334,15 @@ serve(async (req) => {
       const statusLabel = getStatusLabel(data.new_status || '');
       subject = `Order ${statusLabel} - ${data.order_number}`;
       html = generateStatusUpdateEmail(data);
+    } else if (data.type === 'proof_reminder') {
+      subject = `Payment Proof Required - ${data.order_number}`;
+      html = generateProofReminderEmail(data);
+    } else if (data.type === 'payment_reminder') {
+      const isFinal = data.reminder_stage === 90;
+      subject = isFinal
+        ? `Last chance: Your order is still reserved for you — ${data.order_number}`
+        : `Your order is reserved for you — Complete payment · ${data.order_number}`;
+      html = generatePaymentReminderEmail(data);
     } else {
       console.error('Invalid email type');
       return new Response(
@@ -231,7 +358,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'REVE <onboarding@resend.dev>',
+        from: 'REVE <shop@reveclothingxnobody.com>',
         to: [data.customer_email],
         subject: subject,
         html: html,

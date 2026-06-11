@@ -10,7 +10,7 @@ const TrustBar = () => {
     {
       icon: CreditCard,
       title: "Flexible Payment",
-      description: "COD, GCash, Maya",
+      description: "GCash, Maya",
     },
     {
       icon: Shield,

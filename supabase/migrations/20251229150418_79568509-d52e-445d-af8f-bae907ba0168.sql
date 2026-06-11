@@ -1,5 +1,5 @@
 -- Create table for OTP codes
-CREATE TABLE public.checkout_otps (
+CREATE TABLE IF NOT EXISTS public.checkout_otps (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
@@ -13,25 +13,28 @@ CREATE TABLE public.checkout_otps (
 ALTER TABLE public.checkout_otps ENABLE ROW LEVEL SECURITY;
 
 -- Users can view their own OTPs
+DROP POLICY IF EXISTS "Users can view their own OTPs" ON public.checkout_otps;
 CREATE POLICY "Users can view their own OTPs"
 ON public.checkout_otps
 FOR SELECT
 USING (auth.uid() = user_id);
 
 -- Users can insert their own OTPs
+DROP POLICY IF EXISTS "Users can insert their own OTPs" ON public.checkout_otps;
 CREATE POLICY "Users can insert their own OTPs"
 ON public.checkout_otps
 FOR INSERT
 WITH CHECK (auth.uid() = user_id);
 
 -- Users can update their own OTPs
+DROP POLICY IF EXISTS "Users can update their own OTPs" ON public.checkout_otps;
 CREATE POLICY "Users can update their own OTPs"
 ON public.checkout_otps
 FOR UPDATE
 USING (auth.uid() = user_id);
 
 -- Create index for faster lookups
-CREATE INDEX idx_checkout_otps_user_email ON public.checkout_otps(user_id, email);
+CREATE INDEX IF NOT EXISTS idx_checkout_otps_user_email ON public.checkout_otps(user_id, email);
 
 -- Cleanup old OTPs trigger function
 CREATE OR REPLACE FUNCTION public.cleanup_expired_otps()
@@ -47,6 +50,7 @@ END;
 $$;
 
 -- Trigger to cleanup expired OTPs on new insert
+DROP TRIGGER IF EXISTS cleanup_otps_on_insert ON public.checkout_otps;
 CREATE TRIGGER cleanup_otps_on_insert
 AFTER INSERT ON public.checkout_otps
 FOR EACH STATEMENT

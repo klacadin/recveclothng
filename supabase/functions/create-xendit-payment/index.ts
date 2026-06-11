@@ -27,22 +27,62 @@ serve(async (req) => {
   }
 
   try {
+    // Log request details for debugging
+    console.log('Request method:', req.method);
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+    
     const xenditSecretKey = Deno.env.get('XENDIT_SECRET_KEY');
     if (!xenditSecretKey) {
       console.error('XENDIT_SECRET_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'Payment service not configured' }),
+        JSON.stringify({ 
+          success: false,
+          status: 'configuration_error',
+          error: 'Payment service not configured',
+          message: 'XENDIT_SECRET_KEY is missing',
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const paymentData: PaymentRequest = await req.json();
+    let paymentData: PaymentRequest;
+    try {
+      paymentData = await req.json();
+    } catch (jsonError) {
+      console.error('Failed to parse request body:', jsonError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          status: 'invalid_request',
+          error: 'Invalid request body',
+          message: 'Failed to parse JSON request body',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     console.log('Creating Xendit payment for order:', paymentData.order_number);
+    console.log('Payment data:', JSON.stringify({
+      order_id: paymentData.order_id,
+      order_number: paymentData.order_number,
+      amount: paymentData.amount,
+      payment_method: paymentData.payment_method,
+    }));
 
     // Validate required fields
     if (!paymentData.order_id || !paymentData.amount || !paymentData.payment_method) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ 
+          success: false,
+          status: 'validation_error',
+          error: 'Missing required fields',
+          required_fields: ['order_id', 'amount', 'payment_method'],
+          received: {
+            order_id: !!paymentData.order_id,
+            amount: !!paymentData.amount,
+            payment_method: !!paymentData.payment_method,
+          },
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -56,32 +96,34 @@ serve(async (req) => {
     const channelCode = channelCodeMap[paymentData.payment_method];
     if (!channelCode) {
       return new Response(
-        JSON.stringify({ error: 'Invalid payment method for online payment' }),
+        JSON.stringify({ 
+          success: false,
+          status: 'invalid_payment_method',
+          error: 'Invalid payment method for online payment',
+          received_method: paymentData.payment_method,
+          supported_methods: Object.keys(channelCodeMap),
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Get the app URL for redirects
-    const appUrl = Deno.env.get('APP_URL') || 'https://lovable.dev';
+    const appUrl = Deno.env.get('APP_URL') || Deno.env.get('BASE_URL') || 'https://reveclothingxnobody.com';
     const successUrl = `${appUrl}/payment-success?order_id=${paymentData.order_id}`;
     const failureUrl = `${appUrl}/payment-failed?order_id=${paymentData.order_id}`;
 
-    // Create Xendit Payment Request
+    // Create Xendit Payment Request (v3 API)
     const xenditPayload = {
       reference_id: paymentData.order_id,
-      amount: paymentData.amount,
-      currency: 'PHP',
+      type: 'PAY',
       country: 'PH',
-      payment_method: {
-        type: 'EWALLET',
-        ewallet: {
-          channel_code: channelCode,
-          channel_properties: {
-            success_return_url: successUrl,
-            failure_return_url: failureUrl,
-          },
-        },
-        reusability: 'ONE_TIME_USE',
+      currency: 'PHP',
+      request_amount: paymentData.amount,
+      capture_method: 'AUTOMATIC',
+      channel_code: channelCode,
+      channel_properties: {
+        success_return_url: successUrl,
+        failure_return_url: failureUrl,
       },
       description: `Order ${paymentData.order_number}`,
       metadata: {
@@ -97,11 +139,12 @@ serve(async (req) => {
     // Encode credentials for Basic Auth
     const credentials = btoa(`${xenditSecretKey}:`);
 
-    const xenditResponse = await fetch('https://api.xendit.co/payment_requests', {
+    const xenditResponse = await fetch('https://api.xendit.co/v3/payment_requests', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Basic ${credentials}`,
+        'api-version': '2024-11-11', // Required by Xendit API v3
       },
       body: JSON.stringify(xenditPayload),
     });
@@ -113,22 +156,30 @@ serve(async (req) => {
       console.error('Xendit API error:', xenditResult);
       return new Response(
         JSON.stringify({ 
+          success: false,
+          status: 'xendit_api_error',
           error: xenditResult.message || 'Failed to create payment',
-          details: xenditResult,
+          xendit_error: xenditResult,
+          http_status: xenditResponse.status,
         }),
         { status: xenditResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Find the redirect action
+    // Find the redirect action (v3 API uses actions array with type/value)
     const redirectAction = xenditResult.actions?.find(
-      (action: { type: string; value: string }) => action.type === 'REDIRECT_CUSTOMER'
+      (action: { type: string; value: string }) => action.type === 'REDIRECT_CUSTOMER' || action.type === 'REDIRECT'
     );
 
     if (!redirectAction) {
-      console.error('No redirect URL in Xendit response');
+      console.error('No redirect URL in Xendit response. Response:', JSON.stringify(xenditResult));
       return new Response(
-        JSON.stringify({ error: 'Payment gateway did not return redirect URL' }),
+        JSON.stringify({ 
+          success: false,
+          status: 'missing_redirect_url',
+          error: 'Payment gateway did not return redirect URL',
+          xendit_response: xenditResult,
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -138,33 +189,59 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Update order with payment reference (store in notes for now)
-    const { error: updateError } = await supabase
+    // Xendit v3 API returns 'id' field for payment_request_id
+    const paymentRequestId = xenditResult.id || xenditResult.payment_request_id;
+    
+    console.log('Storing Xendit payment ID:', paymentRequestId);
+    console.log('Xendit result keys:', Object.keys(xenditResult));
+    console.log('Full Xendit result:', JSON.stringify(xenditResult));
+
+    // Update order with Xendit payment ID
+    const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
       .update({
-        notes: `Xendit Payment ID: ${xenditResult.id}`
+        xendit_payment_id: paymentRequestId,
       })
-      .eq('id', paymentData.order_id);
+      .eq('id', paymentData.order_id)
+      .select('id, xendit_payment_id')
+      .single();
 
     if (updateError) {
       console.error('Failed to update order with payment ID:', updateError);
+      console.error('Update error details:', JSON.stringify(updateError));
       // Don't fail the payment, just log
+    } else {
+      console.log('Order updated successfully with Xendit payment ID:', updatedOrder);
+      console.log('Stored xendit_payment_id:', updatedOrder?.xendit_payment_id);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        payment_id: xenditResult.id,
+        status: 'payment_created',
+        payment_id: xenditResult.id || xenditResult.payment_request_id,
         redirect_url: redirectAction.value,
-        status: xenditResult.status,
+        payment_status: xenditResult.status,
+        order_id: paymentData.order_id,
+        order_number: paymentData.order_number,
+        amount: paymentData.amount,
+        payment_method: paymentData.payment_method,
+        channel_code: channelCode,
+        created_at: new Date().toISOString(),
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: unknown) {
     console.error('Unexpected error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        success: false,
+        status: 'internal_server_error',
+        error: 'Internal server error',
+        message: errorMessage,
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

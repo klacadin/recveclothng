@@ -1,9 +1,12 @@
-project_id = "txiwvjfdlxgwjtaibbpb"
+project_id = "unaodlytdymouicuuywb"
 
 [functions.notify-payment-proof]
 verify_jwt = true
 
 [functions.create-order]
+verify_jwt = false
+
+[functions.validate-voucher]
 verify_jwt = false
 
 [functions.send-order-email]
@@ -19,4 +22,40 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.xendit-webhook]
+verify_jwt = false
+
+[functions.get-xendit-payment-status]
+verify_jwt = true
+
+[functions.create-hitpay-payment]
+verify_jwt = false
+
+[functions.hitpay-webhook]
+verify_jwt = false
+
+[functions.get-hitpay-payment-status]
+verify_jwt = true
+
+[functions.get-resend-emails]
+verify_jwt = false
+
+[functions.get-resend-email]
+verify_jwt = false
+
+[functions.fetch-facebook-posts]
+verify_jwt = true
+
+[functions.get-pending-order]
+verify_jwt = false
+
+[functions.upload-order-proof]
+verify_jwt = false
+
+[functions.fail-stale-pending-orders]
+verify_jwt = false
+
+[functions.create-jt-waybill]
+verify_jwt = false
+
+[functions.jt-tracking-webhook]
 verify_jwt = false

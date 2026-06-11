@@ -1,0 +1,25 @@
+---
+description: Non-negotiable rule for photo/media uploads - optimize and limit to 2MB
+alwaysApply: true
+---
+
+# Photo & Media Upload Optimization (Non-Negotiable)
+
+## Rule
+
+1. **All photos and media** uploaded in this project MUST be optimized and reduced to the smallest possible size **without sacrificing quality**.
+2. **Maximum upload size: 2MB** per file. Reject or compress before upload.
+
+## Implementation
+
+- Use `MAX_UPLOAD_SIZE_BYTES` and `MAX_UPLOAD_SIZE_MB` from `src/config/constants.ts`.
+- Use `compressImageForUpload()` from `src/utils/compressImageForUpload.ts` for all image uploads before sending to storage/API.
+- Images: compress first, then upload the resulting Blob (with correct filename).
+- PDFs: cannot be compressed; enforce 2MB limit only.
+- Server-side: validate file size ≤ 2MB and reject larger files.
+
+## When Adding New Upload Features
+
+- Always enforce 2MB limit.
+- Always run images through `compressImageForUpload` before upload.
+- Never increase limits or skip optimization.

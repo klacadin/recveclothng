@@ -4,12 +4,17 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import SEO from "@/components/SEO";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Heart, Truck, RotateCcw, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ShoppingBag, Heart, Truck, RotateCcw, ChevronLeft, ChevronRight, Loader2, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProduct } from "@/hooks/useProducts";
 import { useProductVariants } from "@/hooks/useProductVariants";
+import { useProductSoldCount } from "@/hooks/useProductSoldCount";
+import { useProductReviews } from "@/hooks/useProductReviews";
 import { productCodeToImageFilename } from "@/data/productImageMap";
-import { getProductImageUrl } from "@/data/productImages";
+import { getProductImageUrl, resolveProductImageUrl } from "@/data/productImages";
 import { getProductById } from "@/data/products";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
@@ -23,12 +28,18 @@ const ProductDetail = () => {
   const { toast } = useToast();
   const { data: product, isLoading, error } = useProduct(id || '');
   const { data: variants, isLoading: variantsLoading } = useProductVariants(product?.id ?? '');
+  const { soldCount } = useProductSoldCount(product?.id);
+  const { reviews, averageRating, submitReview } = useProductReviews(product?.id);
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
-  
+
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
+  const [reviewName, setReviewName] = useState("");
+  const [reviewEmail, setReviewEmail] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
 
   const isWishlisted = product ? isInWishlist(product.id) : false;
 
@@ -49,7 +60,7 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (!product) return;
-    
+
     if (!selectedSize) {
       toast({
         title: "Select a size",
@@ -58,7 +69,7 @@ const ProductDetail = () => {
       });
       return;
     }
-    
+
     if (selectedSizeStock < quantity) {
       toast({
         title: "Insufficient stock",
@@ -67,7 +78,7 @@ const ProductDetail = () => {
       });
       return;
     }
-    
+
     addToCart(product, selectedSize, quantity);
     toast({
       title: "Added to cart",
@@ -77,11 +88,11 @@ const ProductDetail = () => {
 
   const handleToggleWishlist = () => {
     if (!product) return;
-    
+
     toggleWishlist(product);
     toast({
       title: isWishlisted ? "Removed from wishlist" : "Added to wishlist",
-      description: isWishlisted 
+      description: isWishlisted
         ? `${product.name} has been removed from your wishlist.`
         : `${product.name} has been added to your wishlist.`,
     });
@@ -131,21 +142,28 @@ const ProductDetail = () => {
   const primaryImageUrl = batch1Filename ? getProductImageUrl(batch1Filename) : null;
   const allImages: string[] = [];
   if (primaryImageUrl) allImages.push(primaryImageUrl);
-  if (product?.image_url && !allImages.includes(product.image_url)) allImages.push(product.image_url);
+  if (product?.image_url) {
+    const resolved = resolveProductImageUrl(product.image_url);
+    if (resolved && !allImages.includes(resolved)) allImages.push(resolved);
+  }
   if (product?.images && Array.isArray(product.images)) {
     product.images.forEach((img: string) => {
-      if (img && !allImages.includes(img)) allImages.push(img);
+      if (img) {
+        const resolved = resolveProductImageUrl(img);
+        if (resolved && !allImages.includes(resolved)) allImages.push(resolved);
+      }
     });
   }
   if (fallbackProduct && "image" in fallbackProduct && fallbackProduct.image && !allImages.includes(fallbackProduct.image)) {
-    allImages.push(fallbackProduct.image);
+    allImages.push(resolveProductImageUrl(fallbackProduct.image) || fallbackProduct.image);
   }
-  const images = allImages.length ? allImages : (product?.image_url ? [product.image_url] : (fallbackProduct && "image" in fallbackProduct && fallbackProduct.image ? [fallbackProduct.image] : []));
+  const fallbackImg = product?.image_url ? resolveProductImageUrl(product.image_url) : (fallbackProduct && "image" in fallbackProduct ? resolveProductImageUrl(fallbackProduct.image || "") || fallbackProduct.image : "");
+  const images = allImages.length ? allImages : (fallbackImg ? [fallbackImg] : []);
   const inStock = isFromSpreadsheet ? true : totalStock > 0;
 
   return (
     <div className="min-h-screen bg-background">
-      <SEO 
+      <SEO
         title={displayProduct.name}
         description={displayDescription || `Shop ${displayProduct.name} from REVE Clothing. Premium quality athletic wear. ₱${Number(displayProduct.price).toLocaleString()}. Sizes S-XL. Nationwide delivery.`}
         url={`/product/${id}`}
@@ -182,7 +200,7 @@ const ProductDetail = () => {
                     No image available
                   </div>
                 )}
-                
+
                 {/* Gallery Navigation */}
                 {images.length > 1 && (
                   <>
@@ -202,7 +220,7 @@ const ProductDetail = () => {
                     </button>
                   </>
                 )}
-                
+
                 {/* Stock Status Overlay */}
                 {!inStock && (
                   <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
@@ -212,7 +230,7 @@ const ProductDetail = () => {
                   </div>
                 )}
               </div>
-              
+
               {/* Thumbnails */}
               {images.length > 1 && (
                 <div className="flex gap-2">
@@ -220,9 +238,8 @@ const ProductDetail = () => {
                     <button
                       key={idx}
                       onClick={() => setCurrentImageIndex(idx)}
-                      className={`w-20 h-20 rounded-sm overflow-hidden border-2 transition-colors ${
-                        currentImageIndex === idx ? "border-foreground" : "border-transparent"
-                      }`}
+                      className={`w-20 h-20 rounded-sm overflow-hidden border-2 transition-colors ${currentImageIndex === idx ? "border-foreground" : "border-transparent"
+                        }`}
                     >
                       <img src={img} alt={`${displayProduct.name} - View ${idx + 1}`} className="w-full h-full object-contain bg-secondary" />
                     </button>
@@ -245,7 +262,12 @@ const ProductDetail = () => {
                 <p className="font-display text-2xl font-bold text-foreground mt-2">
                   ₱{Number(displayProduct.price).toLocaleString()}
                 </p>
-                
+                {!isFromSpreadsheet && soldCount > 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {soldCount} {soldCount === 1 ? "sold" : "sold"}
+                  </p>
+                )}
+
                 {/* Stock indicator (Supabase only); spreadsheet fallback shows CTA below) */}
                 {!isFromSpreadsheet && (
                   <p className={`text-sm mt-2 ${inStock ? 'text-green-600' : 'text-destructive'}`}>
@@ -288,7 +310,7 @@ const ProductDetail = () => {
                       const stock = getStockForSize(size);
                       const isAvailable = stock > 0;
                       const isSelected = selectedSize === size;
-                      
+
                       return (
                         <button
                           key={size}
@@ -296,10 +318,10 @@ const ProductDetail = () => {
                           disabled={!isAvailable}
                           className={`
                             w-12 h-12 border rounded flex items-center justify-center text-sm font-medium transition-all
-                            ${isSelected 
-                              ? 'border-foreground bg-foreground text-background' 
-                              : isAvailable 
-                                ? 'border-border hover:border-foreground' 
+                            ${isSelected
+                              ? 'border-foreground bg-foreground text-background'
+                              : isAvailable
+                                ? 'border-border hover:border-foreground'
                                 : 'border-border/50 text-muted-foreground/50 cursor-not-allowed line-through'
                             }
                           `}
@@ -386,6 +408,150 @@ const ProductDetail = () => {
                   <span className="px-2 py-1 bg-secondary text-xs font-medium rounded">Maya</span>
                 </div>
               </div>
+
+              {/* Customer Reviews */}
+              {product && (
+                <div className="space-y-4 pt-6 border-t border-border">
+                  <h3 className="text-lg font-semibold text-foreground">Customer Reviews</h3>
+                  {reviews.length > 0 && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-4 w-4 ${averageRating != null && star <= Math.round(averageRating)
+                                ? "fill-amber-400 text-amber-400"
+                                : "text-muted-foreground/40"
+                              }`}
+                          />
+                        ))}
+                      </div>
+                      <span>
+                        {averageRating != null && `${averageRating.toFixed(1)} · `}
+                        {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
+                      </span>
+                    </div>
+                  )}
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {reviews.map((r) => (
+                      <div key={r.id} className="rounded-lg border border-border bg-secondary/30 p-3 text-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-foreground">{r.reviewer_name}</span>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`h-3.5 w-3.5 ${star <= r.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"
+                                  }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        {r.comment && <p className="text-muted-foreground">{r.comment}</p>}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(r.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <form
+                    className="space-y-3 pt-2"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!product) return;
+                      if (!reviewName.trim() || !reviewEmail.trim()) {
+                        toast({ title: "Name and email required", variant: "destructive" });
+                        return;
+                      }
+                      try {
+                        await submitReview.mutateAsync({
+                          product_id: product.id,
+                          reviewer_name: reviewName.trim(),
+                          reviewer_email: reviewEmail.trim(),
+                          rating: reviewRating,
+                          comment: reviewComment.trim() || null,
+                        });
+                        setReviewName("");
+                        setReviewEmail("");
+                        setReviewRating(5);
+                        setReviewComment("");
+                        toast({ title: "Thank you! Your review has been posted." });
+                      } catch (err) {
+                        toast({
+                          title: "Could not submit review",
+                          description: err instanceof Error ? err.message : "Please try again.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    <h4 className="text-sm font-medium text-foreground">Write a review</h4>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div>
+                        <Label htmlFor="review-name">Name *</Label>
+                        <Input
+                          id="review-name"
+                          value={reviewName}
+                          onChange={(e) => setReviewName(e.target.value)}
+                          placeholder="Your name"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="review-email">Email *</Label>
+                        <Input
+                          id="review-email"
+                          type="email"
+                          value={reviewEmail}
+                          onChange={(e) => setReviewEmail(e.target.value)}
+                          placeholder="your@email.com"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Rating</Label>
+                      <div className="flex gap-1 mt-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setReviewRating(star)}
+                            className="p-1 rounded hover:bg-secondary"
+                            aria-label={`${star} star${star > 1 ? "s" : ""}`}
+                          >
+                            <Star
+                              className={`h-6 w-6 ${star <= reviewRating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"
+                                }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="review-comment">Comment (optional)</Label>
+                      <Textarea
+                        id="review-comment"
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        placeholder="Share your experience with this product..."
+                        rows={3}
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button type="submit" disabled={submitReview.isPending}>
+                      {submitReview.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        "Submit review"
+                      )}
+                    </Button>
+                  </form>
+                </div>
+              )}
 
               {/* SKU */}
               {sku && (

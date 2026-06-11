@@ -5,16 +5,19 @@
 -- Adding admin-only access for visibility and cleanup.
 -- =====================================================
 
+DROP POLICY IF EXISTS "Admins can view rate limits" ON public.order_rate_limits;
 CREATE POLICY "Admins can view rate limits"
 ON public.order_rate_limits
 FOR SELECT
 USING (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Admins can insert rate limits" ON public.order_rate_limits;
 CREATE POLICY "Admins can insert rate limits"
 ON public.order_rate_limits
 FOR INSERT
 WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Admins can delete rate limits" ON public.order_rate_limits;
 CREATE POLICY "Admins can delete rate limits"
 ON public.order_rate_limits
 FOR DELETE
@@ -30,6 +33,7 @@ DROP POLICY IF EXISTS "Users can insert their own OTPs" ON public.checkout_otps;
 DROP POLICY IF EXISTS "Users can update their own OTPs" ON public.checkout_otps;
 
 -- Add admin policy for OTP management
+DROP POLICY IF EXISTS "Admins can manage OTPs" ON public.checkout_otps;
 CREATE POLICY "Admins can manage OTPs"
 ON public.checkout_otps
 FOR ALL

@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePendingUsers, useApproveUser, useRejectUser, useAllUserApprovals } from '@/hooks/useUserApprovals';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, XCircle, Clock, Mail, User, Calendar, AlertCircle } from 'lucide-react';
 import {
   Dialog,
@@ -14,12 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { getErrorMessage } from '@/utils/errors';
 
 const UserApprovals = () => {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [userEmails, setUserEmails] = useState<Record<string, { email: string; created_at: string }>>({});
 
   const { toast } = useToast();
   const { data: pendingUsers = [], isLoading: pendingLoading } = usePendingUsers();
@@ -27,37 +26,13 @@ const UserApprovals = () => {
   const approveUser = useApproveUser();
   const rejectUser = useRejectUser();
 
-  // Fetch user emails
-  useEffect(() => {
-    const fetchUserEmails = async () => {
-      if (pendingUsers.length === 0) return;
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        const userIds = pendingUsers.map((u) => u.user_id);
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-user-emails`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
-          },
-          body: JSON.stringify({ user_ids: userIds }),
-        });
-
-        if (response.ok) {
-          const { users } = await response.json();
-          setUserEmails(users || {});
-        }
-      } catch (error) {
-        console.error('Error fetching user emails:', error);
-      }
-    };
-
-    fetchUserEmails();
-  }, [pendingUsers]);
+  const getDisplayName = (approval: { email?: string | null; full_name?: string | null; user_id: string }) => {
+    const name = approval.full_name?.trim();
+    const email = approval.email?.trim();
+    if (name) return name;
+    if (email) return email;
+    return `User ${approval.user_id.slice(0, 8)}…`;
+  };
 
   const handleApprove = async (userId: string) => {
     try {
@@ -66,10 +41,10 @@ const UserApprovals = () => {
         title: 'User approved',
         description: 'The user can now log in to their account.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to approve user',
+        description: getErrorMessage(error, 'Failed to approve user'),
         variant: 'destructive',
       });
     }
@@ -90,10 +65,10 @@ const UserApprovals = () => {
       setRejectDialogOpen(false);
       setSelectedUserId(null);
       setRejectionReason('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to reject user',
+        description: getErrorMessage(error, 'Failed to reject user'),
         variant: 'destructive',
       });
     }
@@ -166,51 +141,53 @@ const UserApprovals = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {pendingUsers.map((approval) => {
-              const userEmail = userEmails[approval.user_id];
-              return (
-                <div
-                  key={approval.id}
-                  className="flex items-center justify-between p-4 bg-secondary rounded-sm border border-border"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
+            {pendingUsers.map((approval) => (
+              <div
+                key={approval.id}
+                className="flex items-center justify-between p-4 bg-secondary rounded-sm border border-border"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex flex-col">
                       <span className="font-medium text-foreground">
-                        {userEmail?.email || approval.user_id.substring(0, 8) + '...'}
+                        {getDisplayName(approval)}
                       </span>
-                      {getStatusBadge(approval.status)}
+                      {approval.full_name && approval.email && (
+                        <span className="text-sm text-muted-foreground">{approval.email}</span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(approval.created_at)}
-                      </span>
-                    </div>
+                    {getStatusBadge(approval.status)}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => handleApprove(approval.user_id)}
-                      disabled={approveUser.isPending}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => openRejectDialog(approval.user_id)}
-                      disabled={rejectUser.isPending}
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Reject
-                    </Button>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(approval.created_at)}
+                    </span>
                   </div>
                 </div>
-              );
-            })}
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleApprove(approval.user_id)}
+                    disabled={approveUser.isPending}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => openRejectDialog(approval.user_id)}
+                    disabled={rejectUser.isPending}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -228,37 +205,39 @@ const UserApprovals = () => {
           </div>
         ) : (
           <div className="space-y-2">
-            {allApprovals.map((approval) => {
-              const userEmail = userEmails[approval.user_id];
-              return (
-                <div
-                  key={approval.id}
-                  className="flex items-center justify-between p-3 bg-secondary rounded-sm border border-border"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
+            {allApprovals.map((approval) => (
+              <div
+                key={approval.id}
+                className="flex items-center justify-between p-3 bg-secondary rounded-sm border border-border"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex flex-col">
                       <span className="text-sm font-medium text-foreground">
-                        {userEmail?.email || approval.user_id.substring(0, 8) + '...'}
+                        {getDisplayName(approval)}
                       </span>
-                      {getStatusBadge(approval.status)}
+                      {approval.full_name && approval.email && (
+                        <span className="text-xs text-muted-foreground">{approval.email}</span>
+                      )}
                     </div>
-                    {approval.rejection_reason && (
-                      <div className="flex items-start gap-2 mt-2 text-sm text-muted-foreground">
-                        <AlertCircle className="h-4 w-4 mt-0.5" />
-                        <span>{approval.rejection_reason}</span>
-                      </div>
-                    )}
-                    {approval.approved_at && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {approval.status === 'approved' ? 'Approved' : 'Rejected'} on{' '}
-                        {formatDate(approval.approved_at)}
-                      </div>
-                    )}
+                    {getStatusBadge(approval.status)}
                   </div>
+                  {approval.rejection_reason && (
+                    <div className="flex items-start gap-2 mt-2 text-sm text-muted-foreground">
+                      <AlertCircle className="h-4 w-4 mt-0.5" />
+                      <span>{approval.rejection_reason}</span>
+                    </div>
+                  )}
+                  {approval.approved_at && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {approval.status === 'approved' ? 'Approved' : 'Rejected'} on{' '}
+                      {formatDate(approval.approved_at)}
+                    </div>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </div>

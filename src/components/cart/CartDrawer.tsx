@@ -1,6 +1,7 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
+import { getProductDisplayImage } from '@/data/productImages';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -35,17 +36,11 @@ export const CartDrawer = () => {
               {items.map(({ product, quantity, size }) => (
                 <div key={`${product.id}-${size}`} className="flex gap-4 p-4 border rounded-lg">
                   <div className="w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                    {product.image_url ? (
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="w-full h-full object-contain bg-secondary"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        No image
-                      </div>
-                    )}
+                    <img
+                      src={getProductDisplayImage(product)}
+                      alt={product.name}
+                      className="w-full h-full object-contain bg-secondary"
+                    />
                   </div>
                   
                   <div className="flex-1 min-w-0">

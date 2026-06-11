@@ -9,6 +9,7 @@ VALUES ('payment-proofs', 'payment-proofs', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies for payment proofs bucket
+DROP POLICY IF EXISTS "Users can upload their own payment proofs" ON storage.objects;
 CREATE POLICY "Users can upload their own payment proofs"
 ON storage.objects FOR INSERT
 WITH CHECK (
@@ -16,6 +17,7 @@ WITH CHECK (
   AND auth.uid()::text = (storage.foldername(name))[1]
 );
 
+DROP POLICY IF EXISTS "Users can view their own payment proofs" ON storage.objects;
 CREATE POLICY "Users can view their own payment proofs"
 ON storage.objects FOR SELECT
 USING (
@@ -23,6 +25,7 @@ USING (
   AND auth.uid()::text = (storage.foldername(name))[1]
 );
 
+DROP POLICY IF EXISTS "Admins can view all payment proofs" ON storage.objects;
 CREATE POLICY "Admins can view all payment proofs"
 ON storage.objects FOR SELECT
 USING (
@@ -31,6 +34,7 @@ USING (
 );
 
 -- Allow users to update their own orders with proof of payment
+DROP POLICY IF EXISTS "Users can update proof of payment on their orders" ON public.orders;
 CREATE POLICY "Users can update proof of payment on their orders"
 ON public.orders FOR UPDATE
 USING (user_id = auth.uid())

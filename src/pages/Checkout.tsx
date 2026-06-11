@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,57 +9,146 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
-import CheckoutAuth from '@/components/checkout/CheckoutAuth';
-import OTPVerification from '@/components/checkout/OTPVerification';
-import { SHIPPING_FEE, CONVENIENCE_FEE } from '@/config/constants';
+// OTP verification removed - only COD requires it, but COD is hidden for now
+import { CONVENIENCE_FEE, MAX_ORDER_PIECES } from '@/config/constants';
+import { shippingFeeByTotalPiecesPhp, totalPiecesFromLineItems } from '@/utils/orderShippingRates';
+import PhilippineAddressSelect from '@/components/checkout/PhilippineAddressSelect';
+import { buildAddressString } from '@/hooks/usePhilippineAddress';
+import { getProductDisplayImage } from '@/data/productImages';
+import { supabase, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '@/integrations/supabase/client';
 
 const checkoutSchema = z.object({
   customerName: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
   customerEmail: z.string().email('Invalid email address').max(320, 'Email is too long'),
-  customerPhone: z.string().max(50, 'Phone number is too long').optional(),
-  shippingAddress: z.string().min(1, 'Shipping address is required').max(1000, 'Address is too long'),
+  customerPhone: z.string().min(1, 'Phone number is required').max(50, 'Phone number is too long'),
+  streetAddress: z.string().min(1, 'Street address is required (house no., street, landmark)').max(500, 'Address is too long'),
+  addressSelections: z.object({
+    regionCode: z.string(),
+    regionName: z.string().optional(),
+    islandGroupCode: z.string().optional(),
+    provinceCode: z.string(),
+    provinceName: z.string().optional(),
+    cityCode: z.string(),
+    cityName: z.string().optional(),
+    barangayCode: z.string(),
+    barangayName: z.string().optional(),
+  }),
   notes: z.string().max(500, 'Notes are too long').optional(),
   paymentMethod: z.enum(['cod', 'gcash', 'maya', 'bank_transfer']),
-});
+}).refine(
+  (data) => {
+    const a = data.addressSelections;
+    const isNCR = a.regionCode === '130000000';
+    if (isNCR) return !!(a.regionCode && a.cityCode && a.barangayCode);
+    return !!(a.regionCode && a.provinceCode && a.cityCode && a.barangayCode);
+  },
+  { message: 'Please complete all address fields (region, city, barangay)', path: ['addressSelections'] }
+);
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 type CheckoutStep = 'auth' | 'details' | 'otp' | 'processing';
 
 const Checkout = () => {
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal, clearCart, isCartLoaded } = useCart();
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [step, setStep] = useState<CheckoutStep>('auth');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<CheckoutFormData>({
     customerName: '',
     customerEmail: '',
     customerPhone: '',
-    shippingAddress: '',
+    streetAddress: '',
+    addressSelections: {
+      regionCode: '',
+      regionName: '',
+      islandGroupCode: '',
+      provinceCode: '',
+      provinceName: '',
+      cityCode: '',
+      cityName: '',
+      barangayCode: '',
+      barangayName: '',
+    },
     notes: '',
-    paymentMethod: 'cod',
+    paymentMethod: 'gcash',
   });
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherApplied, setVoucherApplied] = useState(false);
+  const [voucherDiscountAmount, setVoucherDiscountAmount] = useState(0);
+  const [voucherMessage, setVoucherMessage] = useState('');
+  const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
 
-  const total = subtotal + SHIPPING_FEE + CONVENIENCE_FEE;
+  const totalPieces = totalPiecesFromLineItems(items);
+  const pieceCapExceeded = totalPieces > MAX_ORDER_PIECES;
 
-  // Initialize step based on auth state
+  // Flat tiers by total piece count — same for COD and online.
+  const shippingFee = shippingFeeByTotalPiecesPhp(totalPieces);
+
+  // Discount applies to subtotal only — never to shipping or convenience fee
+  const total = Math.max(1, subtotal - voucherDiscountAmount + shippingFee + CONVENIENCE_FEE);
+
+  // Re-validate voucher when subtotal changes (e.g. cart updated) if voucher is applied
+  useEffect(() => {
+    if (!voucherApplied || !voucherCode.trim()) return;
+    let cancelled = false;
+    const validate = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke<{
+          valid: boolean;
+          discount_amount: number;
+          message: string;
+        }>('validate-voucher', {
+          body: {
+            code: voucherCode.trim().toUpperCase(),
+            subtotal,
+            items: items.map((i) => ({
+              product_id: i.product.id,
+              quantity: i.quantity,
+              unit_price: i.product.price,
+              category: i.product.category ?? null,
+            })),
+          },
+        });
+        if (cancelled) return;
+        if (error) {
+          setVoucherApplied(false);
+          setVoucherDiscountAmount(0);
+          setVoucherMessage('');
+          return;
+        }
+        if (data?.valid) {
+          setVoucherDiscountAmount(data.discount_amount ?? 0);
+          setVoucherMessage(data.message ?? '');
+        } else if (data && !data.valid) {
+          setVoucherApplied(false);
+          setVoucherDiscountAmount(0);
+          setVoucherMessage('');
+        }
+      } catch {
+        if (!cancelled) {
+          setVoucherApplied(false);
+          setVoucherDiscountAmount(0);
+          setVoucherMessage('');
+        }
+      }
+    };
+    validate();
+    return () => { cancelled = true; };
+  }, [subtotal, voucherApplied, voucherCode, items]);
+
+  // Initialize step: allow guest checkout (skip auth), or go to details when logged in
   useEffect(() => {
     if (!authLoading) {
-      if (user) {
-        setStep('details');
-        // Pre-fill email from user
-        if (user.email && !formData.customerEmail) {
-          setFormData(prev => ({ ...prev, customerEmail: user.email! }));
-        }
-      } else {
-        setStep('auth');
+      setStep('details');
+      if (user?.email && !formData.customerEmail) {
+        setFormData(prev => ({ ...prev, customerEmail: user.email! }));
       }
     }
   }, [user, authLoading]);
@@ -73,11 +162,21 @@ const Checkout = () => {
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (items.length === 0) {
       toast({
         title: 'Cart is empty',
         description: 'Please add items to your cart before checkout.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const pieces = totalPiecesFromLineItems(items);
+    if (pieces > MAX_ORDER_PIECES) {
+      toast({
+        title: 'Too many items',
+        description: `Orders are limited to ${MAX_ORDER_PIECES} pieces total. Reduce quantities in your cart.`,
         variant: 'destructive',
       });
       return;
@@ -96,8 +195,8 @@ const Checkout = () => {
       return;
     }
 
-    // Move to OTP verification
-    setStep('otp');
+    // Skip OTP for all payment methods (simplified flow)
+    handleOTPVerified();
   };
 
   const handleOTPVerified = async () => {
@@ -108,13 +207,14 @@ const Checkout = () => {
       const orderData = {
         customer_name: formData.customerName,
         customer_email: formData.customerEmail,
-        customer_phone: formData.customerPhone || null,
-        shipping_address: formData.shippingAddress,
+        customer_phone: formData.customerPhone,
+        shipping_address: buildAddressString(formData.streetAddress, formData.addressSelections),
         notes: formData.notes || null,
         payment_method: formData.paymentMethod,
         subtotal,
-        shipping_fee: SHIPPING_FEE,
+        shipping_fee: shippingFee,
         total,
+        voucher_code: voucherApplied ? voucherCode.trim() : null,
         user_id: user?.id || null, // Link order to authenticated user
         items: items.map(item => ({
           product_id: item.product.id,
@@ -127,42 +227,27 @@ const Checkout = () => {
         })),
       };
 
-      // Create the order first
-      const { data, error } = await supabase.functions.invoke('create-order', {
-        body: orderData,
+      // Create order via direct fetch (avoids Supabase client JWT/session edge function errors)
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Checkout is temporarily unavailable. Store configuration is missing.');
+      }
+
+      const orderRes = await fetch(`${SUPABASE_URL}/functions/v1/create-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(orderData),
       });
 
-      if (error) {
-        console.error('Order creation error:', error);
-        // Try to extract detailed error message from the response
-        let errorMessage = 'Failed to place order';
-        
-        // Check if error has context with response body (FunctionsHttpError)
-        if (error.context) {
-          try {
-            // For FunctionsHttpError, the context might have different structures
-            if (typeof error.context.json === 'function') {
-              const errorBody = await error.context.json();
-              console.error('Error body (json):', errorBody);
-              errorMessage = errorBody?.error || errorMessage;
-            } else if (error.context.body) {
-              // Try to read body as text
-              const reader = error.context.body.getReader?.();
-              if (reader) {
-                const { value } = await reader.read();
-                const text = new TextDecoder().decode(value);
-                console.error('Error body (text):', text);
-                const parsed = JSON.parse(text);
-                errorMessage = parsed?.error || errorMessage;
-              }
-            }
-          } catch (e) {
-            console.error('Could not parse error body:', e);
-          }
-        }
-        
-        // Fallback to error message or data.error
-        errorMessage = data?.error || error.message || errorMessage;
+      const data = await orderRes.json().catch(() => ({}));
+
+      if (!orderRes.ok) {
+        let errorMessage = data?.error || data?.message || 'Failed to place order';
+        if (orderRes.status === 409) errorMessage = 'A similar order was recently placed. Please wait a few minutes before ordering again.';
+        else if (orderRes.status === 429) errorMessage = 'Too many orders. Please wait before placing another order.';
+        else if (orderRes.status === 400) errorMessage = data?.error || 'Invalid order data. Please check your information and try again.';
         throw new Error(errorMessage);
       }
 
@@ -170,42 +255,31 @@ const Checkout = () => {
         throw new Error(data?.error || 'Failed to create order');
       }
 
-      // For e-wallet payments (GCash/Maya), redirect to HitPay
-      if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') {
-        const { data: paymentData, error: paymentError } = await supabase.functions.invoke('create-hitpay-payment', {
-          body: {
-            order_id: data.order_id,
-            order_number: data.order_number,
-            amount: data.total,
-            customer_email: formData.customerEmail,
-            customer_name: formData.customerName,
-            customer_phone: formData.customerPhone,
-            payment_method: formData.paymentMethod,
-            items: items.map(item => ({
-              name: item.product.name,
-              quantity: item.quantity,
-              price: item.product.price,
-            })),
-          },
-        });
-
-        if (paymentError || !paymentData?.redirect_url) {
-          throw new Error(paymentData?.error || 'Failed to create payment session');
+      // HitPay: create-order returns redirect_url for GCash/Maya/Bank Transfer (QR Ph)
+      if (formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya' || formData.paymentMethod === 'bank_transfer') {
+        if (data.redirect_url) {
+          clearCart();
+          window.location.href = data.redirect_url;
+          return;
         }
-
-        // Clear cart and redirect to HitPay payment page
-        clearCart();
-        window.location.href = paymentData.redirect_url;
+        toast({
+          title: 'Payment initiation failed',
+          description: 'Could not create payment. Please try again or contact support.',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        setStep('details');
         return;
       }
 
-      // For COD/Bank Transfer, go to confirmation page
+      // COD: go to confirmation (no proof needed)
+      // Clear cart after order is successfully created
       clearCart();
       toast({
         title: 'Order placed successfully!',
         description: `Your order number is ${data.order_number}. We'll contact you soon.`,
       });
-      navigate('/order-confirmation', { state: { orderNumber: data.order_number } });
+      navigate('/order-confirmation', { state: { orderNumber: data.order_number, paymentMethod: 'cod' } });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to place order. Please try again.';
       toast({
@@ -219,6 +293,15 @@ const Checkout = () => {
     }
   };
 
+  // Wait for cart to load from localStorage before showing empty state
+  if (!isCartLoaded || authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background">
@@ -231,15 +314,6 @@ const Checkout = () => {
     );
   }
 
-  // Loading state
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -247,14 +321,13 @@ const Checkout = () => {
           variant="ghost"
           className="mb-6"
           onClick={() => {
-            if (step === 'otp') {
-              setStep('details');
-            } else if (step === 'details' && !user) {
-              setStep('auth');
-            } else {
-              navigate(-1);
+            if (step === 'processing') {
+              // Don't allow going back during processing
+              return;
             }
+            navigate(-1);
           }}
+          disabled={step === 'processing'}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
@@ -262,45 +335,22 @@ const Checkout = () => {
 
         <h1 className="text-3xl font-bold mb-8">Checkout</h1>
 
-        {/* Progress Steps */}
+        {/* Progress Steps: Details → Payment (OTP skipped for online payments) */}
         <div className="flex items-center justify-center gap-4 mb-8">
-          <div className={`flex items-center gap-2 ${step === 'auth' || user ? 'text-primary' : 'text-muted-foreground'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${user ? 'bg-primary text-primary-foreground' : step === 'auth' ? 'bg-primary/20 text-primary' : 'bg-muted'}`}>
-              {user ? <CheckCircle2 className="h-4 w-4" /> : '1'}
-            </div>
-            <span className="hidden sm:inline text-sm">Account</span>
-          </div>
-          <div className="w-8 h-px bg-border" />
-          <div className={`flex items-center gap-2 ${step === 'details' || step === 'otp' || step === 'processing' ? 'text-primary' : 'text-muted-foreground'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 'otp' || step === 'processing' ? 'bg-primary text-primary-foreground' : step === 'details' ? 'bg-primary/20 text-primary' : 'bg-muted'}`}>
-              {step === 'otp' || step === 'processing' ? <CheckCircle2 className="h-4 w-4" /> : '2'}
+          <div className="flex items-center gap-2 text-primary">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 'processing' ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>
+              {step === 'processing' ? <CheckCircle2 className="h-4 w-4" /> : '1'}
             </div>
             <span className="hidden sm:inline text-sm">Details</span>
           </div>
           <div className="w-8 h-px bg-border" />
-          <div className={`flex items-center gap-2 ${step === 'otp' || step === 'processing' ? 'text-primary' : 'text-muted-foreground'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 'processing' ? 'bg-primary text-primary-foreground' : step === 'otp' ? 'bg-primary/20 text-primary' : 'bg-muted'}`}>
-              {step === 'processing' ? <CheckCircle2 className="h-4 w-4" /> : '3'}
+          <div className={`flex items-center gap-2 ${step === 'processing' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 'processing' ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>
+              {step === 'processing' ? <CheckCircle2 className="h-4 w-4" /> : '2'}
             </div>
-            <span className="hidden sm:inline text-sm">Verify</span>
+            <span className="hidden sm:inline text-sm">Payment</span>
           </div>
         </div>
-
-        {/* Auth Step */}
-        {step === 'auth' && (
-          <CheckoutAuth onAuthenticated={() => setStep('details')} />
-        )}
-
-        {/* OTP Verification Step */}
-        {step === 'otp' && (
-          <OTPVerification
-            email={formData.customerEmail}
-            phone={formData.customerPhone}
-            customerName={formData.customerName}
-            onVerified={handleOTPVerified}
-            onBack={() => setStep('details')}
-          />
-        )}
 
         {/* Processing Step */}
         {step === 'processing' && (
@@ -352,7 +402,7 @@ const Checkout = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="customerPhone">Phone Number</Label>
+                      <Label htmlFor="customerPhone">Phone Number <span className="text-destructive">*</span></Label>
                       <Input
                         id="customerPhone"
                         type="tel"
@@ -366,16 +416,32 @@ const Checkout = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="shippingAddress">Shipping Address *</Label>
-                      <Textarea
-                        id="shippingAddress"
-                        value={formData.shippingAddress}
-                        onChange={(e) => handleChange('shippingAddress', e.target.value)}
-                        placeholder="Enter your complete shipping address"
-                        rows={3}
+                      <Label htmlFor="streetAddress">Street Address *</Label>
+                      <Input
+                        id="streetAddress"
+                        value={formData.streetAddress}
+                        onChange={(e) => handleChange('streetAddress', e.target.value)}
+                        placeholder="House/unit no., street, building, landmark"
                       />
-                      {errors.shippingAddress && (
-                        <p className="text-sm text-destructive mt-1">{errors.shippingAddress}</p>
+                      {errors.streetAddress && (
+                        <p className="text-sm text-destructive mt-1">{errors.streetAddress}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label>Location (Region to Barangay) *</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Select your address to ensure accurate J&T delivery
+                      </p>
+                      <PhilippineAddressSelect
+                        value={formData.addressSelections}
+                        onChange={(sel) => {
+                          setFormData((prev) => ({ ...prev, addressSelections: { ...prev.addressSelections, ...sel } }));
+                          if (errors.addressSelections) setErrors((prev) => ({ ...prev, addressSelections: undefined }));
+                        }}
+                      />
+                      {errors.addressSelections && (
+                        <p className="text-sm text-destructive mt-1">{errors.addressSelections}</p>
                       )}
                     </div>
 
@@ -407,7 +473,10 @@ const Checkout = () => {
                       <div className="flex items-center space-x-2 p-3 border rounded-lg">
                         <RadioGroupItem value="cod" id="cod" />
                         <Label htmlFor="cod" className="flex-1 cursor-pointer">
-                          Cash on Delivery (COD)
+                          <span className="flex items-center gap-2">
+                            J&T Cash on Delivery
+                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">COD</span>
+                          </span>
                         </Label>
                       </div>
                       <div className="flex items-center space-x-2 p-3 border rounded-lg bg-primary/5">
@@ -435,9 +504,16 @@ const Checkout = () => {
                         </Label>
                       </div>
                     </RadioGroup>
-                    {(formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya') && (
+                    {formData.paymentMethod === 'cod' && (
                       <p className="text-xs text-muted-foreground mt-2">
-                        You'll be redirected to {formData.paymentMethod === 'gcash' ? 'GCash' : 'Maya'} to complete payment
+                        Pay the J&T courier in cash when your order arrives.
+                      </p>
+                    )}
+                    {(formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya' || formData.paymentMethod === 'bank_transfer') && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {formData.paymentMethod === 'gcash' && 'Opens GCash app.'}
+                        {formData.paymentMethod === 'maya' && 'Opens Maya app.'}
+                        {formData.paymentMethod === 'bank_transfer' && 'Pay via QR Ph—scan with your bank app.'}
                       </p>
                     )}
                   </CardContent>
@@ -451,20 +527,19 @@ const Checkout = () => {
                     <CardTitle>Order Summary</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {items.map(({ product, quantity }) => (
-                      <div key={product.id} className="flex gap-3">
+                    {pieceCapExceeded && (
+                      <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                        This order exceeds the {MAX_ORDER_PIECES}-piece limit. Remove or reduce quantities before placing your order.
+                      </p>
+                    )}
+                    {items.map(({ product, quantity, size }) => (
+                      <div key={`${product.id}-${size}`} className="flex gap-3">
                         <div className="w-16 h-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                          {product.image_url ? (
-                            <img
-                              src={product.image_url}
-                              alt={product.name}
-                              className="w-full h-full object-contain bg-secondary"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                              No image
-                            </div>
-                          )}
+                          <img
+                            src={getProductDisplayImage(product)}
+                            alt={product.name}
+                            className="w-full h-full object-contain bg-secondary"
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{product.name}</p>
@@ -483,12 +558,102 @@ const Checkout = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Shipping</span>
-                        <span>₱{SHIPPING_FEE.toFixed(2)}</span>
+                        <span>₱{shippingFee.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Convenience fee</span>
                         <span>₱{CONVENIENCE_FEE.toFixed(2)}</span>
                       </div>
+                      {/* Voucher code */}
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          placeholder="Voucher code"
+                          value={voucherCode}
+                          onChange={(e) => {
+                            setVoucherCode(e.target.value.toUpperCase());
+                            setVoucherApplied(false);
+                            setVoucherDiscountAmount(0);
+                            setVoucherMessage('');
+                          }}
+                          className="flex-1"
+                          disabled={voucherApplied}
+                        />
+                        <Button
+                          type="button"
+                          variant={voucherApplied ? "secondary" : "outline"}
+                          size="sm"
+                          onClick={async () => {
+                            if (voucherApplied) {
+                              setVoucherApplied(false);
+                              setVoucherCode('');
+                              setVoucherDiscountAmount(0);
+                              setVoucherMessage('');
+                              return;
+                            }
+                            const code = voucherCode.trim().toUpperCase();
+                            if (!code) return;
+                            setIsValidatingVoucher(true);
+                            try {
+                              const { data, error } = await supabase.functions.invoke<{
+                                valid: boolean;
+                                discount_amount: number;
+                                message: string;
+                                code?: string;
+                              }>('validate-voucher', {
+                                body: {
+                                  code,
+                                  subtotal,
+                                  items: items.map((i) => ({
+                                    product_id: i.product.id,
+                                    quantity: i.quantity,
+                                    unit_price: i.product.price,
+                                    category: i.product.category ?? null,
+                                  })),
+                                },
+                              });
+                              if (error) {
+                                const errMsg = typeof error === 'object' && error !== null && 'message' in error
+                                  ? String((error as { message?: string }).message)
+                                  : 'Function unavailable';
+                                throw new Error(errMsg);
+                              }
+                              if (data?.valid) {
+                                setVoucherApplied(true);
+                                setVoucherCode(data.code ?? code);
+                                setVoucherDiscountAmount(data.discount_amount ?? 0);
+                                setVoucherMessage(data.message ?? '');
+                                toast({ title: 'Voucher applied!', description: data.message });
+                              } else {
+                                toast({
+                                  title: 'Invalid voucher',
+                                  description: data?.message ?? 'Code not found.',
+                                  variant: 'destructive',
+                                });
+                              }
+                            } catch (err) {
+                              const msg = err instanceof Error ? err.message : 'Please try again later.';
+                              toast({
+                                title: 'Unable to validate',
+                                description: msg.includes('Failed to fetch') || msg.includes('NetworkError')
+                                  ? 'Check your connection. Ensure the validate-voucher function is deployed.'
+                                  : msg,
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsValidatingVoucher(false);
+                            }
+                          }}
+                          disabled={(!voucherCode.trim() && !voucherApplied) || isValidatingVoucher}
+                        >
+                          {isValidatingVoucher ? <Loader2 className="h-4 w-4 animate-spin" /> : voucherApplied ? 'Remove' : 'Apply'}
+                        </Button>
+                      </div>
+                      {voucherApplied && voucherDiscountAmount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Voucher ({voucherCode}) {voucherMessage}</span>
+                          <span>-₱{voucherDiscountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-lg font-bold border-t pt-2">
                         <span>Total</span>
                         <span>₱{total.toFixed(2)}</span>
@@ -499,9 +664,9 @@ const Checkout = () => {
                       type="submit"
                       className="w-full"
                       size="lg"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || pieceCapExceeded}
                     >
-                      Continue to Verification
+                      {user ? 'Continue to Verification' : 'Proceed to Payment'}
                     </Button>
                   </CardContent>
                 </Card>

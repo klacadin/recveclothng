@@ -6,7 +6,7 @@ import SEO from "@/components/SEO";
 const Terms = () => {
   return (
     <div className="min-h-screen bg-background">
-      <SEO 
+      <SEO
         title="Terms of Service"
         description="Read the Terms of Service for REVE Clothing. Learn about our policies, user responsibilities, and terms of use."
         url="/terms"
@@ -35,7 +35,7 @@ const Terms = () => {
             <section className="mb-8">
               <h2 className="text-xl font-bold mb-4">1. Agreement to Terms</h2>
               <p className="text-muted-foreground">
-                By accessing or using the REVE Clothing website and services, you agree to be bound 
+                By accessing or using the REVE Clothing website and services, you agree to be bound
                 by these Terms of Service. If you do not agree to these terms, please do not use our services.
               </p>
             </section>
@@ -56,20 +56,20 @@ const Terms = () => {
                 We accept the following payment methods:
               </p>
               <ul className="text-muted-foreground space-y-2">
-                <li>• <strong>Cash on Delivery (COD)</strong> - Pay when your order arrives</li>
+                <li>• <strong>J&T Cash on Delivery (COD)</strong> - Pay the J&T courier when your order arrives</li>
                 <li>• <strong>GCash</strong> - Online payment</li>
                 <li>• <strong>Maya</strong> - Online payment</li>
                 <li>• <strong>Bank Transfer</strong> - Direct deposit</li>
               </ul>
               <p className="text-muted-foreground mt-3">
-                All online payments are processed securely through Xendit.
+                All online payments are processed securely through HitPay.
               </p>
             </section>
 
             <section className="mb-8">
               <h2 className="text-xl font-bold mb-4">4. Shipping</h2>
               <p className="text-muted-foreground">
-                We ship nationwide via J&T Express. Shipping fees and delivery times vary by location. 
+                We ship nationwide via J&T Express. Shipping fees and delivery times vary by location.
                 Free shipping is available for orders ₱1,500 and above. See our{" "}
                 <Link to="/shipping" className="text-accent hover:underline">Shipping Information</Link> page for details.
               </p>
@@ -78,7 +78,7 @@ const Terms = () => {
             <section className="mb-8">
               <h2 className="text-xl font-bold mb-4">5. Returns and Refunds</h2>
               <p className="text-muted-foreground">
-                Please refer to our <Link to="/returns" className="text-accent hover:underline">Return Policy</Link> for 
+                Please refer to our <Link to="/returns" className="text-accent hover:underline">Return Policy</Link> for
                 information on returns, exchanges, and refunds.
               </p>
             </section>
@@ -86,8 +86,8 @@ const Terms = () => {
             <section className="mb-8">
               <h2 className="text-xl font-bold mb-4">6. Intellectual Property</h2>
               <p className="text-muted-foreground">
-                All content on this website, including text, graphics, logos, images, and software, 
-                is the property of REVE Clothing and is protected by Philippine and international 
+                All content on this website, including text, graphics, logos, images, and software,
+                is the property of REVE Clothing and is protected by Philippine and international
                 copyright laws. You may not reproduce, distribute, or use any content without our written permission.
               </p>
             </section>
@@ -106,8 +106,8 @@ const Terms = () => {
             <section className="mb-8">
               <h2 className="text-xl font-bold mb-4">8. Limitation of Liability</h2>
               <p className="text-muted-foreground">
-                REVE Clothing shall not be liable for any indirect, incidental, special, or consequential 
-                damages arising from your use of our website or products. Our total liability shall not 
+                REVE Clothing shall not be liable for any indirect, incidental, special, or consequential
+                damages arising from your use of our website or products. Our total liability shall not
                 exceed the amount you paid for the product in question.
               </p>
             </section>
@@ -115,8 +115,8 @@ const Terms = () => {
             <section className="mb-8">
               <h2 className="text-xl font-bold mb-4">9. Changes to Terms</h2>
               <p className="text-muted-foreground">
-                We may update these Terms of Service from time to time. Changes will be posted on this 
-                page with an updated revision date. Continued use of our services constitutes acceptance 
+                We may update these Terms of Service from time to time. Changes will be posted on this
+                page with an updated revision date. Continued use of our services constitutes acceptance
                 of the revised terms.
               </p>
             </section>
@@ -127,7 +127,7 @@ const Terms = () => {
                 If you have questions about these Terms of Service, please contact us:
               </p>
               <ul className="text-muted-foreground mt-3 space-y-1">
-                <li>Email: reveclothing214@gmail.com</li>
+                <li>Email: shop@reveclothingxnobody.com</li>
                 <li>Phone: 0955 446 5207</li>
                 <li>Facebook: <a href="https://www.facebook.com/ReveClothingBukidnon/" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">REVE Clothing Bukidnon</a></li>
                 <li>Instagram: <a href="https://www.instagram.com/jingjing" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">@jingjing</a></li>

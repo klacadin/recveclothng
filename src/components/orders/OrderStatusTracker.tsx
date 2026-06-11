@@ -1,13 +1,17 @@
 import { CheckCircle, Clock, Package, PackageCheck, Truck, XCircle } from 'lucide-react';
 
 interface OrderStatusTrackerProps {
-  status: 'new' | 'paid' | 'packed' | 'shipped' | 'completed' | 'cancelled';
+  status: 'new' | 'pending_payment' | 'for_verification' | 'paid' | 'preparing' | 'packed' | 'for_pickup' | 'shipped' | 'completed' | 'cancelled';
 }
 
 const steps = [
   { key: 'new', label: 'Order Placed', icon: Clock },
-  { key: 'paid', label: 'Payment Confirmed', icon: CheckCircle },
-  { key: 'packed', label: 'Being Prepared', icon: PackageCheck },
+  { key: 'pending_payment', label: 'Pending payment', icon: Clock },
+  { key: 'for_verification', label: 'For verification', icon: Clock },
+  { key: 'paid', label: 'Payment confirmed', icon: CheckCircle },
+  { key: 'preparing', label: 'Preparing', icon: PackageCheck },
+  { key: 'packed', label: 'Packed', icon: PackageCheck },
+  { key: 'for_pickup', label: 'For pickup', icon: Truck },
   { key: 'shipped', label: 'Shipped', icon: Truck },
   { key: 'completed', label: 'Delivered', icon: Package },
 ];

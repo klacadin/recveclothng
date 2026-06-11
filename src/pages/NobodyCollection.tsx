@@ -4,7 +4,8 @@ import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { NOBODY_PRODUCTS, getProductsByCategory } from "@/data/products";
+import { useActiveProducts, isProductNew } from "@/hooks/useProducts";
+import { getProductDisplayImage } from "@/data/productImages";
 
 import nobodyLogo from "@/assets/nobody-logo.png";
 import nobodyMission from "@/assets/nobody-mission.png";
@@ -27,9 +28,10 @@ const NobodyCollection = () => {
     ? categoryParam
     : "";
 
+  const { data: allProducts = [] } = useActiveProducts();
   const filteredProducts = selectedSubCategory
-    ? getProductsByCategory(selectedSubCategory)
-    : NOBODY_PRODUCTS;
+    ? allProducts.filter((p) => (p.category || "").toLowerCase() === selectedSubCategory.toLowerCase())
+    : allProducts;
 
   const setSubCategory = (value: string) => {
     if (!value) {
@@ -184,11 +186,11 @@ const NobodyCollection = () => {
               ))}
             </div>
 
-            {/* Products Grid or Coming Soon */}
+            {/* Products Grid or Empty State */}
             {showComingSoon ? (
               <div className="text-center py-16 px-4 bg-background/50 rounded-sm border border-dashed border-border">
                 <p className="font-display text-xl font-semibold text-foreground">{selectedSubCategory}</p>
-                <p className="text-muted-foreground mt-2">Coming soon.</p>
+                <p className="text-muted-foreground mt-2">No products in this category yet.</p>
                 <Button variant="outline" size="sm" className="mt-4" onClick={() => setSubCategory("")}>
                   View all NOBODY
                 </Button>
@@ -204,11 +206,12 @@ const NobodyCollection = () => {
                     <ProductCard
                       id={product.id}
                       name={product.name}
-                      price={product.price}
-                      image={product.image}
-                      category={product.category}
-                      isNew={false}
-                      inStock={true}
+                      price={Number(product.price)}
+                      image={getProductDisplayImage(product)}
+                      category={product.category || undefined}
+                      isNew={isProductNew(product.created_at)}
+                      inStock={(product.stock_quantity ?? 0) > 0}
+                      product={product}
                     />
                   </div>
                 ))}

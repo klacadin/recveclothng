@@ -2,20 +2,15 @@ import { Link } from "react-router-dom";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { NOBODY_PRODUCTS } from "@/data/products";
-
-// First 4 canonical NOBODY products as featured
-const featuredProducts = NOBODY_PRODUCTS.slice(0, 4).map((p) => ({
-  id: p.id,
-  name: p.name,
-  price: p.price,
-  image: p.image,
-  category: p.category,
-  isNew: false,
-  inStock: true,
-}));
+import { useActiveProducts, isProductNew } from "@/hooks/useProducts";
+import { getProductDisplayImage } from "@/data/productImages";
 
 const FeaturedProducts = () => {
+  const { data: products = [], isLoading } = useActiveProducts();
+  const featuredProducts = products.slice(0, 4);
+
+  if (isLoading) return null;
+
   return (
     <section className="py-16 md:py-24 bg-background">
       <div className="container">
@@ -48,11 +43,12 @@ const FeaturedProducts = () => {
               <ProductCard
                 id={product.id}
                 name={product.name}
-                price={product.price}
-                image={product.image}
-                category={product.category}
-                isNew={product.isNew}
-                inStock={product.inStock}
+                price={Number(product.price)}
+                image={getProductDisplayImage(product)}
+                category={product.category || undefined}
+                isNew={isProductNew(product.created_at)}
+                inStock={(product.stock_quantity ?? 0) > 0}
+                product={product}
               />
             </div>
           ))}

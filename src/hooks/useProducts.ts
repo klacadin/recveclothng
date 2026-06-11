@@ -1,10 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import { MAX_PRODUCTS } from '@/config/constants';
 
 export type Product = Tables<'products'>;
 export type ProductInsert = TablesInsert<'products'>;
 export type ProductUpdate = TablesUpdate<'products'>;
+
+/** PostgREST when `weight_grams` column was never migrated on the remote DB */
+function isMissingWeightGramsSchemaError(error: unknown): boolean {
+  const msg =
+    typeof error === 'object' && error !== null && 'message' in error
+      ? String((error as { message: unknown }).message)
+      : '';
+  return msg.includes('weight_grams') && msg.includes('schema cache');
+}
 
 export const useProducts = () => {
   return useQuery({
@@ -13,13 +23,29 @@ export const useProducts = () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(MAX_PRODUCTS);
 
       if (error) throw error;
       return data as Product[];
     },
   });
 };
+
+/** Active products only — for Shop/storefront. Only is_active products appear. */
+export const useActiveProducts = () => {
+  const { data = [], ...rest } = useProducts();
+  return { data: data.filter((p) => p.is_active), ...rest };
+};
+
+const NEW_PRODUCT_DAYS = 30;
+
+/** True if product was created within the last N days */
+export function isProductNew(createdAt: string, days = NEW_PRODUCT_DAYS): boolean {
+  const created = new Date(createdAt).getTime();
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return created >= cutoff;
+}
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,14 +84,25 @@ export const useCreateProduct = () => {
 
   return useMutation({
     mutationFn: async (product: ProductInsert) => {
-      const { data, error } = await supabase
-        .from('products')
-        .insert(product)
-        .select()
-        .single();
+      const insert = async (payload: ProductInsert) => {
+        const { data, error } = await supabase
+          .from('products')
+          .insert(payload)
+          .select()
+          .single();
+        if (error) throw error;
+        return data as Product;
+      };
 
-      if (error) throw error;
-      return data as Product;
+      try {
+        return await insert(product);
+      } catch (e) {
+        if (isMissingWeightGramsSchemaError(e)) {
+          const { weight_grams: _w, ...rest } = product;
+          return await insert(rest as ProductInsert);
+        }
+        throw e;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -78,15 +115,26 @@ export const useUpdateProduct = () => {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: ProductUpdate }) => {
-      const { data, error } = await supabase
-        .from('products')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
+      const patch = async (u: ProductUpdate) => {
+        const { data, error } = await supabase
+          .from('products')
+          .update(u)
+          .eq('id', id)
+          .select()
+          .single();
+        if (error) throw error;
+        return data as Product;
+      };
 
-      if (error) throw error;
-      return data as Product;
+      try {
+        return await patch(updates);
+      } catch (e) {
+        if (isMissingWeightGramsSchemaError(e) && updates.weight_grams !== undefined) {
+          const { weight_grams: _w, ...rest } = updates;
+          return await patch(rest as ProductUpdate);
+        }
+        throw e;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });

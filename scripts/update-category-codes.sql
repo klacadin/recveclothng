@@ -1,5 +1,5 @@
 -- Add category codes: SHRT, SHORT, SING, LSLV
--- Run in: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new
+-- Run in: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new
 
 -- Add code column
 ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS code TEXT UNIQUE;

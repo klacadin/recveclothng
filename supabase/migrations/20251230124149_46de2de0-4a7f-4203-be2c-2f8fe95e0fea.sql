@@ -1,8 +1,12 @@
--- Create size enum
-CREATE TYPE public.product_size AS ENUM ('S', 'M', 'L', 'XL');
+-- Create size enum (idempotent)
+DO $$ BEGIN
+  CREATE TYPE public.product_size AS ENUM ('S', 'M', 'L', 'XL');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create product variants table with size-specific stock
-CREATE TABLE public.product_variants (
+CREATE TABLE IF NOT EXISTS public.product_variants (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
   size product_size NOT NULL,
@@ -18,27 +22,32 @@ CREATE TABLE public.product_variants (
 ALTER TABLE public.product_variants ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for product_variants
+DROP POLICY IF EXISTS "Product variants are viewable by everyone" ON public.product_variants;
 CREATE POLICY "Product variants are viewable by everyone" 
 ON public.product_variants 
 FOR SELECT 
 USING (true);
 
+DROP POLICY IF EXISTS "Admins can insert product variants" ON public.product_variants;
 CREATE POLICY "Admins can insert product variants" 
 ON public.product_variants 
 FOR INSERT 
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
+DROP POLICY IF EXISTS "Admins can update product variants" ON public.product_variants;
 CREATE POLICY "Admins can update product variants" 
 ON public.product_variants 
 FOR UPDATE 
 USING (has_role(auth.uid(), 'admin'::app_role));
 
+DROP POLICY IF EXISTS "Admins can delete product variants" ON public.product_variants;
 CREATE POLICY "Admins can delete product variants" 
 ON public.product_variants 
 FOR DELETE 
 USING (has_role(auth.uid(), 'admin'::app_role));
 
 -- Trigger for updated_at
+DROP TRIGGER IF EXISTS update_product_variants_updated_at ON public.product_variants;
 CREATE TRIGGER update_product_variants_updated_at
 BEFORE UPDATE ON public.product_variants
 FOR EACH ROW
@@ -159,6 +168,7 @@ END;
 $$;
 
 -- Trigger to keep product stock synced with variants
+DROP TRIGGER IF EXISTS sync_product_stock_on_variant_change ON public.product_variants;
 CREATE TRIGGER sync_product_stock_on_variant_change
 AFTER INSERT OR UPDATE OR DELETE ON public.product_variants
 FOR EACH ROW

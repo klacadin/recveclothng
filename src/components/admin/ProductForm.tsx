@@ -11,6 +11,7 @@ import type { Product, ProductInsert } from '@/hooks/useProducts';
 import SizeStockInput from './SizeStockInput';
 import { type SizeStock, type ProductVariant, variantsToSizeStock } from '@/hooks/useProductVariants';
 import { useProductCategories } from '@/hooks/useCategories';
+import { DEFAULT_PRODUCT_WEIGHT_GRAMS } from '@/config/constants';
 
 interface ProductFormProps {
   product?: Product | null;
@@ -31,6 +32,7 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
     images: [],
     stock_quantity: 0,
     low_stock_threshold: 10,
+    weight_grams: DEFAULT_PRODUCT_WEIGHT_GRAMS,
     is_active: true,
   });
   const [sizeStocks, setSizeStocks] = useState<SizeStock>({ XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 });
@@ -49,9 +51,10 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
         sku: product.sku || '',
         category: product.category || '',
         image_url: product.image_url || '',
-        images: (product as any).images || [],
+        images: product.images || [],
         stock_quantity: product.stock_quantity,
         low_stock_threshold: product.low_stock_threshold,
+        weight_grams: product.weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS,
         is_active: product.is_active,
       });
     }
@@ -66,7 +69,7 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
   const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     const url = await uploadImage(file);
     if (url) {
       setFormData({ ...formData, image_url: url });
@@ -80,11 +83,11 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
   const handleAdditionalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    
+
     // Upload multiple files
     const fileArray = Array.from(files);
     const urls = await uploadMultipleImages(fileArray);
-    
+
     // Add all successfully uploaded images
     if (urls.length > 0) {
       setFormData({
@@ -92,7 +95,7 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
         images: [...(formData.images || []), ...urls],
       });
     }
-    
+
     // Reset input
     if (additionalImagesInputRef.current) {
       additionalImagesInputRef.current.value = '';
@@ -177,6 +180,19 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
                 step="0.01"
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="weight_grams">Weight (grams) *</Label>
+              <Input
+                id="weight_grams"
+                type="number"
+                min="1"
+                step="1"
+                value={formData.weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS}
+                onChange={(e) => setFormData({ ...formData, weight_grams: parseInt(e.target.value, 10) || DEFAULT_PRODUCT_WEIGHT_GRAMS })}
                 required
               />
             </div>
@@ -297,9 +313,9 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
               <div className="grid grid-cols-4 gap-2 mt-2">
                 {formData.images.map((img, idx) => (
                   <div key={idx} className="relative group">
-                    <img 
-                      src={img} 
-                      alt={`Product ${idx + 1}`} 
+                    <img
+                      src={img}
+                      alt={`Product ${idx + 1}`}
                       className="w-full h-20 object-contain bg-secondary rounded border border-border"
                     />
                     <button
@@ -316,9 +332,9 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
           </div>
 
           {/* Size Stock Inputs */}
-          <SizeStockInput 
-            sizeStocks={sizeStocks} 
-            onChange={setSizeStocks} 
+          <SizeStockInput
+            sizeStocks={sizeStocks}
+            onChange={setSizeStocks}
             disabled={isSubmitting}
           />
 
