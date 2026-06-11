@@ -2,7 +2,7 @@
 # Run this AFTER enabling Cron in Supabase Dashboard (Integrations → Cron)
 
 param(
-    [string]$ProjectRef = "txiwvjfdlxgwjtaibbpb"
+    [string]$ProjectRef = "unaodlytdymouicuuywb"
 )
 
 Write-Host "Setting up fail-stale-pending-payments cron job..." -ForegroundColor Cyan

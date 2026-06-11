@@ -9,6 +9,7 @@ const OrderConfirmation = () => {
   const orderNumber = location.state?.orderNumber;
   const needsProof = location.state?.needsProof;
   const total = location.state?.total;
+  const paymentMethod = location.state?.paymentMethod as string | undefined;
   const customerEmail = location.state?.customerEmail;
   const customerName = location.state?.customerName;
 
@@ -63,6 +64,9 @@ const OrderConfirmation = () => {
           {!needsProof && (
             <div className="text-sm text-muted-foreground">
               <p>We'll send you an email confirmation shortly.</p>
+              {paymentMethod === 'cod' && (
+                <p className="mt-1 font-medium text-foreground">Pay the J&T courier in cash when your order arrives.</p>
+              )}
               <p className="mt-1">You can track your order status using your order number.</p>
             </div>
           )}
@@ -74,7 +78,7 @@ const OrderConfirmation = () => {
             className="inline-flex items-center justify-center gap-2 text-sm text-accent hover:underline"
           >
             <MessageSquare className="h-4 w-4" />
-            Share your feedback & get a FREE singlet
+            Share your feedback
           </a>
 
           <div className="flex flex-col gap-3">

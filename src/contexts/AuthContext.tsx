@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { BASE_URL } from '@/config/constants';
 
 interface AuthContextType {
   user: User | null;
@@ -71,7 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // Defer admin and approval checks to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
@@ -93,7 +94,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         Promise.all([
           checkAdminRole(session.user.id),
@@ -125,12 +126,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Check approval status after successful login
     if (data.user) {
       const approvalResult = await checkApprovalStatus(data.user.id);
-      if (!approvalResult.isApproved && !isAdmin) {
+      // Allow users without an approval row during/after migration.
+      if (approvalResult.status === 'pending' || approvalResult.status === 'rejected') {
         // Sign out the user if not approved (unless they're an admin)
         await supabase.auth.signOut();
-        return { 
-          error: new Error('Your account is pending approval. Please wait for an admin to approve your account.') as any,
-          approvalError: true 
+        return {
+          error: new Error('Your account is pending approval. Please wait for an admin to approve your account.'),
+          approvalError: true
         };
       }
       setApprovalStatus(approvalResult.status);
@@ -141,9 +143,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signUp = async (email: string, password: string) => {
-    const { BASE_URL } = await import('@/config/constants');
     const redirectUrl = `${BASE_URL}/`;
-    
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -154,7 +155,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // The trigger will automatically create a pending approval record
     // No need to do anything here - the database handles it
-    
+
     return { error };
   };
 

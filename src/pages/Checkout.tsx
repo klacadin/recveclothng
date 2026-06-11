@@ -12,11 +12,12 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 // OTP verification removed - only COD requires it, but COD is hidden for now
-import { SHIPPING_FEE, CONVENIENCE_FEE } from '@/config/constants';
+import { CONVENIENCE_FEE, MAX_ORDER_PIECES } from '@/config/constants';
+import { shippingFeeByTotalPiecesPhp, totalPiecesFromLineItems } from '@/utils/orderShippingRates';
 import PhilippineAddressSelect from '@/components/checkout/PhilippineAddressSelect';
 import { buildAddressString } from '@/hooks/usePhilippineAddress';
 import { getProductDisplayImage } from '@/data/productImages';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '@/integrations/supabase/client';
 
 const checkoutSchema = z.object({
   customerName: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
@@ -26,6 +27,7 @@ const checkoutSchema = z.object({
   addressSelections: z.object({
     regionCode: z.string(),
     regionName: z.string().optional(),
+    islandGroupCode: z.string().optional(),
     provinceCode: z.string(),
     provinceName: z.string().optional(),
     cityCode: z.string(),
@@ -54,7 +56,7 @@ const Checkout = () => {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [step, setStep] = useState<CheckoutStep>('auth');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<CheckoutFormData>({
@@ -65,6 +67,7 @@ const Checkout = () => {
     addressSelections: {
       regionCode: '',
       regionName: '',
+      islandGroupCode: '',
       provinceCode: '',
       provinceName: '',
       cityCode: '',
@@ -82,37 +85,58 @@ const Checkout = () => {
   const [voucherMessage, setVoucherMessage] = useState('');
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
 
+  const totalPieces = totalPiecesFromLineItems(items);
+  const pieceCapExceeded = totalPieces > MAX_ORDER_PIECES;
+
+  // Flat tiers by total piece count — same for COD and online.
+  const shippingFee = shippingFeeByTotalPiecesPhp(totalPieces);
+
   // Discount applies to subtotal only — never to shipping or convenience fee
-  const total = Math.max(1, subtotal - voucherDiscountAmount + SHIPPING_FEE + CONVENIENCE_FEE);
+  const total = Math.max(1, subtotal - voucherDiscountAmount + shippingFee + CONVENIENCE_FEE);
 
   // Re-validate voucher when subtotal changes (e.g. cart updated) if voucher is applied
   useEffect(() => {
     if (!voucherApplied || !voucherCode.trim()) return;
     let cancelled = false;
     const validate = async () => {
-      const { data } = await supabase.functions.invoke<{
-        valid: boolean;
-        discount_amount: number;
-        message: string;
-      }>('validate-voucher', {
-        body: {
-          code: voucherCode.trim().toUpperCase(),
-          subtotal,
-          items: items.map((i) => ({
-            product_id: i.product.id,
-            quantity: i.quantity,
-            unit_price: i.product.price,
-            category: i.product.category ?? null,
-          })),
-        },
-      });
-      if (!cancelled && data?.valid) {
-        setVoucherDiscountAmount(data.discount_amount ?? 0);
-        setVoucherMessage(data.message ?? '');
-      } else if (!cancelled && data && !data.valid) {
-        setVoucherApplied(false);
-        setVoucherDiscountAmount(0);
-        setVoucherMessage('');
+      try {
+        const { data, error } = await supabase.functions.invoke<{
+          valid: boolean;
+          discount_amount: number;
+          message: string;
+        }>('validate-voucher', {
+          body: {
+            code: voucherCode.trim().toUpperCase(),
+            subtotal,
+            items: items.map((i) => ({
+              product_id: i.product.id,
+              quantity: i.quantity,
+              unit_price: i.product.price,
+              category: i.product.category ?? null,
+            })),
+          },
+        });
+        if (cancelled) return;
+        if (error) {
+          setVoucherApplied(false);
+          setVoucherDiscountAmount(0);
+          setVoucherMessage('');
+          return;
+        }
+        if (data?.valid) {
+          setVoucherDiscountAmount(data.discount_amount ?? 0);
+          setVoucherMessage(data.message ?? '');
+        } else if (data && !data.valid) {
+          setVoucherApplied(false);
+          setVoucherDiscountAmount(0);
+          setVoucherMessage('');
+        }
+      } catch {
+        if (!cancelled) {
+          setVoucherApplied(false);
+          setVoucherDiscountAmount(0);
+          setVoucherMessage('');
+        }
       }
     };
     validate();
@@ -126,10 +150,6 @@ const Checkout = () => {
       if (user?.email && !formData.customerEmail) {
         setFormData(prev => ({ ...prev, customerEmail: user.email! }));
       }
-      // COD is hidden - ensure a valid payment method is selected
-      if (formData.paymentMethod === 'cod') {
-        setFormData(prev => ({ ...prev, paymentMethod: 'gcash' }));
-      }
     }
   }, [user, authLoading]);
 
@@ -142,11 +162,21 @@ const Checkout = () => {
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (items.length === 0) {
       toast({
         title: 'Cart is empty',
         description: 'Please add items to your cart before checkout.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const pieces = totalPiecesFromLineItems(items);
+    if (pieces > MAX_ORDER_PIECES) {
+      toast({
+        title: 'Too many items',
+        description: `Orders are limited to ${MAX_ORDER_PIECES} pieces total. Reduce quantities in your cart.`,
         variant: 'destructive',
       });
       return;
@@ -165,8 +195,7 @@ const Checkout = () => {
       return;
     }
 
-    // Skip OTP for online payments (GCash/Maya/Bank Transfer)
-    // Only COD requires OTP, but COD is hidden, so skip OTP for all payment methods
+    // Skip OTP for all payment methods (simplified flow)
     handleOTPVerified();
   };
 
@@ -183,7 +212,7 @@ const Checkout = () => {
         notes: formData.notes || null,
         payment_method: formData.paymentMethod,
         subtotal,
-        shipping_fee: SHIPPING_FEE,
+        shipping_fee: shippingFee,
         total,
         voucher_code: voucherApplied ? voucherCode.trim() : null,
         user_id: user?.id || null, // Link order to authenticated user
@@ -199,13 +228,15 @@ const Checkout = () => {
       };
 
       // Create order via direct fetch (avoids Supabase client JWT/session edge function errors)
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const orderRes = await fetch(`${supabaseUrl}/functions/v1/create-order`, {
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Checkout is temporarily unavailable. Store configuration is missing.');
+      }
+
+      const orderRes = await fetch(`${SUPABASE_URL}/functions/v1/create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
+          'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify(orderData),
       });
@@ -248,7 +279,7 @@ const Checkout = () => {
         title: 'Order placed successfully!',
         description: `Your order number is ${data.order_number}. We'll contact you soon.`,
       });
-      navigate('/order-confirmation', { state: { orderNumber: data.order_number } });
+      navigate('/order-confirmation', { state: { orderNumber: data.order_number, paymentMethod: 'cod' } });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to place order. Please try again.';
       toast({
@@ -439,7 +470,15 @@ const Checkout = () => {
                       value={formData.paymentMethod}
                       onValueChange={(value) => handleChange('paymentMethod', value)}
                     >
-                      {/* COD is hidden for now - only online payments available */}
+                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                        <RadioGroupItem value="cod" id="cod" />
+                        <Label htmlFor="cod" className="flex-1 cursor-pointer">
+                          <span className="flex items-center gap-2">
+                            J&T Cash on Delivery
+                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">COD</span>
+                          </span>
+                        </Label>
+                      </div>
                       <div className="flex items-center space-x-2 p-3 border rounded-lg bg-primary/5">
                         <RadioGroupItem value="gcash" id="gcash" />
                         <Label htmlFor="gcash" className="flex-1 cursor-pointer">
@@ -465,6 +504,11 @@ const Checkout = () => {
                         </Label>
                       </div>
                     </RadioGroup>
+                    {formData.paymentMethod === 'cod' && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Pay the J&T courier in cash when your order arrives.
+                      </p>
+                    )}
                     {(formData.paymentMethod === 'gcash' || formData.paymentMethod === 'maya' || formData.paymentMethod === 'bank_transfer') && (
                       <p className="text-xs text-muted-foreground mt-2">
                         {formData.paymentMethod === 'gcash' && 'Opens GCash app.'}
@@ -483,8 +527,13 @@ const Checkout = () => {
                     <CardTitle>Order Summary</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {items.map(({ product, quantity }) => (
-                      <div key={product.id} className="flex gap-3">
+                    {pieceCapExceeded && (
+                      <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                        This order exceeds the {MAX_ORDER_PIECES}-piece limit. Remove or reduce quantities before placing your order.
+                      </p>
+                    )}
+                    {items.map(({ product, quantity, size }) => (
+                      <div key={`${product.id}-${size}`} className="flex gap-3">
                         <div className="w-16 h-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
                           <img
                             src={getProductDisplayImage(product)}
@@ -509,7 +558,7 @@ const Checkout = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Shipping</span>
-                        <span>₱{SHIPPING_FEE.toFixed(2)}</span>
+                        <span>₱{shippingFee.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Convenience fee</span>
@@ -562,7 +611,12 @@ const Checkout = () => {
                                   })),
                                 },
                               });
-                              if (error) throw error;
+                              if (error) {
+                                const errMsg = typeof error === 'object' && error !== null && 'message' in error
+                                  ? String((error as { message?: string }).message)
+                                  : 'Function unavailable';
+                                throw new Error(errMsg);
+                              }
                               if (data?.valid) {
                                 setVoucherApplied(true);
                                 setVoucherCode(data.code ?? code);
@@ -576,10 +630,13 @@ const Checkout = () => {
                                   variant: 'destructive',
                                 });
                               }
-                            } catch {
+                            } catch (err) {
+                              const msg = err instanceof Error ? err.message : 'Please try again later.';
                               toast({
                                 title: 'Unable to validate',
-                                description: 'Please try again later.',
+                                description: msg.includes('Failed to fetch') || msg.includes('NetworkError')
+                                  ? 'Check your connection. Ensure the validate-voucher function is deployed.'
+                                  : msg,
                                 variant: 'destructive',
                               });
                             } finally {
@@ -607,7 +664,7 @@ const Checkout = () => {
                       type="submit"
                       className="w-full"
                       size="lg"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || pieceCapExceeded}
                     >
                       {user ? 'Continue to Verification' : 'Proceed to Payment'}
                     </Button>

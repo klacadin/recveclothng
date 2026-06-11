@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/utils/errors';
 
 export const useBulkProductActions = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -46,16 +47,18 @@ export const useBulkProductActions = () => {
       clearSelection();
       toast({ title: 'Products deleted', description: `${selectedCount} products have been deleted.` });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     },
   });
 
   const bulkActivate = useMutation({
-    mutationFn: async (ids: string[]) => {
+    mutationFn: async ({ ids, updatedByEmail }: { ids: string[]; updatedByEmail?: string }) => {
+      const updates: Record<string, unknown> = { is_active: true };
+      if (updatedByEmail) updates.updated_by_email = updatedByEmail;
       const { error } = await supabase
         .from('products')
-        .update({ is_active: true })
+        .update(updates)
         .in('id', ids);
 
       if (error) throw error;
@@ -65,16 +68,18 @@ export const useBulkProductActions = () => {
       clearSelection();
       toast({ title: 'Products activated', description: `${selectedCount} products have been activated.` });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     },
   });
 
   const bulkDeactivate = useMutation({
-    mutationFn: async (ids: string[]) => {
+    mutationFn: async ({ ids, updatedByEmail }: { ids: string[]; updatedByEmail?: string }) => {
+      const updates: Record<string, unknown> = { is_active: false };
+      if (updatedByEmail) updates.updated_by_email = updatedByEmail;
       const { error } = await supabase
         .from('products')
-        .update({ is_active: false })
+        .update(updates)
         .in('id', ids);
 
       if (error) throw error;
@@ -84,16 +89,18 @@ export const useBulkProductActions = () => {
       clearSelection();
       toast({ title: 'Products deactivated', description: `${selectedCount} products have been deactivated.` });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     },
   });
 
   const bulkUpdateCategory = useMutation({
-    mutationFn: async ({ ids, category }: { ids: string[]; category: string }) => {
+    mutationFn: async ({ ids, category, updatedByEmail }: { ids: string[]; category: string; updatedByEmail?: string }) => {
+      const updates: Record<string, unknown> = { category };
+      if (updatedByEmail) updates.updated_by_email = updatedByEmail;
       const { error } = await supabase
         .from('products')
-        .update({ category })
+        .update(updates)
         .in('id', ids);
 
       if (error) throw error;
@@ -103,8 +110,8 @@ export const useBulkProductActions = () => {
       clearSelection();
       toast({ title: 'Category updated', description: `${selectedCount} products have been updated.` });
     },
-    onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: getErrorMessage(error), variant: 'destructive' });
     },
   });
 

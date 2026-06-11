@@ -6,6 +6,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-forwarded-for, x-real-ip',
 };
 
+/** Sync with `src/config/constants.ts` — included in order total for COD and online (HitPay) alike. */
+const CONVENIENCE_FEE_PHP = 38;
+/** Sync with `src/config/constants.ts` MAX_ORDER_PIECES */
+const MAX_ORDER_PIECES = 10;
+/** Sync with `src/config/constants.ts` SHIPPING_PHP_BY_PIECE_COUNT — index = exact piece count */
+const SHIPPING_PHP_BY_PIECE_COUNT = [0, 130, 130, 180, 180, 230, 250, 250, 300, 350, 350];
+
+function shippingFeeByTotalPiecesPhp(totalPieces: number): number {
+  if (totalPieces <= 0) return 0;
+  const n = Math.min(totalPieces, MAX_ORDER_PIECES);
+  return SHIPPING_PHP_BY_PIECE_COUNT[n] ?? 0;
+}
+
 type ProductSize = 'XS' | 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 
 interface OrderItem {
@@ -47,6 +60,31 @@ interface ReservedItem {
   size: ProductSize;
 }
 
+async function rollbackOnlineOrder(
+  supabase: ReturnType<typeof createClient>,
+  orderId: string,
+  reservedItems: ReservedItem[],
+) {
+  await supabase.from('order_items').delete().eq('order_id', orderId);
+  await supabase.from('orders').delete().eq('id', orderId);
+
+  for (const reserved of reservedItems) {
+    const { error } = await supabase.rpc('restore_variant_stock', {
+      _product_id: reserved.product_id,
+      _size: reserved.size,
+      _quantity: reserved.quantity,
+    });
+    if (error) {
+      console.error('Failed to restore stock during online payment rollback:', {
+        product_id: reserved.product_id,
+        size: reserved.size,
+        quantity: reserved.quantity,
+        error,
+      });
+    }
+  }
+}
+
 // Extract client IP from request headers
 function getClientIP(req: Request): string {
   const forwarded = req.headers.get('x-forwarded-for');
@@ -69,7 +107,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     // Use service role to bypass RLS for order operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -138,10 +176,10 @@ serve(async (req) => {
     // Validate quantities and sizes
     const validSizes: ProductSize[] = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
     for (const item of orderData.items) {
-      if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 100) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > MAX_ORDER_PIECES) {
         console.error('Invalid quantity:', item);
         return new Response(
-          JSON.stringify({ error: 'Item quantity must be between 1 and 100' }),
+          JSON.stringify({ error: `Each line item quantity must be between 1 and ${MAX_ORDER_PIECES}` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -161,6 +199,16 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+    }
+
+    const totalPieces = orderData.items.reduce((sum, i) => sum + i.quantity, 0);
+    if (totalPieces > MAX_ORDER_PIECES) {
+      return new Response(
+        JSON.stringify({
+          error: `Orders are limited to ${MAX_ORDER_PIECES} pieces total. Reduce quantities and try again.`,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // SECURITY: Check rate limits
@@ -287,7 +335,7 @@ serve(async (req) => {
       serverSubtotal += itemTotal;
 
       // Build SKU with variant suffix if available
-      const fullSku = result.variant_sku_suffix 
+      const fullSku = result.variant_sku_suffix
         ? `${result.product_sku}-${result.variant_sku_suffix}`
         : result.product_sku;
 
@@ -304,9 +352,11 @@ serve(async (req) => {
       console.log(`Reserved ${item.quantity} of ${result.product_name} (${item.size}) at ${serverPrice} each`);
     }
 
-    // SECURITY: Calculate server-side total
-    const shippingFee = Math.max(0, Math.min(orderData.shipping_fee, 10000)); // Cap shipping fee
-    let serverTotal = serverSubtotal + shippingFee;
+    // SECURITY: Calculate server-side total — shipping from total piece count (ignore client shipping_fee).
+    const serverTotalPieces = reservedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const shippingFee = Math.max(0, Math.min(shippingFeeByTotalPiecesPhp(serverTotalPieces), 10000));
+
+    let serverTotal = serverSubtotal + shippingFee + CONVENIENCE_FEE_PHP;
 
     // Apply voucher discount: check DB first, fallback to TEST99
     const voucherCode = (orderData.voucher_code || '').trim().toUpperCase();
@@ -476,60 +526,85 @@ serve(async (req) => {
     const hitpayMethods = ['gcash', 'maya', 'bank_transfer'];
     if (hitpayMethods.includes(orderData.payment_method)) {
       const hitpayApiKey = Deno.env.get('HITPAY_API_KEY');
-      if (hitpayApiKey) {
-        try {
-          const appUrl = Deno.env.get('APP_URL') || 'https://reveclothingxnobody.com';
-          const hitpayBaseUrl = Deno.env.get('HITPAY_SANDBOX') === 'true'
-            ? 'https://api.sandbox.hit-pay.com'
-            : 'https://api.hit-pay.com';
-          const webhookUrl = `${supabaseUrl}/functions/v1/hitpay-webhook`;
-          const hitpayRedirect = `${appUrl}/payment-success?order_id=${order.id}`;
+      if (!hitpayApiKey) {
+        console.error('HITPAY_API_KEY not configured - rolling back online order');
+        await rollbackOnlineOrder(supabase, order.id, reservedItems);
+        return new Response(
+          JSON.stringify({
+            error: 'Payment service is not configured. Please contact support.',
+            code: 'payment_not_configured',
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-          // HitPay: Omit payment_methods in production → HitPay shows all methods enabled on your account.
-          // Sandbox only supports card/PayNow; PHP methods (gcash_qr, qrph_netbank) are production-only.
-          const isSandbox = Deno.env.get('HITPAY_SANDBOX') === 'true';
-          const hitpayPayload: Record<string, unknown> = {
-            amount: serverTotal,
-            currency: 'PHP',
-            email: orderData.customer_email,
-            name: orderData.customer_name,
-            purpose: `Order ${orderNumber}`,
-            reference_number: order.id,
-            redirect_url: hitpayRedirect,
-            webhook: webhookUrl,
-            send_email: 'false',
-            send_sms: 'false',
-          };
-          if (isSandbox) {
-            hitpayPayload.payment_methods = ['card', 'paynow_online'];
-          }
+      try {
+        const appUrl = Deno.env.get('APP_URL') || 'https://reveclothingxnobody.com';
+        const hitpayBaseUrl = Deno.env.get('HITPAY_SANDBOX') === 'true'
+          ? 'https://api.sandbox.hit-pay.com'
+          : 'https://api.hit-pay.com';
+        const webhookUrl = `${supabaseUrl}/functions/v1/hitpay-webhook`;
+        const hitpayRedirect = `${appUrl}/payment-success?order_id=${order.id}`;
 
-          const hitpayRes = await fetch(`${hitpayBaseUrl}/v1/payment-requests`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-BUSINESS-API-KEY': hitpayApiKey,
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: JSON.stringify(hitpayPayload),
-          });
-
-          const hitpayResult = await hitpayRes.json();
-          if (hitpayRes.ok && hitpayResult.url && hitpayResult.id) {
-            redirectUrl = hitpayResult.url;
-            await supabase.from('orders').update({
-              xendit_payment_id: hitpayResult.id,
-              updated_at: new Date().toISOString(),
-            }).eq('id', order.id);
-            console.log('HitPay payment created:', hitpayResult.id);
-          } else {
-            console.error('HitPay API error:', hitpayResult);
-          }
-        } catch (hitpayErr) {
-          console.error('HitPay create error:', hitpayErr);
+        // HitPay: Omit payment_methods in production → HitPay shows all methods enabled on your account.
+        // Sandbox only supports card/PayNow; PHP methods (gcash_qr, qrph_netbank) are production-only.
+        const isSandbox = Deno.env.get('HITPAY_SANDBOX') === 'true';
+        const hitpayPayload: Record<string, unknown> = {
+          amount: serverTotal,
+          currency: 'PHP',
+          email: orderData.customer_email,
+          name: orderData.customer_name,
+          purpose: `Order ${orderNumber}`,
+          reference_number: order.id,
+          redirect_url: hitpayRedirect,
+          webhook: webhookUrl,
+          send_email: 'false',
+          send_sms: 'false',
+        };
+        if (isSandbox) {
+          hitpayPayload.payment_methods = ['card', 'paynow_online'];
         }
-      } else {
-        console.warn('HITPAY_API_KEY not configured - skipping HitPay payment');
+
+        const hitpayRes = await fetch(`${hitpayBaseUrl}/v1/payment-requests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-BUSINESS-API-KEY': hitpayApiKey,
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify(hitpayPayload),
+        });
+
+        const hitpayResult = await hitpayRes.json().catch(() => ({}));
+        if (hitpayRes.ok && hitpayResult.url && hitpayResult.id) {
+          redirectUrl = hitpayResult.url;
+          await supabase.from('orders').update({
+            xendit_payment_id: hitpayResult.id,
+            updated_at: new Date().toISOString(),
+          }).eq('id', order.id);
+          console.log('HitPay payment created:', hitpayResult.id);
+        } else {
+          console.error('HitPay API error:', hitpayResult);
+          await rollbackOnlineOrder(supabase, order.id, reservedItems);
+          return new Response(
+            JSON.stringify({
+              error: hitpayResult?.message || 'Payment gateway rejected the request. Please try again or contact support.',
+              code: 'hitpay_create_failed',
+              details: hitpayResult,
+            }),
+            { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (hitpayErr) {
+        console.error('HitPay create error:', hitpayErr);
+        await rollbackOnlineOrder(supabase, order.id, reservedItems);
+        return new Response(
+          JSON.stringify({
+            error: 'Payment gateway is temporarily unavailable. Please try again.',
+            code: 'hitpay_unavailable',
+          }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
 
@@ -576,9 +651,9 @@ serve(async (req) => {
       }
     }
 
-    const response: Record<string, unknown> = { 
-      success: true, 
-      order_id: order.id, 
+    const response: Record<string, unknown> = {
+      success: true,
+      order_id: order.id,
       order_number: orderNumber,
       total: serverTotal
     };

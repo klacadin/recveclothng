@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Package,
@@ -26,6 +27,7 @@ import {
   X,
   Download,
   Users,
+  ImageIcon,
   LayoutGrid,
   List,
   Mail,
@@ -57,10 +59,26 @@ import AdminSettings from "@/components/admin/AdminSettings";
 import UserApprovals from "@/components/admin/UserApprovals";
 import CategoryManagement from "@/components/admin/CategoryManagement";
 import ArticleManagement from "@/components/admin/ArticleManagement";
+import EventCarouselManagement from "@/components/admin/EventCarouselManagement";
 import EmailManagement from "@/components/admin/EmailManagement";
 import VoucherManagement from "@/components/admin/VoucherManagement";
 import ProductCard from "@/components/product/ProductCard";
 import { getProductDisplayImage } from "@/data/productImages";
+import {
+  JNT_VIP_QUICK_ORDER_URL,
+  JNT_VIP_ORDER_WAYBILL_URL,
+  JNT_MERCHANT_CODE,
+  JNT_DROP_POINT,
+  DEFAULT_PRODUCT_WEIGHT_GRAMS,
+} from "@/config/constants";
+
+type OrderWithGatewayPayment = OrderWithItems & {
+  xendit_payment_id?: string | null;
+};
+
+const getGatewayPaymentId = (order: Order | OrderWithItems | null | undefined): string | null => {
+  return (order as OrderWithGatewayPayment | null | undefined)?.xendit_payment_id ?? null;
+};
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   new: { label: "New", color: "bg-blue-100 text-blue-800", icon: AlertCircle },
@@ -79,7 +97,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
 // Payment method labels — clean display, no gateway branding
 const getPaymentLabel = (paymentMethod: string): string => {
   const labels: Record<string, string> = {
-    cod: "COD",
+    cod: "J&T COD",
     gcash: "GCash",
     maya: "Maya",
     bank_transfer: "Bank",
@@ -215,7 +233,10 @@ const Admin = () => {
   const [paidRefDialogOrder, setPaidRefDialogOrder] = useState<{ id: string; order_number: string } | null>(null);
   const [paidRefInput, setPaidRefInput] = useState("");
   const [sendingProofReminder, setSendingProofReminder] = useState(false);
+  const [creatingWaybillOrderId, setCreatingWaybillOrderId] = useState<string | null>(null);
   const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'new' | 'paid' | 'packed' | 'shipped' | 'completed'>('all');
+  const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState<string>('all');
+  const [inventoryStatusFilter, setInventoryStatusFilter] = useState<'all' | 'active' | 'inactive' | 'in_stock' | 'low_stock' | 'out_of_stock'>('all');
   const [openArticleFormImmediately, setOpenArticleFormImmediately] = useState(false);
   const [customerInfoDialogOpen, setCustomerInfoDialogOpen] = useState(false);
   const [selectedCustomerOrder, setSelectedCustomerOrder] = useState<OrderWithItems | null>(null);
@@ -224,7 +245,8 @@ const Admin = () => {
   const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+  const queryClient = useQueryClient();
+
   const { data: products = [], isLoading: productsLoading } = useProducts();
   const { data: categories = [] } = useProductCategories();
   const { data: orders = [], isLoading: ordersLoading } = useOrders();
@@ -280,6 +302,7 @@ const Admin = () => {
     { id: "inventory", label: "Inventory", icon: Package },
     { id: "emails", label: "Emails", icon: Mail },
     { id: "news", label: "News & Blog", icon: Newspaper },
+    { id: "event-carousel", label: "Event Carousel", icon: ImageIcon },
     { id: "categories", label: "Categories", icon: Tag },
     { id: "users", label: "User Approvals", icon: Users },
     { id: "vouchers", label: "Vouchers", icon: Ticket },
@@ -287,10 +310,43 @@ const Admin = () => {
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
-  const filteredProducts = products.filter((product) =>
+  const searchFilteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     product.category?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getProductTotalStock = (product: Product) => {
+    const variantTotal = (variantsByProduct[product.id] || []).reduce((s, v) => s + v.stock_quantity, 0);
+    return variantTotal > 0 ? variantTotal : (product.stock_quantity ?? 0);
+  };
+
+  const inventoryStatusMatch = (product: Product) => {
+    const totalStock = getProductTotalStock(product);
+    const threshold = product.low_stock_threshold ?? 0;
+    switch (inventoryStatusFilter) {
+      case 'active': return product.is_active;
+      case 'inactive': return !product.is_active;
+      case 'out_of_stock': return totalStock === 0;
+      case 'low_stock': return totalStock > 0 && totalStock <= threshold;
+      case 'in_stock': return totalStock > threshold;
+      default: return true;
+    }
+  };
+
+  const inventoryCategoryMatch = (product: Product) => {
+    if (inventoryCategoryFilter === 'all') return true;
+    if (inventoryCategoryFilter === '_none') return !product.category || product.category.trim() === '';
+    const p = (product.category || '').trim().toLowerCase();
+    const c = inventoryCategoryFilter.trim().toLowerCase();
+    if (p === c) return true;
+    if (c.endsWith('s') && p === c.slice(0, -1)) return true;
+    if (p.endsWith('s') && c === p.slice(0, -1)) return true;
+    return false;
+  };
+
+  const filteredProducts = searchFilteredProducts.filter((p) =>
+    inventoryStatusMatch(p) && inventoryCategoryMatch(p)
   );
 
   const searchFilteredOrders = orders.filter((order) =>
@@ -315,7 +371,7 @@ const Admin = () => {
   const lowStockProducts = products.filter(p => p.stock_quantity <= p.low_stock_threshold);
   const outOfStockProducts = products.filter(p => p.stock_quantity === 0);
   const totalInventoryValue = products.reduce((sum, p) => sum + Number(p.price) * p.stock_quantity, 0);
-  
+
   const newOrders = orders.filter(o => ['new', 'pending_payment', 'for_verification'].includes(o.status));
   const pendingShipment = orders.filter(o => ['paid', 'preparing', 'packed', 'for_pickup'].includes(o.status));
   const todayRevenue = orders
@@ -324,13 +380,16 @@ const Admin = () => {
 
   const handleCreateProduct = async (data: ProductInsert, sizeStocks: SizeStock) => {
     try {
-      const product = await createProduct.mutateAsync(data);
+      const product = await createProduct.mutateAsync({
+        ...data,
+        created_by_email: user?.email ?? null,
+      });
       // Create variants for the new product
       await createVariants.mutateAsync({ productId: product.id, sizeStocks });
       toast({ title: "Product created", description: "The product has been added successfully." });
       setShowProductForm(false);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorMessage = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred');
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
@@ -338,7 +397,10 @@ const Admin = () => {
   const handleUpdateProduct = async (data: ProductInsert, sizeStocks: SizeStock) => {
     if (!editingProduct) return;
     try {
-      await updateProduct.mutateAsync({ id: editingProduct.id, updates: data });
+      await updateProduct.mutateAsync({
+        id: editingProduct.id,
+        updates: { ...data, updated_by_email: user?.email ?? null },
+      });
       // Update variants for the product
       const variants = SIZES.map(size => ({
         size,
@@ -349,7 +411,7 @@ const Admin = () => {
       toast({ title: "Product updated", description: "The product has been updated successfully." });
       setEditingProduct(null);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorMessage = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred');
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
@@ -360,7 +422,7 @@ const Admin = () => {
       toast({ title: "Product deleted", description: "The product has been removed." });
       setDeleteConfirmId(null);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorMessage = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred');
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
@@ -377,27 +439,32 @@ const Admin = () => {
         images: product.images || [],
         stock_quantity: 0, // Start with 0 stock for duplicates
         low_stock_threshold: product.low_stock_threshold,
+        weight_grams: product.weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS,
         is_active: false, // Duplicates start as inactive
+        created_by_email: user?.email ?? null,
       };
       const newProduct = await createProduct.mutateAsync(duplicatedProduct);
       // Create variants with 0 stock for the duplicated product
-      await createVariants.mutateAsync({ 
-        productId: newProduct.id, 
-        sizeStocks: { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 } 
+      await createVariants.mutateAsync({
+        productId: newProduct.id,
+        sizeStocks: { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 }
       });
       toast({ title: "Product duplicated", description: "A copy of the product has been created." });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorMessage = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred');
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
   const handleCategoryChange = async (productId: string, category: string) => {
     try {
-      await updateProduct.mutateAsync({ id: productId, updates: { category } });
+      await updateProduct.mutateAsync({
+        id: productId,
+        updates: { category, updated_by_email: user?.email ?? null },
+      });
       toast({ title: "Category updated", description: "Product category has been updated." });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+      const errorMessage = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : "An unexpected error occurred");
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
@@ -409,7 +476,7 @@ const Admin = () => {
       toast({ title: "Stock updated", description: "Inventory has been updated successfully." });
       setStockUpdateProduct(null);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorMessage = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred');
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
@@ -420,7 +487,7 @@ const Admin = () => {
       toast({ title: "Order created", description: "The order has been created successfully." });
       setShowOrderForm(false);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorMessage = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred');
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
@@ -430,7 +497,7 @@ const Admin = () => {
       await updateOrderStatus.mutateAsync({ id: orderId, status });
       toast({ title: "Status updated", description: `Order status changed to ${status}.` });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorMessage = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred');
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
@@ -441,19 +508,19 @@ const Admin = () => {
       toast({ title: "Order deleted", description: "The order has been removed." });
       setDeleteOrderId(null);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorMessage = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred');
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
   const handleSendProofReminder = async (order: OrderWithItems) => {
     if (!order) return;
-    
+
     setSendingProofReminder(true);
     try {
       const appUrl = import.meta.env.VITE_APP_URL || 'https://reveclothingxnobody.com';
       const uploadUrl = `${appUrl}/upload-proof?order=${encodeURIComponent(order.order_number)}`;
-      
+
       const { data, error } = await supabase.functions.invoke('send-order-email', {
         body: {
           type: 'proof_reminder',
@@ -468,10 +535,10 @@ const Admin = () => {
       });
 
       if (error) throw error;
-      
-      toast({ 
-        title: "Reminder sent", 
-        description: `Proof reminder email sent to ${order.customer_email}` 
+
+      toast({
+        title: "Reminder sent",
+        description: `Proof reminder email sent to ${order.customer_email}`
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to send reminder email';
@@ -493,7 +560,7 @@ const Admin = () => {
   };
 
   const exportInventoryCSV = () => {
-    const headers = ['Name', 'SKU', 'Category', 'Price', 'Stock Quantity', 'Low Stock Threshold', 'Status', 'Active'];
+    const headers = ['Name', 'SKU', 'Category', 'Price', 'Stock Quantity', 'Low Stock Threshold', 'Status', 'Active', 'Date Added', 'Added By', 'Last Updated', 'Updated By'];
     const csvRows = [headers.join(',')];
 
     filteredProducts.forEach(product => {
@@ -506,7 +573,11 @@ const Admin = () => {
         product.stock_quantity,
         product.low_stock_threshold,
         `"${status.label}"`,
-        product.is_active ? 'Yes' : 'No'
+        product.is_active ? 'Yes' : 'No',
+        product.created_at ? new Date(product.created_at).toISOString() : '',
+        `"${(product.created_by_email || '').replace(/"/g, '""')}"`,
+        product.updated_at ? new Date(product.updated_at).toISOString() : '',
+        `"${(product.updated_by_email || '').replace(/"/g, '""')}"`,
       ];
       csvRows.push(row.join(','));
     });
@@ -521,7 +592,7 @@ const Admin = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     toast({ title: 'Export complete', description: `Exported ${filteredProducts.length} products to CSV.` });
   };
 
@@ -549,11 +620,10 @@ const Admin = () => {
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-sm transition-colors ${
-                activeTab === item.id
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-sm transition-colors ${activeTab === item.id
+                ? "bg-secondary text-foreground"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
             >
               <item.icon className="h-5 w-5" />
               {item.label}
@@ -618,6 +688,46 @@ const Admin = () => {
               )}
               {activeTab === "inventory" && (
                 <>
+                  <Select value={inventoryCategoryFilter} onValueChange={setInventoryCategoryFilter}>
+                    <SelectTrigger className="w-[140px] sm:w-[160px] h-9">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All categories</SelectItem>
+                      <SelectItem value="_none">— No category —</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.name}>
+                          {cat.name} {cat.code && `(${cat.code})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={inventoryStatusFilter} onValueChange={(v) => setInventoryStatusFilter(v as typeof inventoryStatusFilter)}>
+                    <SelectTrigger className="w-[130px] sm:w-[150px] h-9">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="in_stock">In Stock</SelectItem>
+                      <SelectItem value="low_stock">Low Stock</SelectItem>
+                      <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {(inventoryCategoryFilter !== 'all' || inventoryStatusFilter !== 'all') && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setInventoryCategoryFilter('all');
+                        setInventoryStatusFilter('all');
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={exportInventoryCSV} className="shrink-0">
                     <Download className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Export CSV</span>
@@ -805,7 +915,7 @@ const Admin = () => {
                   ))}
                 </div>
               </div>
-              
+
               {/* Order bulk actions toolbar */}
               {hasOrderSelection && (
                 <div className="p-3 sm:p-4 bg-accent/10 border-b border-border flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -952,196 +1062,195 @@ const Admin = () => {
                   </div>
                   {/* Desktop: table */}
                   <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full min-w-[700px]">
-                  <thead className="bg-secondary">
-                    <tr>
-                      <th className="p-4 w-12">
-                        <Checkbox
-                          checked={
-                            selectedOrderCount === filteredOrders.length &&
-                            filteredOrders.length > 0
-                          }
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              selectAllOrders(filteredOrders.map((o) => o.id));
-                            } else {
-                              clearOrderSelection();
-                            }
-                          }}
-                          aria-label="Select all orders"
-                        />
-                      </th>
-                      <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Order</th>
-                      <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Customer</th>
-                      <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Items</th>
-                      <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</th>
-                      <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payment</th>
-                      <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
-                      <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredOrders.map((order) => {
-                      const status = statusConfig[order.status] || statusConfig.new;
-                      return (
-                        <tr
-                          key={order.id}
-                          className={`border-t border-border hover:bg-secondary/50 ${isOrderSelected(order.id) ? 'bg-accent/5' : ''}`}
-                        >
-                          <td className="p-4">
+                    <table className="w-full min-w-[700px]">
+                      <thead className="bg-secondary">
+                        <tr>
+                          <th className="p-4 w-12">
                             <Checkbox
-                              checked={isOrderSelected(order.id)}
-                              onCheckedChange={() => toggleOrderSelection(order.id)}
-                              aria-label={`Select order ${order.order_number}`}
-                            />
-                          </td>
-                          <td className="p-4">
-                            <p className="text-sm font-medium text-foreground">{order.order_number}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(order.created_at).toLocaleDateString()}
-                            </p>
-                          </td>
-                          <td className="p-4">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedCustomerOrder(order);
-                                setCustomerInfoDialogOpen(true);
-                              }}
-                              className="text-left hover:underline cursor-pointer group"
-                            >
-                              <p className="text-sm text-foreground group-hover:text-primary transition-colors">
-                                {order.customer_name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{order.customer_email}</p>
-                              {order.customer_phone && (
-                                <p className="text-xs text-muted-foreground">{order.customer_phone}</p>
-                              )}
-                            </button>
-                          </td>
-                          <td className="p-4 text-sm text-muted-foreground">
-                            <div>
-                              <span>{order.order_items?.length || 0} items</span>
-                              {order.order_items && order.order_items.length > 0 && (
-                                <div className="mt-1 space-y-0.5">
-                                  {order.order_items.map((item, idx) => (
-                                    <div key={idx} className="text-xs">
-                                      <span className="text-foreground">{item.product_name}</span>
-                                      {item.size && (
-                                        <span className="ml-1.5 px-1.5 py-0.5 bg-primary/10 text-primary rounded font-medium">
-                                          {item.size}
-                                        </span>
-                                      )}
-                                      <span className="text-muted-foreground ml-1">×{item.quantity}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-4 text-sm font-medium text-foreground">
-                            ₱{Number(order.total).toLocaleString()}
-                          </td>
-                          <td className="p-4">
-                            <div className="flex flex-col gap-1">
-                              <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                order.payment_method === 'cod' ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"
-                              }`}>
-                                {getPaymentLabel(order.payment_method)}
-                              </span>
-                              {['gcash', 'maya', 'bank_transfer'].includes(order.payment_method) && (order as any).xendit_payment_id && (
-                                <div className="mt-1">
-                                  <span className="text-xs text-muted-foreground">
-                                    Payment ID: <span className="font-mono text-xs">{(order as any).xendit_payment_id}</span>
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <Select
-                              value={order.status}
-                              onValueChange={(value: Order['status']) => {
-                                if (value === 'paid') {
-                                  setPaidRefDialogOrder({ id: order.id, order_number: order.order_number });
-                                  setPaidRefInput('');
+                              checked={
+                                selectedOrderCount === filteredOrders.length &&
+                                filteredOrders.length > 0
+                              }
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  selectAllOrders(filteredOrders.map((o) => o.id));
                                 } else {
-                                  handleUpdateOrderStatus(order.id, value);
+                                  clearOrderSelection();
                                 }
                               }}
+                              aria-label="Select all orders"
+                            />
+                          </th>
+                          <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Order</th>
+                          <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Customer</th>
+                          <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Items</th>
+                          <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</th>
+                          <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payment</th>
+                          <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
+                          <th className="text-left p-2 sm:p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredOrders.map((order) => {
+                          const status = statusConfig[order.status] || statusConfig.new;
+                          return (
+                            <tr
+                              key={order.id}
+                              className={`border-t border-border hover:bg-secondary/50 ${isOrderSelected(order.id) ? 'bg-accent/5' : ''}`}
                             >
-                              <SelectTrigger className="w-32 h-8">
-                                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded ${status.color}`}>
-                                  <status.icon className="h-3 w-3" />
-                                  {status.label}
-                                </span>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="new">New</SelectItem>
-                                <SelectItem value="pending_payment">Pending payment</SelectItem>
-                                <SelectItem value="for_verification">For verification</SelectItem>
-                                <SelectItem value="paid">Paid</SelectItem>
-                                <SelectItem value="preparing">Preparing</SelectItem>
-                                <SelectItem value="packed">Packed</SelectItem>
-                                <SelectItem value="for_pickup">For pickup</SelectItem>
-                                <SelectItem value="shipped">Shipped</SelectItem>
-                                <SelectItem value="completed">Completed</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
-                                <SelectItem value="failed">Failed</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        setSelectedOrder(order);
-                        setWaybillInput((order as OrderWithItems & { waybill_number?: string | null }).waybill_number ?? '');
-                        setVerificationRefInput('');
-                      }}
-                      aria-label={`View order ${order.order_number}`}
-                    >
-                                <Eye className="h-4 w-4" aria-hidden="true" />
-                              </Button>
-                              {deleteOrderId === order.id ? (
+                              <td className="p-4">
+                                <Checkbox
+                                  checked={isOrderSelected(order.id)}
+                                  onCheckedChange={() => toggleOrderSelection(order.id)}
+                                  aria-label={`Select order ${order.order_number}`}
+                                />
+                              </td>
+                              <td className="p-4">
+                                <p className="text-sm font-medium text-foreground">{order.order_number}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(order.created_at).toLocaleDateString()}
+                                </p>
+                              </td>
+                              <td className="p-4">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCustomerOrder(order);
+                                    setCustomerInfoDialogOpen(true);
+                                  }}
+                                  className="text-left hover:underline cursor-pointer group"
+                                >
+                                  <p className="text-sm text-foreground group-hover:text-primary transition-colors">
+                                    {order.customer_name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">{order.customer_email}</p>
+                                  {order.customer_phone && (
+                                    <p className="text-xs text-muted-foreground">{order.customer_phone}</p>
+                                  )}
+                                </button>
+                              </td>
+                              <td className="p-4 text-sm text-muted-foreground">
+                                <div>
+                                  <span>{order.order_items?.length || 0} items</span>
+                                  {order.order_items && order.order_items.length > 0 && (
+                                    <div className="mt-1 space-y-0.5">
+                                      {order.order_items.map((item, idx) => (
+                                        <div key={idx} className="text-xs">
+                                          <span className="text-foreground">{item.product_name}</span>
+                                          {item.size && (
+                                            <span className="ml-1.5 px-1.5 py-0.5 bg-primary/10 text-primary rounded font-medium">
+                                              {item.size}
+                                            </span>
+                                          )}
+                                          <span className="text-muted-foreground ml-1">×{item.quantity}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-4 text-sm font-medium text-foreground">
+                                ₱{Number(order.total).toLocaleString()}
+                              </td>
+                              <td className="p-4">
+                                <div className="flex flex-col gap-1">
+                                  <span className={`px-2 py-1 text-xs font-medium rounded ${order.payment_method === 'cod' ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"
+                                    }`}>
+                                    {getPaymentLabel(order.payment_method)}
+                                  </span>
+                                  {['gcash', 'maya', 'bank_transfer'].includes(order.payment_method) && getGatewayPaymentId(order) && (
+                                    <div className="mt-1">
+                                      <span className="text-xs text-muted-foreground">
+                                        Payment ID: <span className="font-mono text-xs">{getGatewayPaymentId(order)}</span>
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                <Select
+                                  value={order.status}
+                                  onValueChange={(value: Order['status']) => {
+                                    if (value === 'paid') {
+                                      setPaidRefDialogOrder({ id: order.id, order_number: order.order_number });
+                                      setPaidRefInput('');
+                                    } else {
+                                      handleUpdateOrderStatus(order.id, value);
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="w-32 h-8">
+                                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded ${status.color}`}>
+                                      <status.icon className="h-3 w-3" />
+                                      {status.label}
+                                    </span>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="new">New</SelectItem>
+                                    <SelectItem value="pending_payment">Pending payment</SelectItem>
+                                    <SelectItem value="for_verification">For verification</SelectItem>
+                                    <SelectItem value="paid">Paid</SelectItem>
+                                    <SelectItem value="preparing">Preparing</SelectItem>
+                                    <SelectItem value="packed">Packed</SelectItem>
+                                    <SelectItem value="for_pickup">For pickup</SelectItem>
+                                    <SelectItem value="shipped">Shipped</SelectItem>
+                                    <SelectItem value="completed">Completed</SelectItem>
+                                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                                    <SelectItem value="failed">Failed</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="p-4">
                                 <div className="flex items-center gap-1">
                                   <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() => handleDeleteOrder(order.id)}
-                                    disabled={deleteOrder.isPending}
-                                  >
-                                    Confirm
-                                  </Button>
-                                  <Button
                                     variant="ghost"
-                                    size="sm"
-                                    onClick={() => setDeleteOrderId(null)}
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => {
+                                      setSelectedOrder(order);
+                                      setWaybillInput((order as OrderWithItems & { waybill_number?: string | null }).waybill_number ?? '');
+                                      setVerificationRefInput('');
+                                    }}
+                                    aria-label={`View order ${order.order_number}`}
                                   >
-                                    Cancel
+                                    <Eye className="h-4 w-4" aria-hidden="true" />
                                   </Button>
+                                  {deleteOrderId === order.id ? (
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => handleDeleteOrder(order.id)}
+                                        disabled={deleteOrder.isPending}
+                                      >
+                                        Confirm
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setDeleteOrderId(null)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive"
+                                      onClick={() => setDeleteOrderId(order.id)}
+                                      aria-label={`Delete order ${order.order_number}`}
+                                    >
+                                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                    </Button>
+                                  )}
                                 </div>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-destructive hover:text-destructive"
-                                  onClick={() => setDeleteOrderId(order.id)}
-                                  aria-label={`Delete order ${order.order_number}`}
-                                >
-                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                </Button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </>
               )}
@@ -1195,7 +1304,7 @@ const Admin = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => bulkActivate.mutate(Array.from(selectedIds))}
+                    onClick={() => bulkActivate.mutate({ ids: Array.from(selectedIds), updatedByEmail: user?.email ?? undefined })}
                     disabled={bulkActivate.isPending}
                   >
                     <ToggleRight className="h-4 w-4 mr-1" />
@@ -1204,7 +1313,7 @@ const Admin = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => bulkDeactivate.mutate(Array.from(selectedIds))}
+                    onClick={() => bulkDeactivate.mutate({ ids: Array.from(selectedIds), updatedByEmail: user?.email ?? undefined })}
                     disabled={bulkDeactivate.isPending}
                   >
                     <ToggleLeft className="h-4 w-4 mr-1" />
@@ -1235,7 +1344,7 @@ const Admin = () => {
                         size="sm"
                         onClick={() => {
                           const cat = (bulkCategoryInput === '_select' || bulkCategoryInput === '_none') ? '' : (bulkCategoryInput || '').trim();
-                          bulkUpdateCategory.mutate({ ids: Array.from(selectedIds), category: cat });
+                          bulkUpdateCategory.mutate({ ids: Array.from(selectedIds), category: cat, updatedByEmail: user?.email ?? undefined });
                           setBulkCategoryInput("");
                           setShowBulkCategoryInput(false);
                         }}
@@ -1299,7 +1408,7 @@ const Admin = () => {
                   )}
                 </div>
               )}
-              
+
               {productsLoading ? (
                 <div className="p-8 text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -1354,6 +1463,8 @@ const Admin = () => {
                       <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Price</th>
                       <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stock</th>
                       <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
+                      <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Added</th>
+                      <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Last updated</th>
                       <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
@@ -1421,6 +1532,36 @@ const Admin = () => {
                             <span className={`px-2 py-1 text-xs font-medium rounded ${status.color}`}>
                               {status.label}
                             </span>
+                          </td>
+                          <td className="p-4 text-xs text-muted-foreground">
+                            <div title={product.created_at}>
+                              {product.created_at
+                                ? new Date(product.created_at).toLocaleString(undefined, {
+                                  dateStyle: 'short',
+                                  timeStyle: 'short',
+                                })
+                                : '—'}
+                            </div>
+                            {product.created_by_email && (
+                              <div className="text-[10px] mt-0.5 truncate max-w-[100px]" title={product.created_by_email}>
+                                by {product.created_by_email}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4 text-xs text-muted-foreground">
+                            <div title={product.updated_at}>
+                              {product.updated_at
+                                ? new Date(product.updated_at).toLocaleString(undefined, {
+                                  dateStyle: 'short',
+                                  timeStyle: 'short',
+                                })
+                                : '—'}
+                            </div>
+                            {product.updated_by_email && (
+                              <div className="text-[10px] mt-0.5 truncate max-w-[100px]" title={product.updated_by_email}>
+                                by {product.updated_by_email}
+                              </div>
+                            )}
                           </td>
                           <td className="p-4">
                             <div className="flex items-center gap-1">
@@ -1520,14 +1661,29 @@ const Admin = () => {
               </div>
 
               <div className="bg-card rounded-sm border border-border p-4 sm:p-6">
-                <h3 className="font-semibold text-foreground mb-4">Courier Partners</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {["J&T Express", "LBC", "Grab Express"].map((courier) => (
-                    <div key={courier} className="p-4 bg-secondary rounded-sm text-center">
-                      <p className="font-medium text-foreground">{courier}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Active</p>
-                    </div>
-                  ))}
+                <h3 className="font-semibold text-foreground mb-4">J&T Express (COD)</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Merchant: <span className="font-medium text-foreground">REVE CLOTHING SHOP</span> • Code: <span className="font-mono text-foreground">{JNT_MERCHANT_CODE}</span> • Drop point: <span className="text-foreground">{JNT_DROP_POINT}</span>
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <a
+                    href={JNT_VIP_QUICK_ORDER_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 text-sm font-medium"
+                  >
+                    <Truck className="h-4 w-4" />
+                    Quick Order (create shipment)
+                  </a>
+                  <a
+                    href={JNT_VIP_ORDER_WAYBILL_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-md hover:bg-accent hover:text-accent-foreground text-sm font-medium"
+                  >
+                    <Package className="h-4 w-4" />
+                    Order Waybill (manage & print labels)
+                  </a>
                 </div>
               </div>
             </div>
@@ -1540,6 +1696,13 @@ const Admin = () => {
                 openFormImmediately={openArticleFormImmediately}
                 onFormOpened={() => setOpenArticleFormImmediately(false)}
               />
+            </div>
+          )}
+
+          {/* Event Carousel Tab */}
+          {activeTab === "event-carousel" && (
+            <div className="bg-card rounded-sm border border-border p-6">
+              <EventCarouselManagement />
             </div>
           )}
 
@@ -1590,10 +1753,14 @@ const Admin = () => {
                 stock_quantity: sizeStocks[size],
               }));
               await bulkUpdateVariants.mutateAsync({ productId: stockUpdateProduct.id, variants });
+              await updateProduct.mutateAsync({
+                id: stockUpdateProduct.id,
+                updates: { updated_by_email: user?.email ?? null },
+              });
               toast({ title: "Stock updated", description: "Inventory has been updated successfully." });
               setStockUpdateProduct(null);
             } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+              const errorMessage = (error as { message?: string })?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred');
               toast({ title: "Error", description: errorMessage, variant: "destructive" });
             }
           }}
@@ -1682,7 +1849,7 @@ const Admin = () => {
               <div className="p-4 border border-border rounded-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-foreground">Payment</p>
-                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && !(selectedOrder as any).xendit_payment_id && selectedOrder.status === 'paid' && (
+                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && !getGatewayPaymentId(selectedOrder) && selectedOrder.status === 'paid' && (
                     <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
                       Manual verification
                     </span>
@@ -1692,15 +1859,15 @@ const Admin = () => {
                   <p className="text-sm text-muted-foreground">
                     Method: <span className="text-foreground font-medium">{getPaymentLabel(selectedOrder.payment_method)}</span>
                   </p>
-                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && (selectedOrder as any).xendit_payment_id && (
+                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && getGatewayPaymentId(selectedOrder) && (
                     <div className="mt-3">
-                      <HitPayPaymentStatusDisplay 
-                        paymentRequestId={(selectedOrder as any).xendit_payment_id} 
+                      <HitPayPaymentStatusDisplay
+                        paymentRequestId={getGatewayPaymentId(selectedOrder)}
                         orderId={selectedOrder.id}
                       />
                     </div>
                   )}
-                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && !(selectedOrder as any).xendit_payment_id && (
+                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && !getGatewayPaymentId(selectedOrder) && (
                     <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
                       <p className="font-medium mb-1">Manual payment verification</p>
                       <p className="text-muted-foreground">Payment was verified manually (proof of payment or offline confirmation).</p>
@@ -1764,159 +1931,208 @@ const Admin = () => {
 
               {/* Proof of payment — always visible when proof exists; store manager can view and verify */}
               {/* Don't show proof section for HitPay payments (auto-verified) */}
-              {!(selectedOrder as any).xendit_payment_id && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground mb-1">Proof of payment</p>
-                {selectedOrder.proof_of_payment_url ? (
-                  <>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            const proofUrl = selectedOrder.proof_of_payment_url!;
-                            
-                            // Extract file path from the URL
-                            // URL format: https://[project].supabase.co/storage/v1/object/public/payment-proofs/[path]
-                            // or: https://[project].supabase.co/storage/v1/object/sign/payment-proofs/[path]?token=...
-                            let filePath = '';
-                            
-                            // Check if it's a signed URL
-                            if (proofUrl.includes('/object/sign/')) {
-                              // Already signed, use directly
-                              window.open(proofUrl, '_blank');
-                              return;
-                            }
-                            
-                            // Extract path from public URL
-                            const publicUrlMatch = proofUrl.match(/\/payment-proofs\/(.+)$/);
-                            if (publicUrlMatch) {
-                              filePath = decodeURIComponent(publicUrlMatch[1]);
-                            } else {
-                              // Try to extract from any Supabase storage URL
-                              const storageMatch = proofUrl.match(/payment-proofs\/(.+?)(\?|$)/);
-                              if (storageMatch) {
-                                filePath = decodeURIComponent(storageMatch[1]);
-                              }
-                            }
-                            
-                            if (filePath) {
-                              // Create a signed URL (valid for 1 hour)
-                              const { data, error } = await supabase.storage
-                                .from('payment-proofs')
-                                .createSignedUrl(filePath, 3600);
-                              
-                              if (error) {
-                                console.error('Error creating signed URL:', error);
-                                // Fallback to original URL
-                                window.open(proofUrl, '_blank');
-                              } else if (data?.signedUrl) {
-                                window.open(data.signedUrl, '_blank');
-                              } else {
-                                window.open(proofUrl, '_blank');
-                              }
-                            } else {
-                              // Couldn't extract path, try original URL
-                              window.open(proofUrl, '_blank');
-                            }
-                          } catch (error) {
-                            console.error('Error opening proof:', error);
-                            toast({ 
-                              title: 'Error', 
-                              description: 'Failed to open proof. Please try again.', 
-                              variant: 'destructive' 
-                            });
-                          }
-                        }}
-                      >
-                        View proof
-                      </Button>
-                      {(selectedOrder as OrderWithItems).payment_reference_number && (
-                        <span className="text-sm text-muted-foreground">
-                          Reference: <span className="font-medium text-foreground">{(selectedOrder as OrderWithItems).payment_reference_number}</span>
-                        </span>
-                      )}
-                    </div>
-                    {(selectedOrder.status === 'for_verification' || (selectedOrder.status === 'pending_payment' && selectedOrder.proof_of_payment_url)) && (
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        <Input
-                          placeholder="Reference number (required to verify)"
-                          value={verificationRefInput}
-                          onChange={(e) => setVerificationRefInput(e.target.value)}
-                          className="max-w-xs"
-                        />
+              {!getGatewayPaymentId(selectedOrder) && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground mb-1">Proof of payment</p>
+                  {selectedOrder.proof_of_payment_url ? (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
                         <Button
+                          variant="outline"
                           size="sm"
                           onClick={async () => {
-                            const ref = verificationRefInput.trim();
-                            if (!ref) {
-                              toast({ title: 'Reference required', description: 'Enter a reference number to verify proof.', variant: 'destructive' });
-                              return;
-                            }
                             try {
-                              await updateOrder.mutateAsync({
-                                id: selectedOrder.id,
-                                updates: { status: 'paid', payment_reference_number: ref },
+                              const proofUrl = selectedOrder.proof_of_payment_url!;
+
+                              // Extract file path from the URL
+                              // URL format: https://[project].supabase.co/storage/v1/object/public/payment-proofs/[path]
+                              // or: https://[project].supabase.co/storage/v1/object/sign/payment-proofs/[path]?token=...
+                              let filePath = '';
+
+                              // Check if it's a signed URL
+                              if (proofUrl.includes('/object/sign/')) {
+                                // Already signed, use directly
+                                window.open(proofUrl, '_blank');
+                                return;
+                              }
+
+                              // Extract path from public URL
+                              const publicUrlMatch = proofUrl.match(/\/payment-proofs\/(.+)$/);
+                              if (publicUrlMatch) {
+                                filePath = decodeURIComponent(publicUrlMatch[1]);
+                              } else {
+                                // Try to extract from any Supabase storage URL
+                                const storageMatch = proofUrl.match(/payment-proofs\/(.+?)(\?|$)/);
+                                if (storageMatch) {
+                                  filePath = decodeURIComponent(storageMatch[1]);
+                                }
+                              }
+
+                              if (filePath) {
+                                // Create a signed URL (valid for 1 hour)
+                                const { data, error } = await supabase.storage
+                                  .from('payment-proofs')
+                                  .createSignedUrl(filePath, 3600);
+
+                                if (error) {
+                                  console.error('Error creating signed URL:', error);
+                                  // Fallback to original URL
+                                  window.open(proofUrl, '_blank');
+                                } else if (data?.signedUrl) {
+                                  window.open(data.signedUrl, '_blank');
+                                } else {
+                                  window.open(proofUrl, '_blank');
+                                }
+                              } else {
+                                // Couldn't extract path, try original URL
+                                window.open(proofUrl, '_blank');
+                              }
+                            } catch (error) {
+                              console.error('Error opening proof:', error);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to open proof. Please try again.',
+                                variant: 'destructive'
                               });
-                              toast({ title: 'Proof verified', description: 'Order marked as Paid.' });
-                              setSelectedOrder({ ...selectedOrder, status: 'paid', payment_reference_number: ref });
-                              setVerificationRefInput('');
-                            } catch (e) {
-                              toast({ title: 'Error', description: (e as Error).message, variant: 'destructive' });
                             }
                           }}
-                          disabled={updateOrder.isPending}
                         >
-                          Verify & Mark as Paid
+                          View proof
                         </Button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      {['pending_payment', 'new'].includes(selectedOrder.status)
-                        ? 'Waiting for customer to upload proof.'
-                        : selectedOrder.status === 'for_verification'
-                        ? 'Proof uploaded, awaiting verification.'
-                        : 'No proof uploaded.'}
-                    </p>
-                    {/* Show reminder button for orders that need proof: pending_payment, new, or for_verification */}
-                    {/* Only for payment methods that require proof (gcash, maya, bank_transfer) and NOT HitPay payments */}
-                    {['pending_payment', 'new', 'for_verification'].includes(selectedOrder.status) && 
-                     ['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) &&
-                     !(selectedOrder as any).xendit_payment_id && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSendProofReminder(selectedOrder)}
-                        disabled={sendingProofReminder}
-                        className="w-full sm:w-auto"
-                      >
-                        {sendingProofReminder ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Sending...
-                          </>
-                        ) : (
-                          <>
-                            <Mail className="h-4 w-4 mr-2" />
-                            Send Proof Reminder Email
-                          </>
+                        {(selectedOrder as OrderWithItems).payment_reference_number && (
+                          <span className="text-sm text-muted-foreground">
+                            Reference: <span className="font-medium text-foreground">{(selectedOrder as OrderWithItems).payment_reference_number}</span>
+                          </span>
                         )}
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
+                      </div>
+                      {(selectedOrder.status === 'for_verification' || (selectedOrder.status === 'pending_payment' && selectedOrder.proof_of_payment_url)) && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <Input
+                            placeholder="Reference number (required to verify)"
+                            value={verificationRefInput}
+                            onChange={(e) => setVerificationRefInput(e.target.value)}
+                            className="max-w-xs"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              const ref = verificationRefInput.trim();
+                              if (!ref) {
+                                toast({ title: 'Reference required', description: 'Enter a reference number to verify proof.', variant: 'destructive' });
+                                return;
+                              }
+                              try {
+                                await updateOrder.mutateAsync({
+                                  id: selectedOrder.id,
+                                  updates: { status: 'paid', payment_reference_number: ref },
+                                });
+                                toast({ title: 'Proof verified', description: 'Order marked as Paid.' });
+                                setSelectedOrder({ ...selectedOrder, status: 'paid', payment_reference_number: ref });
+                                setVerificationRefInput('');
+                              } catch (e) {
+                                toast({ title: 'Error', description: (e as Error).message, variant: 'destructive' });
+                              }
+                            }}
+                            disabled={updateOrder.isPending}
+                          >
+                            Verify & Mark as Paid
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        {['pending_payment', 'new'].includes(selectedOrder.status)
+                          ? 'Waiting for customer to upload proof.'
+                          : selectedOrder.status === 'for_verification'
+                            ? 'Proof uploaded, awaiting verification.'
+                            : 'No proof uploaded.'}
+                      </p>
+                      {/* Show reminder button for orders that need proof: pending_payment, new, or for_verification */}
+                      {/* Only for payment methods that require proof (gcash, maya, bank_transfer) and NOT HitPay payments */}
+                      {['pending_payment', 'new', 'for_verification'].includes(selectedOrder.status) &&
+                        ['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) &&
+                        !getGatewayPaymentId(selectedOrder) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendProofReminder(selectedOrder)}
+                            disabled={sendingProofReminder}
+                            className="w-full sm:w-auto"
+                          >
+                            {sendingProofReminder ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Sending...
+                              </>
+                            ) : (
+                              <>
+                                <Mail className="h-4 w-4 mr-2" />
+                                Send Proof Reminder Email
+                              </>
+                            )}
+                          </Button>
+                        )}
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Waybill & for pickup */}
               {['preparing', 'paid', 'packed'].includes(selectedOrder.status) && (
                 <div className="p-4 border border-border rounded-sm space-y-2">
                   <p className="text-sm font-medium text-foreground">J&T waybill</p>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        if (!selectedOrder) return;
+                        setCreatingWaybillOrderId(selectedOrder.id);
+                        try {
+                          const { data, error } = await supabase.functions.invoke<{
+                            success: boolean;
+                            waybill_number?: string;
+                            status?: string;
+                            message?: string;
+                          }>('create-jt-waybill', {
+                            body: { order_id: selectedOrder.id },
+                          });
+                          if (error) throw error;
+                          if (data?.success && data?.waybill_number) {
+                            setSelectedOrder({
+                              ...selectedOrder,
+                              waybill_number: data.waybill_number,
+                              status: data.status || 'for_pickup',
+                            });
+                            setWaybillInput(data.waybill_number);
+                            await queryClient.invalidateQueries({ queryKey: ['orders'] });
+                            toast({ title: 'Waybill created', description: `Waybill: ${data.waybill_number}` });
+                          } else {
+                            toast({
+                              title: data?.message || 'Waybill not created',
+                              description: 'Add waybill manually or check J&T API config.',
+                              variant: 'destructive',
+                            });
+                          }
+                        } catch (e) {
+                          toast({
+                            title: 'Error',
+                            description: (e as Error).message,
+                            variant: 'destructive',
+                          });
+                        } finally {
+                          setCreatingWaybillOrderId(null);
+                        }
+                      }}
+                      disabled={!!(selectedOrder as OrderWithItems).waybill_number || creatingWaybillOrderId === selectedOrder.id}
+                    >
+                      {creatingWaybillOrderId === selectedOrder.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : null}
+                      Create waybill
+                    </Button>
                     <Input
                       placeholder="Waybill number (after printing)"
                       value={waybillInput || (selectedOrder as OrderWithItems).waybill_number || ''}

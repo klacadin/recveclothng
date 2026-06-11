@@ -67,11 +67,18 @@ serve(async (req) => {
 
     const { data: voucher, error } = await supabase
       .from("vouchers")
-      .select("id, code, discount_type, discount_value, min_order_amount, expires_at, is_active, max_uses, times_used, product_ids, category_ids")
+      .select("*")
       .ilike("code", cleanCode)
       .maybeSingle();
 
-    if (error || !voucher) {
+    if (error) {
+      console.error("validate-voucher DB error:", error);
+      return new Response(
+        JSON.stringify({ valid: false, discount_amount: 0, message: "Voucher service temporarily unavailable" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!voucher) {
       return new Response(
         JSON.stringify({ valid: false, discount_amount: 0, message: "Voucher not found" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -116,22 +123,32 @@ serve(async (req) => {
     }
 
     let categoryNames: string[] = [];
-    const categoryIds = voucher.category_ids as string[] | null;
+    const categoryIds = (voucher.category_ids ?? voucher["category_ids"]) as string[] | null | undefined;
     if (categoryIds?.length) {
-      const { data: cats } = await supabase
-        .from("categories")
-        .select("name")
-        .in("id", categoryIds);
-      categoryNames = (cats ?? []).map((c) => c.name).filter(Boolean);
+      try {
+        const { data: cats } = await supabase
+          .from("categories")
+          .select("name")
+          .in("id", categoryIds);
+        categoryNames = (cats ?? []).map((c: { name?: string }) => c.name).filter(Boolean);
+      } catch (catErr) {
+        console.warn("validate-voucher: could not fetch categories", catErr);
+      }
     }
 
-    const productIds = voucher.product_ids as string[] | null;
-    const cartItems: CartItemInput[] = items.map((i: { product_id?: string; quantity?: number; unit_price?: number; category?: string | null }) => ({
-      product_id: String(i.product_id ?? ""),
-      quantity: Math.max(0, Number(i.quantity) ?? 0),
-      unit_price: Math.max(0, Number(i.unit_price) ?? 0),
-      category: i.category ?? null,
-    })).filter((i: CartItemInput) => i.product_id);
+    const productIds = (voucher.product_ids ?? voucher["product_ids"]) as string[] | null | undefined;
+    const cartItems: CartItemInput[] = items
+      .map((i: { product_id?: string; quantity?: number; unit_price?: number; category?: string | null }) => {
+        const quantity = Number(i.quantity);
+        const unitPrice = Number(i.unit_price);
+        return {
+          product_id: String(i.product_id ?? ""),
+          quantity: Math.max(0, Number.isFinite(quantity) ? quantity : 0),
+          unit_price: Math.max(0, Number.isFinite(unitPrice) ? unitPrice : 0),
+          category: i.category ?? null,
+        };
+      })
+      .filter((i: CartItemInput) => i.product_id);
 
     const eligibleAmount = cartItems.length
       ? computeEligibleAmount(cartItems, productIds ?? null, categoryNames)

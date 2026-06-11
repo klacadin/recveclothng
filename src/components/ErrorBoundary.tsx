@@ -43,6 +43,20 @@ class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
+      const showDetails = (() => {
+        try {
+          const qs = new URLSearchParams(window.location.search);
+          return (
+            import.meta.env.DEV ||
+            qs.has('debug') ||
+            qs.get('debug') === '1' ||
+            window.localStorage?.getItem('debug_errors') === '1'
+          );
+        } catch {
+          return import.meta.env.DEV;
+        }
+      })();
+
       return (
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
           <div className="max-w-md w-full text-center space-y-4">
@@ -53,7 +67,7 @@ class ErrorBoundary extends Component<Props, State> {
             <p className="text-muted-foreground">
               We're sorry, but something unexpected happened. Please try refreshing the page.
             </p>
-            {import.meta.env.DEV && this.state.error && (
+            {showDetails && this.state.error && (
               <details className="mt-4 text-left">
                 <summary className="cursor-pointer text-sm text-muted-foreground">Error details</summary>
                 <pre className="mt-2 p-4 bg-secondary rounded text-xs overflow-auto">

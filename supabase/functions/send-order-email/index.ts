@@ -51,7 +51,7 @@ const getStatusLabel = (status: string): string => {
 
 const getPaymentMethodLabel = (method: string): string => {
   const labels: Record<string, string> = {
-    'cod': 'Cash on Delivery',
+    'cod': 'J&T Cash on Delivery',
     'gcash': 'GCash',
     'maya': 'Maya',
     'bank_transfer': 'Bank Transfer'
@@ -131,7 +131,7 @@ const generateConfirmationEmail = (data: EmailRequest): string => {
 const generateStatusUpdateEmail = (data: EmailRequest): string => {
   const statusLabel = getStatusLabel(data.new_status || '');
   const statusColor = data.new_status === 'cancelled' ? '#ef4444' : '#10b981';
-  
+
   let statusMessage = '';
   switch (data.new_status) {
     case 'paid':

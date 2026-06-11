@@ -25,7 +25,7 @@ interface OrderItemForm {
 
 const OrderForm = ({ onSubmit, onCancel, isSubmitting }: OrderFormProps) => {
   const { data: products = [] } = useProducts();
-  
+
   const [formData, setFormData] = useState({
     customer_name: '',
     customer_email: '',
@@ -81,7 +81,7 @@ const OrderForm = ({ onSubmit, onCancel, isSubmitting }: OrderFormProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const order: Omit<OrderInsert, 'order_number'> = {
       ...formData,
       subtotal,
@@ -148,7 +148,7 @@ const OrderForm = ({ onSubmit, onCancel, isSubmitting }: OrderFormProps) => {
                 <Label htmlFor="payment_method">Payment Method</Label>
                 <Select
                   value={formData.payment_method}
-                  onValueChange={(value: 'cod' | 'gcash' | 'maya' | 'bank_transfer') => 
+                  onValueChange={(value: 'cod' | 'gcash' | 'maya' | 'bank_transfer') =>
                     setFormData({ ...formData, payment_method: value })
                   }
                 >
@@ -156,7 +156,7 @@ const OrderForm = ({ onSubmit, onCancel, isSubmitting }: OrderFormProps) => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cod">Cash on Delivery</SelectItem>
+                    <SelectItem value="cod">J&T Cash on Delivery</SelectItem>
                     <SelectItem value="gcash">GCash</SelectItem>
                     <SelectItem value="maya">Maya</SelectItem>
                     <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
@@ -270,9 +270,9 @@ const OrderForm = ({ onSubmit, onCancel, isSubmitting }: OrderFormProps) => {
             <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={isSubmitting || orderItems.length === 0} 
+            <Button
+              type="submit"
+              disabled={isSubmitting || orderItems.length === 0}
               className="flex-1"
             >
               {isSubmitting ? 'Creating...' : 'Create Order'}

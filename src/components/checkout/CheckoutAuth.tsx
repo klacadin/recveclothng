@@ -6,8 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { BASE_URL } from '@/config/constants';
 import { Loader2, Eye, EyeOff, ShoppingBag } from 'lucide-react';
 import { z } from 'zod';
+import { getErrorMessage } from '@/utils/errors';
 
 const authSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -30,21 +32,21 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
   const attemptLogin = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    
-    // Check approval status
+
+    // Allow users without an approval row during/after migration.
     if (data.user) {
       const { data: approval } = await supabase
         .from('user_approvals')
         .select('status')
         .eq('user_id', data.user.id)
         .maybeSingle();
-      
-      if (approval && approval.status !== 'approved') {
+
+      if (approval?.status === 'pending' || approval?.status === 'rejected') {
         await supabase.auth.signOut();
         throw new Error('Your account is pending admin approval. Please wait for an admin to approve your account before logging in.');
       }
     }
-    
+
     toast({
       title: 'Logged in!',
       description: 'Proceeding to checkout...',
@@ -53,7 +55,6 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
   };
 
   const attemptSignup = async (email: string, password: string) => {
-    const { BASE_URL } = await import('@/config/constants');
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -72,9 +73,10 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
         try {
           await attemptLogin(email, password);
           return;
-        } catch (loginError: any) {
+        } catch (loginError: unknown) {
           // Login failed, show appropriate message
-          if (loginError.message?.includes('Invalid login credentials')) {
+          const loginMessage = getErrorMessage(loginError, '');
+          if (loginMessage.includes('Invalid login credentials')) {
             throw new Error('An account with this email already exists. Please use your existing password to log in.');
           }
           throw loginError;
@@ -123,17 +125,16 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
       } else {
         await attemptSignup(email, password);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Auth error:', error);
-      let message = error.message || 'Authentication failed. Please try again.';
-      
-      if (error.message?.includes('Invalid login credentials')) {
+      let message = getErrorMessage(error, 'Authentication failed. Please try again.');
+
+      if (message.includes('Invalid login credentials')) {
         message = 'Invalid email or password. Please try again.';
-      } else if (error.message?.includes('already exists')) {
-        message = error.message;
+      } else if (message.includes('already exists')) {
         setIsLogin(true);
       }
-      
+
       toast({
         title: isLogin ? 'Login failed' : 'Signup failed',
         description: message,
@@ -152,8 +153,8 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
         </div>
         <CardTitle>{isLogin ? 'Login to Continue' : 'Create Account'}</CardTitle>
         <CardDescription>
-          {isLogin 
-            ? 'Sign in to your account to complete your order and track it later' 
+          {isLogin
+            ? 'Sign in to your account to complete your order and track it later'
             : 'Create an account to track your orders and checkout faster next time'}
         </CardDescription>
       </CardHeader>
@@ -204,8 +205,8 @@ const CheckoutAuth = ({ onAuthenticated }: CheckoutAuthProps) => {
             )}
             {isLogin && (
               <div className="text-right">
-                <Link 
-                  to="/forgot-password" 
+                <Link
+                  to="/forgot-password"
                   className="text-sm text-primary hover:underline"
                 >
                   Forgot password?

@@ -5,10 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Package, 
-  ArrowLeft, 
-  Loader2, 
+import {
+  Package,
+  ArrowLeft,
+  Loader2,
   ShoppingBag,
   Clock,
   CheckCircle,
@@ -60,7 +60,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
 };
 
 const paymentLabels: Record<string, string> = {
-  cod: 'Cash on Delivery',
+  cod: 'J&T Cash on Delivery',
   gcash: 'GCash',
   maya: 'Maya',
   bank_transfer: 'Bank Transfer',
@@ -69,7 +69,7 @@ const paymentLabels: Record<string, string> = {
 // Payment method labels — clean display, no gateway branding
 const getPaymentLabel = (paymentMethod: string): string => {
   const labels: Record<string, string> = {
-    cod: 'Cash on Delivery',
+    cod: 'J&T Cash on Delivery',
     gcash: 'GCash',
     maya: 'Maya',
     bank_transfer: 'Bank Transfer',
@@ -191,10 +191,10 @@ const MyOrders = () => {
               {orders.map((order) => {
                 const status = statusConfig[order.status] || statusConfig.new;
                 const StatusIcon = status.icon;
-                
+
                 return (
-                  <Card 
-                    key={order.id} 
+                  <Card
+                    key={order.id}
                     className={`cursor-pointer transition-all hover:shadow-md ${selectedOrder?.id === order.id ? 'ring-2 ring-primary' : ''}`}
                     onClick={() => setSelectedOrder(order)}
                   >
@@ -248,25 +248,25 @@ const MyOrders = () => {
                     <OrderStatusTracker status={selectedOrder.status} />
 
                     {/* Proof of Payment Upload - Show for unpaid orders with bank_transfer/gcash/maya, but NOT for HitPay payments */}
-                    {(selectedOrder.status === 'new' || selectedOrder.status === 'pending_payment' || selectedOrder.status === 'for_verification') && 
-                     ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) && 
-                     !(selectedOrder as any).xendit_payment_id && (
-                      <ProofOfPaymentUpload
-                        orderId={selectedOrder.id}
-                        orderNumber={selectedOrder.order_number}
-                        customerName={selectedOrder.customer_name}
-                        customerEmail={selectedOrder.customer_email}
-                        total={selectedOrder.total}
-                        userId={user.id}
-                        existingProofUrl={selectedOrder.proof_of_payment_url}
-                        onUploadComplete={(url) => {
-                          setSelectedOrder({ ...selectedOrder, proof_of_payment_url: url, status: 'for_verification' });
-                          setOrders(orders.map(o => 
-                            o.id === selectedOrder.id ? { ...o, proof_of_payment_url: url, status: 'for_verification' } : o
-                          ));
-                        }}
-                      />
-                    )}
+                    {(selectedOrder.status === 'new' || selectedOrder.status === 'pending_payment' || selectedOrder.status === 'for_verification') &&
+                      ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) &&
+                      !selectedOrder.xendit_payment_id && (
+                        <ProofOfPaymentUpload
+                          orderId={selectedOrder.id}
+                          orderNumber={selectedOrder.order_number}
+                          customerName={selectedOrder.customer_name}
+                          customerEmail={selectedOrder.customer_email}
+                          total={selectedOrder.total}
+                          userId={user.id}
+                          existingProofUrl={selectedOrder.proof_of_payment_url}
+                          onUploadComplete={(url) => {
+                            setSelectedOrder({ ...selectedOrder, proof_of_payment_url: url, status: 'for_verification' });
+                            setOrders(orders.map(o =>
+                              o.id === selectedOrder.id ? { ...o, proof_of_payment_url: url, status: 'for_verification' } : o
+                            ));
+                          }}
+                        />
+                      )}
 
                     <div>
                       <p className="text-sm text-muted-foreground mb-2">Items</p>

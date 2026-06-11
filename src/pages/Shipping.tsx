@@ -4,13 +4,14 @@ import Footer from "@/components/layout/Footer";
 import SEO from "@/components/SEO";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck, Clock, MapPin, Package, CreditCard } from "lucide-react";
+import { MAX_ORDER_PIECES, SHIPPING_PHP_BY_PIECE_COUNT } from "@/config/constants";
 
 const Shipping = () => {
   return (
     <div className="min-h-screen bg-background">
-      <SEO 
+      <SEO
         title="Shipping Information"
-        description="REVE Clothing ships nationwide via J&T Express. Free shipping on orders ₱1,500+. Flat rate ₱130 shipping. 3-7 business days delivery. COD available."
+        description="REVE Clothing ships nationwide via J&T Express. Shipping by exact piece count (1–10), max 10 items per order. 3-7 business days delivery. COD available."
         url="/shipping"
       />
       <Header />
@@ -39,15 +40,15 @@ const Shipping = () => {
             <Card className="text-center">
               <CardContent className="pt-6">
                 <Truck className="h-8 w-8 mx-auto mb-3 text-accent" />
-                <p className="font-semibold">Free Shipping</p>
-                <p className="text-sm text-muted-foreground">On orders ₱1,500+</p>
+                <p className="font-semibold">Order limit</p>
+                <p className="text-sm text-muted-foreground">Up to {MAX_ORDER_PIECES} pieces per order</p>
               </CardContent>
             </Card>
             <Card className="text-center">
               <CardContent className="pt-6">
                 <CreditCard className="h-8 w-8 mx-auto mb-3 text-accent" />
-                <p className="font-semibold">Flat Rate</p>
-                <p className="text-sm text-muted-foreground">₱130 nationwide</p>
+                <p className="font-semibold">Piece-based shipping</p>
+                <p className="text-sm text-muted-foreground">Flat tiers by total quantity</p>
               </CardContent>
             </Card>
             <Card className="text-center">
@@ -80,24 +81,29 @@ const Shipping = () => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-3 font-semibold">Order Total</th>
-                        <th className="text-left py-3 font-semibold">Shipping Fee</th>
+                        <th className="text-left py-3 font-semibold">Pieces (exact total)</th>
+                        <th className="text-right py-3 font-semibold">Shipping (₱)</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="border-b border-border/50">
-                        <td className="py-3">Below ₱1,500</td>
-                        <td className="py-3">₱130</td>
-                      </tr>
-                      <tr className="border-b border-border/50 bg-accent/5">
-                        <td className="py-3 font-medium">₱1,500 and above</td>
-                        <td className="py-3 font-medium text-accent">FREE</td>
-                      </tr>
+                      {Array.from({ length: MAX_ORDER_PIECES }, (_, i) => {
+                        const n = i + 1;
+                        const fee = SHIPPING_PHP_BY_PIECE_COUNT[n];
+                        return (
+                          <tr
+                            key={n}
+                            className={`border-b border-border/50 ${n === MAX_ORDER_PIECES ? 'bg-accent/5' : ''}`}
+                          >
+                            <td className={`py-2 ${n === MAX_ORDER_PIECES ? 'font-medium' : ''}`}>{n}</td>
+                            <td className={`text-right py-2 ${n === MAX_ORDER_PIECES ? 'font-medium' : ''}`}>{fee}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  * Shipping fees are calculated at checkout based on your order total.
+                  * All amounts in Philippine pesos (₱). Shipping is based only on the total number of pieces in your cart (all sizes combined). Orders cannot exceed {MAX_ORDER_PIECES} pieces.
                 </p>
               </CardContent>
             </Card>
@@ -154,11 +160,11 @@ const Shipping = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  We ship all orders via <strong className="text-foreground">J&T Express</strong>, 
+                  We ship all orders via <strong className="text-foreground">J&T Express</strong>,
                   one of the most reliable courier services in the Philippines.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Once your order is shipped, you'll receive a tracking number via email or SMS 
+                  Once your order is shipped, you'll receive a tracking number via email or SMS
                   to monitor your package's delivery status.
                 </p>
               </CardContent>
@@ -171,8 +177,8 @@ const Shipping = () => {
               <CardContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 bg-secondary rounded-sm text-center">
-                    <p className="font-medium text-sm">COD</p>
-                    <p className="text-xs text-muted-foreground">Cash on Delivery</p>
+                    <p className="font-medium text-sm">J&T COD</p>
+                    <p className="text-xs text-muted-foreground">Pay courier when order arrives</p>
                   </div>
                   <div className="p-3 bg-secondary rounded-sm text-center">
                     <p className="font-medium text-sm">GCash</p>

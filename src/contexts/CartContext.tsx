@@ -1,6 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import type { Product } from '@/hooks/useProducts';
 import type { Database } from '@/integrations/supabase/types';
+import { MAX_ORDER_PIECES } from '@/config/constants';
+import { toast } from '@/hooks/use-toast';
+
+const CART_LIMIT_TITLE = 'Cart limit reached';
+const CART_LIMIT_DESCRIPTION = `Orders are limited to ${MAX_ORDER_PIECES} pieces total. Remove items or reduce quantities to add more.`;
+
+function notifyCartPieceCapExceeded() {
+  setTimeout(() => {
+    toast({
+      title: CART_LIMIT_TITLE,
+      description: CART_LIMIT_DESCRIPTION,
+      variant: 'destructive',
+    });
+  }, 0);
+}
 
 type ProductSize = Database['public']['Enums']['product_size'];
 
@@ -30,11 +45,29 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const CART_STORAGE_KEY = 'shopping-cart-v2';
 
+function cartPieceCount(items: CartItem[]): number {
+  return items.reduce((s, i) => s + i.quantity, 0);
+}
+
+/** If stored cart exceeds the cap (e.g. old rules), trim quantities from the end of the list. */
+function normalizeCartPieceTotals(items: CartItem[]): CartItem[] {
+  let total = cartPieceCount(items);
+  if (total <= MAX_ORDER_PIECES) return items;
+  const out = items.map((i) => ({ ...i }));
+  for (let idx = out.length - 1; idx >= 0 && total > MAX_ORDER_PIECES; idx--) {
+    const over = total - MAX_ORDER_PIECES;
+    const dec = Math.min(out[idx].quantity, over);
+    out[idx] = { ...out[idx], quantity: out[idx].quantity - dec };
+    total -= dec;
+  }
+  return out.filter((i) => i.quantity > 0);
+}
+
 function parseCartFromStorage(savedCart: string): CartItem[] {
   try {
     const parsed = JSON.parse(savedCart);
     const rawItems = Array.isArray(parsed) ? parsed : (parsed?.items ?? []);
-    return rawItems.filter((item: unknown) => {
+    const items = rawItems.filter((item: unknown) => {
       if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
       const i = item as Record<string, unknown>;
       if (!i.size || !i.quantity || typeof i.quantity !== 'number' || i.quantity < 1) return false;
@@ -56,6 +89,7 @@ function parseCartFromStorage(savedCart: string): CartItem[] {
         size: i.size as ProductSize,
       };
     });
+    return normalizeCartPieceTotals(items);
   } catch {
     return [];
   }
@@ -88,23 +122,32 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       const existingItem = currentItems.find(
         item => getCartItemKey(item.product.id, item.size) === itemKey
       );
-      
+      const currentTotal = cartPieceCount(currentItems);
+      const existingQty = existingItem?.quantity ?? 0;
+      const maxAdd = MAX_ORDER_PIECES - (currentTotal - existingQty);
+      const addQty = Math.max(0, Math.min(quantity, maxAdd));
+      if (addQty === 0) {
+        if (quantity > 0) notifyCartPieceCapExceeded();
+        return currentItems;
+      }
+      if (addQty < quantity) notifyCartPieceCapExceeded();
+
       if (existingItem) {
         return currentItems.map(item =>
           getCartItemKey(item.product.id, item.size) === itemKey
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, quantity: item.quantity + addQty }
             : item
         );
       }
-      
-      return [...currentItems, { product, quantity, size }];
+
+      return [...currentItems, { product, quantity: addQty, size }];
     });
     setIsCartOpen(true);
   };
 
   const removeFromCart = (productId: string, size: ProductSize) => {
     const itemKey = getCartItemKey(productId, size);
-    setItems(currentItems => 
+    setItems(currentItems =>
       currentItems.filter(item => getCartItemKey(item.product.id, item.size) !== itemKey)
     );
   };
@@ -114,13 +157,22 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       removeFromCart(productId, size);
       return;
     }
-    
+
     const itemKey = getCartItemKey(productId, size);
-    setItems(currentItems =>
-      currentItems.map(item =>
-        getCartItemKey(item.product.id, item.size) === itemKey ? { ...item, quantity } : item
-      )
-    );
+    setItems(currentItems => {
+      const others = currentItems
+        .filter(item => getCartItemKey(item.product.id, item.size) !== itemKey)
+        .reduce((s, item) => s + item.quantity, 0);
+      const maxForLine = MAX_ORDER_PIECES - others;
+      if (quantity > maxForLine) notifyCartPieceCapExceeded();
+      const newQty = Math.min(quantity, maxForLine);
+      if (newQty < 1) {
+        return currentItems.filter(item => getCartItemKey(item.product.id, item.size) !== itemKey);
+      }
+      return currentItems.map(item =>
+        getCartItemKey(item.product.id, item.size) === itemKey ? { ...item, quantity: newQty } : item
+      );
+    });
   };
 
   const clearCart = () => {

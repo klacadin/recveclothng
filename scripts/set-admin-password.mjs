@@ -58,15 +58,50 @@ async function main() {
     process.exit(1);
   }
 
-  const user = users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+  const normalizedEmail = email.toLowerCase();
+  let user = users?.find((u) => u.email?.toLowerCase() === normalizedEmail);
+
   if (!user) {
-    console.error('User not found for email:', email);
+    const { data: created, error: createError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: email,
+      },
+    });
+    if (createError) {
+      console.error('Create user failed:', createError.message);
+      process.exit(1);
+    }
+    user = created.user;
+  } else {
+    const { data, error } = await supabase.auth.admin.updateUserById(user.id, { password });
+    if (error) {
+      console.error('Update password failed:', error.message);
+      process.exit(1);
+    }
+    user = data.user ?? user;
+  }
+
+  if (!user) {
+    console.error('Could not resolve user for email:', email);
     process.exit(1);
   }
 
-  const { data, error } = await supabase.auth.admin.updateUserById(user.id, { password });
-  if (error) {
-    console.error('Update password failed:', error.message);
+  const { error: roleError } = await supabase
+    .from('user_roles')
+    .upsert({ user_id: user.id, role: 'admin' }, { onConflict: 'user_id,role' });
+  if (roleError) {
+    console.error('Admin role upsert failed:', roleError.message);
+    process.exit(1);
+  }
+
+  const { error: approvalError } = await supabase
+    .from('user_approvals')
+    .upsert({ user_id: user.id, status: 'approved' }, { onConflict: 'user_id' });
+  if (approvalError) {
+    console.error('Approval upsert failed:', approvalError.message);
     process.exit(1);
   }
 

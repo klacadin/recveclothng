@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, Loader2, CheckCircle, ImageIcon, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { MAX_UPLOAD_SIZE_BYTES } from '@/config/constants';
+import { compressImageForUpload } from '@/utils/compressImageForUpload';
 
 interface ProofOfPaymentUploadProps {
   orderId: string;
@@ -127,11 +129,12 @@ const ProofOfPaymentUpload = ({
       });
 
       onUploadComplete(proofUrl);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading proof:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload proof of payment.';
       toast({
         title: 'Upload failed',
-        description: error.message || 'Failed to upload proof of payment.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -203,7 +206,7 @@ const ProofOfPaymentUpload = ({
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Accepted formats: JPG, PNG, WebP, GIF, PDF (max 10MB)
+            Accepted formats: JPG, PNG, WebP, GIF, PDF (max 2MB)
           </p>
         </div>
       </CardContent>
