@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -41,9 +43,47 @@ const PhilippineAddressSelect = ({
   const [barangays, setBarangays] = useState<PSGCBarangay[]>([]);
   const [loading, setLoading] = useState<'regions' | 'provinces' | 'cities' | 'barangays' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Fallback: when the PSGC location API is unreachable, let customers type their address manually.
+  const [manualMode, setManualMode] = useState(false);
 
   const isNCR = value.regionCode === NCR_REGION_CODE;
   const isNCRWithCitiesDirect = isNCR; // NCR: Region → City → Barangay (skip province)
+
+  // Manual entry uses sentinel codes so the checkout schema (which requires non-empty
+  // region/province/city/barangay codes) still passes while we keep the typed names.
+  const handleManualChange = (
+    field: 'regionName' | 'provinceName' | 'cityName' | 'barangayName',
+    text: string,
+  ) => {
+    const codeField = field.replace('Name', 'Code') as
+      | 'regionCode'
+      | 'provinceCode'
+      | 'cityCode'
+      | 'barangayCode';
+    onChange({
+      ...value,
+      [field]: text,
+      [codeField]: text.trim() ? `manual:${field}` : '',
+    });
+  };
+
+  const enableManualMode = useCallback(() => {
+    setManualMode(true);
+    setError(null);
+    setLoading(null);
+    // Reset any partial PSGC selections so manual values start clean.
+    onChange({
+      regionCode: '',
+      regionName: '',
+      islandGroupCode: '',
+      provinceCode: '',
+      provinceName: '',
+      cityCode: '',
+      cityName: '',
+      barangayCode: '',
+      barangayName: '',
+    });
+  }, [onChange]);
 
   const loadRegions = useCallback(async () => {
     setLoading('regions');
@@ -51,8 +91,12 @@ const PhilippineAddressSelect = ({
     try {
       const data = await fetchRegions();
       setRegions(data);
+      setManualMode(false);
     } catch (e) {
-      setError('Failed to load regions. Please check your connection.');
+      // API unreachable (e.g. DNS/name resolution failure) — fall back to manual entry
+      // so customers can still complete checkout.
+      setError('We could not load the address list. Please enter your address manually below.');
+      setManualMode(true);
     } finally {
       setLoading(null);
     }
@@ -195,7 +239,64 @@ const PhilippineAddressSelect = ({
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {manualMode ? (
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="manual-region">Region *</Label>
+              <Input
+                id="manual-region"
+                value={value.regionName ?? ''}
+                onChange={(e) => handleManualChange('regionName', e.target.value)}
+                placeholder="e.g. Region X (Northern Mindanao)"
+                disabled={disabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-province">Province *</Label>
+              <Input
+                id="manual-province"
+                value={value.provinceName ?? ''}
+                onChange={(e) => handleManualChange('provinceName', e.target.value)}
+                placeholder="e.g. Bukidnon"
+                disabled={disabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-city">City / Municipality *</Label>
+              <Input
+                id="manual-city"
+                value={value.cityName ?? ''}
+                onChange={(e) => handleManualChange('cityName', e.target.value)}
+                placeholder="e.g. Maramag"
+                disabled={disabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-barangay">Barangay *</Label>
+              <Input
+                id="manual-barangay"
+                value={value.barangayName ?? ''}
+                onChange={(e) => handleManualChange('barangayName', e.target.value)}
+                placeholder="e.g. Poblacion"
+                disabled={disabled}
+              />
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            onClick={loadRegions}
+            disabled={disabled || loading === 'regions'}
+          >
+            {loading === 'regions' ? 'Loading address list…' : 'Try loading the address list again'}
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Region *</Label>
           <Select
@@ -310,7 +411,19 @@ const PhilippineAddressSelect = ({
             </SelectContent>
           </Select>
         </div>
-      </div>
+          </div>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            onClick={enableManualMode}
+            disabled={disabled}
+          >
+            Can&apos;t find your address? Enter it manually
+          </Button>
+        </>
+      )}
     </div>
   );
 };

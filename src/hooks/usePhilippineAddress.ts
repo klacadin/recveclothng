@@ -47,10 +47,26 @@ export interface PSGCBarangay {
 
 const NCR_REGION_CODE = '130000000';
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`PSGC API error: ${res.status}`);
-  return res.json();
+async function fetchJson<T>(url: string, retries = 2, timeoutMs = 10000): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error(`PSGC API error: ${res.status}`);
+      return (await res.json()) as T;
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = e;
+      // Wait a moment before retrying (skip wait on the final attempt)
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('PSGC API request failed');
 }
 
 export async function fetchRegions(): Promise<PSGCRegion[]> {
