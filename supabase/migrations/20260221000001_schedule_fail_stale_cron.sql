@@ -1,6 +1,6 @@
 -- Cron: Mark pending_payment orders as failed after 2 hours (runs every 15 min)
--- Prerequisite: Enable Cron in Supabase Dashboard → Project Settings → Integrations → Cron
--- Then run: supabase migration up (or run this file in SQL Editor)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
 SELECT cron.schedule(
   'fail-stale-pending-payments',
   '*/15 * * * *',

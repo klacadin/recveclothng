@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '@/integrations/supabase/client';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type Order = Tables<'orders'>;
@@ -122,12 +122,15 @@ export const useUpdateOrderStatus = () => {
 
       // Send status update email (non-blocking)
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        await fetch(`${supabaseUrl}/functions/v1/send-order-email`, {
+        if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+          throw new Error('Missing Supabase environment variables');
+        }
+
+        await fetch(`${SUPABASE_URL}/functions/v1/send-order-email`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
             type: 'status_update',

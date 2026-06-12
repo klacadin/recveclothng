@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5173:3000"
+    environment:
+      - VITE_SUPABASE_URL=http://supabase_kong:8000
+      - VITE_SUPABASE_PUBLISHABLE_KEY=[REDACTED]
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+    command: npm run dev
+    networks:
+      - supabase
+    depends_on:
+      - supabase_kong
+
+networks:
+  supabase:
+    external: true
+    name: supabase_network_KHL

@@ -126,7 +126,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Check approval status after successful login
     if (data.user) {
       const approvalResult = await checkApprovalStatus(data.user.id);
-      if (!approvalResult.isApproved && !isAdmin) {
+      // Allow users without an approval row during/after migration.
+      if (approvalResult.status === 'pending' || approvalResult.status === 'rejected') {
         // Sign out the user if not approved (unless they're an admin)
         await supabase.auth.signOut();
         return {

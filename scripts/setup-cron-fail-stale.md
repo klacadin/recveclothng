@@ -6,7 +6,7 @@ Orders with `pending_payment` status are automatically marked `failed` if not pa
 
 ### 1. Enable Cron in Supabase Dashboard
 
-1. Go to [Supabase Dashboard](https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb) → **Integrations**
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard/project/unaodlytdymouicuuywb) → **Integrations**
 2. Find **Cron** and click to enable it (enables `pg_cron`)
 
 ### 2. Run the cron migration

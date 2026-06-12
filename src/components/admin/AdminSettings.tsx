@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Shield, Trash2, UserPlus } from 'lucide-react';
 import ContactInbox from '@/components/admin/ContactInbox';
+import { getErrorMessage } from '@/utils/errors';
 
 type UserDetails = { email: string; full_name: string };
 
@@ -64,10 +65,10 @@ const AdminSettings = () => {
         description: 'The user now has admin privileges.',
       });
       setNewAdminUserId('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     }
@@ -90,10 +91,10 @@ const AdminSettings = () => {
         description: 'The user no longer has admin privileges.',
       });
       setConfirmRevoke(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     }

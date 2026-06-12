@@ -72,6 +72,14 @@ import {
   DEFAULT_PRODUCT_WEIGHT_GRAMS,
 } from "@/config/constants";
 
+type OrderWithGatewayPayment = OrderWithItems & {
+  xendit_payment_id?: string | null;
+};
+
+const getGatewayPaymentId = (order: Order | OrderWithItems | null | undefined): string | null => {
+  return (order as OrderWithGatewayPayment | null | undefined)?.xendit_payment_id ?? null;
+};
+
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   new: { label: "New", color: "bg-blue-100 text-blue-800", icon: AlertCircle },
   pending_payment: { label: "Pending payment", color: "bg-amber-100 text-amber-800", icon: Clock },
@@ -1150,10 +1158,10 @@ const Admin = () => {
                                     }`}>
                                     {getPaymentLabel(order.payment_method)}
                                   </span>
-                                  {['gcash', 'maya', 'bank_transfer'].includes(order.payment_method) && (order as any).xendit_payment_id && (
+                                  {['gcash', 'maya', 'bank_transfer'].includes(order.payment_method) && getGatewayPaymentId(order) && (
                                     <div className="mt-1">
                                       <span className="text-xs text-muted-foreground">
-                                        Payment ID: <span className="font-mono text-xs">{(order as any).xendit_payment_id}</span>
+                                        Payment ID: <span className="font-mono text-xs">{getGatewayPaymentId(order)}</span>
                                       </span>
                                     </div>
                                   )}
@@ -1841,7 +1849,7 @@ const Admin = () => {
               <div className="p-4 border border-border rounded-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-foreground">Payment</p>
-                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && !(selectedOrder as any).xendit_payment_id && selectedOrder.status === 'paid' && (
+                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && !getGatewayPaymentId(selectedOrder) && selectedOrder.status === 'paid' && (
                     <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
                       Manual verification
                     </span>
@@ -1851,15 +1859,15 @@ const Admin = () => {
                   <p className="text-sm text-muted-foreground">
                     Method: <span className="text-foreground font-medium">{getPaymentLabel(selectedOrder.payment_method)}</span>
                   </p>
-                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && (selectedOrder as any).xendit_payment_id && (
+                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && getGatewayPaymentId(selectedOrder) && (
                     <div className="mt-3">
                       <HitPayPaymentStatusDisplay
-                        paymentRequestId={(selectedOrder as any).xendit_payment_id}
+                        paymentRequestId={getGatewayPaymentId(selectedOrder)}
                         orderId={selectedOrder.id}
                       />
                     </div>
                   )}
-                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && !(selectedOrder as any).xendit_payment_id && (
+                  {['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) && !getGatewayPaymentId(selectedOrder) && (
                     <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
                       <p className="font-medium mb-1">Manual payment verification</p>
                       <p className="text-muted-foreground">Payment was verified manually (proof of payment or offline confirmation).</p>
@@ -1923,7 +1931,7 @@ const Admin = () => {
 
               {/* Proof of payment — always visible when proof exists; store manager can view and verify */}
               {/* Don't show proof section for HitPay payments (auto-verified) */}
-              {!(selectedOrder as any).xendit_payment_id && (
+              {!getGatewayPaymentId(selectedOrder) && (
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground mb-1">Proof of payment</p>
                   {selectedOrder.proof_of_payment_url ? (
@@ -2045,7 +2053,7 @@ const Admin = () => {
                       {/* Only for payment methods that require proof (gcash, maya, bank_transfer) and NOT HitPay payments */}
                       {['pending_payment', 'new', 'for_verification'].includes(selectedOrder.status) &&
                         ['gcash', 'maya', 'bank_transfer'].includes(selectedOrder.payment_method) &&
-                        !(selectedOrder as any).xendit_payment_id && (
+                        !getGatewayPaymentId(selectedOrder) && (
                           <Button
                             variant="outline"
                             size="sm"

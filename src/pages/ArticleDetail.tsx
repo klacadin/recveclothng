@@ -3,6 +3,7 @@ import { useArticle } from "@/hooks/useArticles";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import SEO from "@/components/SEO";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 
 const ArticleDetail = () => {
   const { slug } = useParams();
@@ -88,7 +89,7 @@ const ArticleDetail = () => {
                 {article.content ? (
                   <div
                     className="whitespace-pre-wrap text-foreground"
-                    dangerouslySetInnerHTML={{ __html: article.content }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }}
                   />
                 ) : (
                   <p className="text-muted-foreground">No content.</p>

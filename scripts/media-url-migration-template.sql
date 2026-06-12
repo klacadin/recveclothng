@@ -10,7 +10,7 @@
 -- 1) PREVIEW COUNTS (NO DATA CHANGES)
 -- =====================================================
 WITH params AS (
-  SELECT 'https://txiwvjfdlxgwjtaibbpb.supabase.co/storage/v1/object/public/'::text AS old_base,
+  SELECT 'https://unaodlytdymouicuuywb.supabase.co/storage/v1/object/public/'::text AS old_base,
     'https://reveclothingxnobody.com/media/'::text AS new_base
 )
 SELECT 'products.image_url' AS target,
@@ -55,7 +55,7 @@ WHERE o.proof_of_payment_url IS NOT NULL
  
  WITH params AS (
  SELECT
- 'https://txiwvjfdlxgwjtaibbpb.supabase.co/storage/v1/object/public/'::text AS old_base,
+ 'https://unaodlytdymouicuuywb.supabase.co/storage/v1/object/public/'::text AS old_base,
  'https://reveclothingxnobody.com/media/'::text AS new_base
  )
  UPDATE public.products p
@@ -66,7 +66,7 @@ WHERE o.proof_of_payment_url IS NOT NULL
  
  WITH params AS (
  SELECT
- 'https://txiwvjfdlxgwjtaibbpb.supabase.co/storage/v1/object/public/'::text AS old_base,
+ 'https://unaodlytdymouicuuywb.supabase.co/storage/v1/object/public/'::text AS old_base,
  'https://reveclothingxnobody.com/media/'::text AS new_base
  )
  UPDATE public.articles a
@@ -77,7 +77,7 @@ WHERE o.proof_of_payment_url IS NOT NULL
  
  WITH params AS (
  SELECT
- 'https://txiwvjfdlxgwjtaibbpb.supabase.co/storage/v1/object/public/'::text AS old_base,
+ 'https://unaodlytdymouicuuywb.supabase.co/storage/v1/object/public/'::text AS old_base,
  'https://reveclothingxnobody.com/media/'::text AS new_base
  )
  UPDATE public.categories c
@@ -88,7 +88,7 @@ WHERE o.proof_of_payment_url IS NOT NULL
  
  WITH params AS (
  SELECT
- 'https://txiwvjfdlxgwjtaibbpb.supabase.co/storage/v1/object/public/'::text AS old_base,
+ 'https://unaodlytdymouicuuywb.supabase.co/storage/v1/object/public/'::text AS old_base,
  'https://reveclothingxnobody.com/media/'::text AS new_base
  )
  UPDATE public.event_carousel e
@@ -99,7 +99,7 @@ WHERE o.proof_of_payment_url IS NOT NULL
  
  WITH params AS (
  SELECT
- 'https://txiwvjfdlxgwjtaibbpb.supabase.co/storage/v1/object/public/'::text AS old_base,
+ 'https://unaodlytdymouicuuywb.supabase.co/storage/v1/object/public/'::text AS old_base,
  'https://reveclothingxnobody.com/media/'::text AS new_base
  )
  UPDATE public.orders o

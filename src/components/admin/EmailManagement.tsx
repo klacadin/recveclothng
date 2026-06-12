@@ -27,6 +27,10 @@ interface EmailDetails extends ResendEmail {
   object?: string;
 }
 
+interface ResendEmailsResponse {
+  data?: ResendEmail[];
+}
+
 const getStatusColor = (status: string) => {
   switch (status?.toLowerCase()) {
     case 'delivered':
@@ -97,7 +101,7 @@ const EmailManagement = () => {
   });
 
   // Extract emails array from response
-  const emails = (emailsData as any)?.data || [];
+  const emails = (emailsData as ResendEmailsResponse | undefined)?.data || [];
 
   const filteredEmails = emails.filter((email) => {
     const query = searchQuery.toLowerCase();

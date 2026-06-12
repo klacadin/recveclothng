@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Eye, EyeOff, KeyRound, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
+import { getErrorMessage } from '@/utils/errors';
 
 const passwordSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -89,11 +90,11 @@ const ResetPassword = () => {
       // Clear the hash from URL and redirect
       window.history.replaceState(null, '', window.location.pathname);
       navigate('/');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Password reset error:', error);
       toast({
         title: 'Reset failed',
-        description: error.message || 'Failed to reset password. Please try again.',
+        description: getErrorMessage(error, 'Failed to reset password. Please try again.'),
         variant: 'destructive',
       });
     } finally {

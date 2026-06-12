@@ -1,4 +1,4 @@
-project_id = "txiwvjfdlxgwjtaibbpb"
+project_id = "unaodlytdymouicuuywb"
 
 [functions.notify-payment-proof]
 verify_jwt = true
@@ -55,4 +55,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.create-jt-waybill]
+verify_jwt = false
+
+[functions.jt-tracking-webhook]
 verify_jwt = false

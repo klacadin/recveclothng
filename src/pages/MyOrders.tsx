@@ -250,7 +250,7 @@ const MyOrders = () => {
                     {/* Proof of Payment Upload - Show for unpaid orders with bank_transfer/gcash/maya, but NOT for HitPay payments */}
                     {(selectedOrder.status === 'new' || selectedOrder.status === 'pending_payment' || selectedOrder.status === 'for_verification') &&
                       ['bank_transfer', 'gcash', 'maya'].includes(selectedOrder.payment_method) &&
-                      !(selectedOrder as any).xendit_payment_id && (
+                      !selectedOrder.xendit_payment_id && (
                         <ProofOfPaymentUpload
                           orderId={selectedOrder.id}
                           orderNumber={selectedOrder.order_number}

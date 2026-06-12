@@ -1,7 +1,7 @@
 # Check migration status and provide next steps
 
-$targetProjectRef = "txiwvjfdlxgwjtaibbpb"
-$targetProjectUrl = "https://txiwvjfdlxgwjtaibbpb.supabase.co"
+$targetProjectRef = "unaodlytdymouicuuywb"
+$targetProjectUrl = "https://unaodlytdymouicuuywb.supabase.co"
 $requiredFunctions = @(
     "send-otp",
     "verify-otp",
@@ -74,16 +74,16 @@ foreach ($fn in $requiredFunctions) {
 
 Write-Host ""
 Write-Host "Next Commands (CLI):" -ForegroundColor Yellow
-Write-Host "  npx supabase link --project-ref txiwvjfdlxgwjtaibbpb" -ForegroundColor White
+Write-Host "  npx supabase link --project-ref unaodlytdymouicuuywb" -ForegroundColor White
 Write-Host "  npx supabase db push" -ForegroundColor White
 Write-Host "  .\scripts\deploy-functions.ps1" -ForegroundColor White
 Write-Host ""
 
 Write-Host "Dashboard Links:" -ForegroundColor Cyan
-Write-Host "  Project: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb" -ForegroundColor Blue
-Write-Host "  API Settings: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/settings/api" -ForegroundColor Blue
-Write-Host "  Functions: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/functions" -ForegroundColor Blue
-Write-Host "  SQL Editor: https://supabase.com/dashboard/project/txiwvjfdlxgwjtaibbpb/sql/new" -ForegroundColor Blue
+Write-Host "  Project: https://supabase.com/dashboard/project/unaodlytdymouicuuywb" -ForegroundColor Blue
+Write-Host "  API Settings: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/settings/api" -ForegroundColor Blue
+Write-Host "  Functions: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/functions" -ForegroundColor Blue
+Write-Host "  SQL Editor: https://supabase.com/dashboard/project/unaodlytdymouicuuywb/sql/new" -ForegroundColor Blue
 Write-Host ""
 
 if ($allFunctionsPresent) {

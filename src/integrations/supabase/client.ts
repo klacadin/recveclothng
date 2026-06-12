@@ -2,15 +2,15 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY =
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+export const SUPABASE_PUBLISHABLE_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   import.meta.env.VITE_SUPABASE_ANON_PUBLIC_KEY ||
   import.meta.env.VITE_SUPABASE_KEY;
 
 export const SUPABASE_CONFIG_ERROR =
-  !SUPABASE_URL || !SUPABASE_KEY
+  !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY
     ? 'Missing Supabase environment variables. Please check your build-time env and ensure VITE_SUPABASE_URL and one of VITE_SUPABASE_PUBLISHABLE_KEY / VITE_SUPABASE_ANON_KEY are set.'
     : null;
 
@@ -25,7 +25,7 @@ const throwingClient = new Proxy({} as ReturnType<typeof createClient<Database>>
 
 export const supabase: ReturnType<typeof createClient<Database>> = SUPABASE_CONFIG_ERROR
   ? throwingClient
-  : createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
+  : createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       storage: localStorage,
       persistSession: true,
