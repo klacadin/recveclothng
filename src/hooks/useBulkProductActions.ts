@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/utils/errors';
+import { apiSend } from '@/lib/api';
 
 export const useBulkProductActions = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -12,35 +12,22 @@ export const useBulkProductActions = () => {
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
-  const selectAll = (ids: string[]) => {
-    setSelectedIds(new Set(ids));
-  };
-
-  const clearSelection = () => {
-    setSelectedIds(new Set());
-  };
-
+  const selectAll = (ids: string[]) => setSelectedIds(new Set(ids));
+  const clearSelection = () => setSelectedIds(new Set());
   const isSelected = (id: string) => selectedIds.has(id);
   const selectedCount = selectedIds.size;
   const hasSelection = selectedCount > 0;
 
   const bulkDelete = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .in('id', ids);
-
-      if (error) throw error;
+      const res = await apiSend('/api/products/mutate', 'DELETE', { ids });
+      if (!res.ok) throw new Error(res.error || 'Delete failed');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -53,15 +40,12 @@ export const useBulkProductActions = () => {
   });
 
   const bulkActivate = useMutation({
-    mutationFn: async ({ ids, updatedByEmail }: { ids: string[]; updatedByEmail?: string }) => {
-      const updates: Record<string, unknown> = { is_active: true };
-      if (updatedByEmail) updates.updated_by_email = updatedByEmail;
-      const { error } = await supabase
-        .from('products')
-        .update(updates)
-        .in('id', ids);
-
-      if (error) throw error;
+    mutationFn: async ({ ids }: { ids: string[]; updatedByEmail?: string }) => {
+      const res = await apiSend('/api/products/mutate', 'PATCH', {
+        ids,
+        is_active: true,
+      });
+      if (!res.ok) throw new Error(res.error || 'Activate failed');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -74,15 +58,12 @@ export const useBulkProductActions = () => {
   });
 
   const bulkDeactivate = useMutation({
-    mutationFn: async ({ ids, updatedByEmail }: { ids: string[]; updatedByEmail?: string }) => {
-      const updates: Record<string, unknown> = { is_active: false };
-      if (updatedByEmail) updates.updated_by_email = updatedByEmail;
-      const { error } = await supabase
-        .from('products')
-        .update(updates)
-        .in('id', ids);
-
-      if (error) throw error;
+    mutationFn: async ({ ids }: { ids: string[]; updatedByEmail?: string }) => {
+      const res = await apiSend('/api/products/mutate', 'PATCH', {
+        ids,
+        is_active: false,
+      });
+      if (!res.ok) throw new Error(res.error || 'Deactivate failed');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -95,15 +76,19 @@ export const useBulkProductActions = () => {
   });
 
   const bulkUpdateCategory = useMutation({
-    mutationFn: async ({ ids, category, updatedByEmail }: { ids: string[]; category: string; updatedByEmail?: string }) => {
-      const updates: Record<string, unknown> = { category };
-      if (updatedByEmail) updates.updated_by_email = updatedByEmail;
-      const { error } = await supabase
-        .from('products')
-        .update(updates)
-        .in('id', ids);
-
-      if (error) throw error;
+    mutationFn: async ({
+      ids,
+      category,
+    }: {
+      ids: string[];
+      category: string;
+      updatedByEmail?: string;
+    }) => {
+      const res = await apiSend('/api/products/mutate', 'PATCH', {
+        ids,
+        category,
+      });
+      if (!res.ok) throw new Error(res.error || 'Category update failed');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });

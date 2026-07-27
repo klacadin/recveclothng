@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import reveLogo from "@/assets/reve-logo.jpg";
+import { assetUrl } from "@/lib/assetUrl";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -68,7 +69,7 @@ const Header = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center">
             <img
-              src={reveLogo}
+              src={assetUrl(reveLogo)}
               alt="REVE Clothing"
               className="h-10 w-auto"
             />
@@ -81,8 +82,8 @@ const Header = () => {
                 key={link.name}
                 to={link.href}
                 className={`text-sm font-medium uppercase tracking-wide transition-colors duration-200 ${isActive(link.href)
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
                   }`}
               >
                 {link.name}
@@ -97,8 +98,8 @@ const Header = () => {
             >
               <button
                 className={`flex items-center gap-1 text-sm font-medium uppercase tracking-wide transition-colors duration-200 ${location.pathname.startsWith("/collections")
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
                   }`}
               >
                 Collections
@@ -240,8 +241,8 @@ const Header = () => {
                   to={link.href}
                   onClick={() => setIsMenuOpen(false)}
                   className={`py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors ${isActive(link.href)
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                     }`}
                 >
                   {link.name}
@@ -253,8 +254,8 @@ const Header = () => {
                 to="/wishlist"
                 onClick={() => setIsMenuOpen(false)}
                 className={`py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors flex items-center justify-between ${isActive('/wishlist')
-                    ? "bg-secondary text-foreground"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   }`}
               >
                 <span className="flex items-center gap-2">
@@ -274,8 +275,8 @@ const Header = () => {
                   to="/my-orders"
                   onClick={() => setIsMenuOpen(false)}
                   className={`py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors flex items-center gap-2 ${isActive('/my-orders')
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                     }`}
                 >
                   <Package className="h-4 w-4" />
@@ -294,8 +295,8 @@ const Header = () => {
                       to={collection.href}
                       onClick={() => setIsMenuOpen(false)}
                       className={`py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors block ${isActive(collection.href)
-                          ? "bg-secondary text-foreground"
-                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                         }`}
                     >
                       {collection.name}

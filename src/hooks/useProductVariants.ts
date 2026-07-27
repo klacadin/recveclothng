@@ -44,11 +44,22 @@ export const useProductVariants = (productId?: string) => {
   return useQuery({
     queryKey: ['product-variants', productId],
     queryFn: async () => {
+      if (productId) {
+        try {
+          const res = await fetch(`/api/variants?product_id=${encodeURIComponent(productId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) return data as ProductVariant[];
+          }
+        } catch {
+          /* fall through */
+        }
+      }
       const query = supabase
         .from('product_variants')
         .select('*')
         .order('size', { ascending: true });
-      
+
       if (productId) {
         query.eq('product_id', productId);
       }
@@ -66,6 +77,15 @@ export const useAllProductVariants = () => {
   return useQuery({
     queryKey: ['product-variants', 'all'],
     queryFn: async () => {
+      try {
+        const res = await fetch('/api/variants');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) return data as ProductVariant[];
+        }
+      } catch {
+        /* fall through */
+      }
       const { data, error } = await supabase
         .from('product_variants')
         .select('*')
@@ -81,9 +101,9 @@ export const useUpdateVariantStock = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ productId, size, stockQuantity }: { 
-      productId: string; 
-      size: ProductSize; 
+    mutationFn: async ({ productId, size, stockQuantity }: {
+      productId: string;
+      size: ProductSize;
       stockQuantity: number;
     }) => {
       const { data, error } = await supabase
@@ -109,11 +129,11 @@ export const useBulkUpdateVariants = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ productId, variants }: { 
-      productId: string; 
+    mutationFn: async ({ productId, variants }: {
+      productId: string;
       variants: { size: ProductSize; stock_quantity: number; low_stock_threshold?: number }[];
     }) => {
-      const updates = variants.map(v => 
+      const updates = variants.map(v =>
         supabase
           .from('product_variants')
           .upsert({
@@ -143,8 +163,8 @@ export const useCreateVariantsForProduct = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ productId, sizeStocks }: { 
-      productId: string; 
+    mutationFn: async ({ productId, sizeStocks }: {
+      productId: string;
       sizeStocks: SizeStock;
     }) => {
       const variants: ProductVariantInsert[] = SIZES.map(size => ({

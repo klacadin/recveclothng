@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Order } from '@/hooks/useOrders';
+import { apiSend } from '@/lib/api';
 
 export const useBulkOrderActions = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -35,12 +35,8 @@ export const useBulkOrderActions = () => {
 
   const bulkUpdateStatus = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: Order['status'] }) => {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status })
-        .in('id', ids);
-
-      if (error) throw error;
+      const res = await apiSend('/api/orders', 'PATCH', { ids, status });
+      if (!res.ok) throw new Error(res.error || 'Failed to update orders');
     },
     onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });

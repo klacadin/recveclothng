@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import heroImage from "@/assets/optimized/athlete-trail-run.webp";
+import { assetUrl } from "@/lib/assetUrl";
 
 const HeroSection = () => {
   return (
@@ -9,8 +10,8 @@ const HeroSection = () => {
       {/* Hero Image */}
       <div className="absolute inset-0">
         <img
-          src={heroImage} 
-          alt="Trail runner in NOBODY performance gear on Bukidnon trail" 
+          src={assetUrl(heroImage)}
+          alt="Trail runner in NOBODY performance gear on Bukidnon trail"
           className="w-full h-full object-cover object-top"
           {...({ fetchpriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement> & { fetchpriority: string })}
           decoding="async"

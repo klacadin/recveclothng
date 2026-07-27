@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: reve
+      POSTGRES_PASSWORD: reve
+      POSTGRES_DB: reve
+    volumes:
+      - reve_pg_data:/var/lib/postgresql/data
+      - ./drizzle/0000_init.sql:/docker-entrypoint-initdb.d/0000_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reve -d reve"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  reve_pg_data:

@@ -1,34 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { MAX_PRODUCTS } from '@/config/constants';
+import { apiSend } from '@/lib/api';
 
 export type Product = Tables<'products'>;
 export type ProductInsert = TablesInsert<'products'>;
 export type ProductUpdate = TablesUpdate<'products'>;
 
-/** PostgREST when `weight_grams` column was never migrated on the remote DB */
-function isMissingWeightGramsSchemaError(error: unknown): boolean {
-  const msg =
-    typeof error === 'object' && error !== null && 'message' in error
-      ? String((error as { message: unknown }).message)
-      : '';
-  return msg.includes('weight_grams') && msg.includes('schema cache');
+async function fetchProductsFromApi(): Promise<Product[]> {
+  const res = await fetch('/api/products');
+  if (!res.ok) throw new Error('Failed to load products');
+  const data = await res.json();
+  return (Array.isArray(data) ? data : []).slice(0, MAX_PRODUCTS) as Product[];
 }
 
 export const useProducts = () => {
   return useQuery({
     queryKey: ['products'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(MAX_PRODUCTS);
-
-      if (error) throw error;
-      return data as Product[];
-    },
+    queryFn: fetchProductsFromApi,
   });
 };
 
@@ -49,32 +38,21 @@ export function isProductNew(createdAt: string, days = NEW_PRODUCT_DAYS): boolea
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+async function fetchProductFromApi(id: string): Promise<Product | null> {
+  const param = UUID_REGEX.test(id)
+    ? `id=${encodeURIComponent(id)}`
+    : `sku=${encodeURIComponent(id)}`;
+  const res = await fetch(`/api/products?${param}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data && typeof data === 'object' && data.id) return data as Product;
+  return null;
+}
+
 export const useProduct = (id: string) => {
   return useQuery({
     queryKey: ['products', id],
-    queryFn: async () => {
-      // If id looks like a UUID, query by id (avoids Postgres UUID cast error)
-      if (UUID_REGEX.test(id)) {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle();
-        if (error) throw error;
-        if (data) return data as Product;
-        return null;
-      }
-
-      // Otherwise treat as product code (sku), e.g. SHRT-YY
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('sku', id)
-        .eq('is_active', true)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as Product) || null;
-    },
+    queryFn: () => fetchProductFromApi(id),
     enabled: !!id,
   });
 };
@@ -84,25 +62,9 @@ export const useCreateProduct = () => {
 
   return useMutation({
     mutationFn: async (product: ProductInsert) => {
-      const insert = async (payload: ProductInsert) => {
-        const { data, error } = await supabase
-          .from('products')
-          .insert(payload)
-          .select()
-          .single();
-        if (error) throw error;
-        return data as Product;
-      };
-
-      try {
-        return await insert(product);
-      } catch (e) {
-        if (isMissingWeightGramsSchemaError(e)) {
-          const { weight_grams: _w, ...rest } = product;
-          return await insert(rest as ProductInsert);
-        }
-        throw e;
-      }
+      const viaApi = await apiSend<Product>('/api/products/mutate', 'POST', product);
+      if (viaApi.ok && viaApi.data) return viaApi.data;
+      throw new Error(viaApi.error || 'Failed to create product');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -115,26 +77,9 @@ export const useUpdateProduct = () => {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: ProductUpdate }) => {
-      const patch = async (u: ProductUpdate) => {
-        const { data, error } = await supabase
-          .from('products')
-          .update(u)
-          .eq('id', id)
-          .select()
-          .single();
-        if (error) throw error;
-        return data as Product;
-      };
-
-      try {
-        return await patch(updates);
-      } catch (e) {
-        if (isMissingWeightGramsSchemaError(e) && updates.weight_grams !== undefined) {
-          const { weight_grams: _w, ...rest } = updates;
-          return await patch(rest as ProductUpdate);
-        }
-        throw e;
-      }
+      const viaApi = await apiSend<Product>('/api/products/mutate', 'PATCH', { id, ...updates });
+      if (viaApi.ok && viaApi.data) return viaApi.data;
+      throw new Error(viaApi.error || 'Failed to update product');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -147,12 +92,8 @@ export const useDeleteProduct = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      const viaApi = await apiSend('/api/products/mutate', 'DELETE', { id });
+      if (!viaApi.ok) throw new Error(viaApi.error || 'Failed to delete product');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -165,15 +106,12 @@ export const useUpdateStock = () => {
 
   return useMutation({
     mutationFn: async ({ id, stockQuantity }: { id: string; stockQuantity: number }) => {
-      const { data, error } = await supabase
-        .from('products')
-        .update({ stock_quantity: stockQuantity })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as Product;
+      const viaApi = await apiSend<Product>('/api/products/mutate', 'PATCH', {
+        id,
+        stock_quantity: stockQuantity,
+      });
+      if (viaApi.ok && viaApi.data) return viaApi.data;
+      throw new Error(viaApi.error || 'Failed to update stock');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });

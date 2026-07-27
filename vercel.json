@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/fail-stale-pending-orders",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/payment-reminders",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

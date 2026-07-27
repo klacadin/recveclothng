@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Facebook, Instagram, Mail, MapPin, Phone } from "lucide-react";
 import nobodyLogo from "@/assets/nobody-logo.png";
+import { assetUrl } from "@/lib/assetUrl";
 
 const Footer = () => {
   return (
@@ -8,7 +9,7 @@ const Footer = () => {
       {/* Subtle NOBODY logo background */}
       <div
         className="absolute inset-0 opacity-[0.06] pointer-events-none bg-center bg-no-repeat bg-contain"
-        style={{ backgroundImage: `url(${nobodyLogo})` }}
+        style={{ backgroundImage: `url(${assetUrl(nobodyLogo)})` }}
         aria-hidden
       />
       <div className="container py-12 md:py-16 relative z-10">
@@ -25,20 +26,20 @@ const Footer = () => {
               TIMING IS EVERYTHING
             </p>
             <p className="text-primary-foreground/70 text-sm leading-relaxed max-w-sm">
-              From Nobody to Somebody. Performance apparel born in Bukidnon—crafted 
+              From Nobody to Somebody. Performance apparel born in Bukidnon—crafted
               with premium quality at affordable prices.
             </p>
             <div className="flex items-center gap-4 pt-2">
-              <a 
-                href="https://www.facebook.com/ReveClothingBukidnon/" 
-                target="_blank" 
+              <a
+                href="https://www.facebook.com/ReveClothingBukidnon/"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
                 aria-label="Visit our Facebook page"
               >
                 <Facebook className="h-5 w-5" />
               </a>
-              <a 
+              <a
                 href="https://www.instagram.com/jingjing"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -47,14 +48,14 @@ const Footer = () => {
               >
                 <Instagram className="h-5 w-5" />
               </a>
-              <a 
+              <a
                 href="mailto:shop@reveclothingxnobody.com"
                 className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
                 aria-label="Send us an email"
               >
                 <Mail className="h-5 w-5" />
               </a>
-              <a 
+              <a
                 href="tel:09554465207"
                 className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
                 aria-label="Call us"
@@ -114,10 +115,33 @@ const Footer = () => {
               </Link>
             </nav>
           </div>
-          
-          {/* Legal */}
+
+          {/* Affiliates + Legal */}
           <div className="space-y-4">
             <h4 className="font-display text-sm font-semibold uppercase tracking-wider">
+              Affiliates
+            </h4>
+            <nav className="flex flex-col gap-2">
+              <Link
+                to="/affiliate?action=register"
+                className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors"
+              >
+                Become an affiliate
+              </Link>
+              <Link
+                to="/affiliate?action=login"
+                className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors"
+              >
+                Affiliate login
+              </Link>
+              <Link
+                to="/affiliate"
+                className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors"
+              >
+                Manage affiliate
+              </Link>
+            </nav>
+            <h4 className="font-display text-sm font-semibold uppercase tracking-wider pt-4">
               Legal
             </h4>
             <nav className="flex flex-col gap-2">

@@ -5,40 +5,41 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { BannerProvider } from "@/contexts/BannerContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import FeedbackButton from "@/components/FeedbackButton";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import Index from "./pages/Index";
-import Shop from "./pages/Shop";
-import ProductDetail from "./pages/ProductDetail";
-import About from "./pages/About";
-import Contact from "./pages/Contact";
-import AdminLogin from "./pages/AdminLogin";
-import NobodyCollection from "./pages/NobodyCollection";
-import Checkout from "./pages/Checkout";
-import OrderConfirmation from "./pages/OrderConfirmation";
-import UploadProof from "./pages/UploadProof";
-import Wishlist from "./pages/Wishlist";
-import PaymentSuccess from "./pages/PaymentSuccess";
-import PaymentFailed from "./pages/PaymentFailed";
-import MyOrders from "./pages/MyOrders";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import SizeGuide from "./pages/SizeGuide";
-import Shipping from "./pages/Shipping";
-import Terms from "./pages/Terms";
-import Privacy from "./pages/Privacy";
-import Returns from "./pages/Returns";
-import News from "./pages/News";
-import ArticleDetail from "./pages/ArticleDetail";
-import NotFound from "./pages/NotFound";
+import AffiliateDashboard from "@/views/AffiliateDashboard";
+import { AffiliateTracker } from "@/components/affiliate/AffiliateTracker";
+import Index from "./views/Index";
+import Shop from "./views/Shop";
+import ProductDetail from "./views/ProductDetail";
+import About from "./views/About";
+import Contact from "./views/Contact";
+import AdminLogin from "./views/AdminLogin";
+import NobodyCollection from "./views/NobodyCollection";
+import Checkout from "./views/Checkout";
+import OrderConfirmation from "./views/OrderConfirmation";
+import UploadProof from "./views/UploadProof";
+import Wishlist from "./views/Wishlist";
+import PaymentSuccess from "./views/PaymentSuccess";
+import PaymentFailed from "./views/PaymentFailed";
+import MyOrders from "./views/MyOrders";
+import ForgotPassword from "./views/ForgotPassword";
+import ResetPassword from "./views/ResetPassword";
+import SizeGuide from "./views/SizeGuide";
+import Shipping from "./views/Shipping";
+import Terms from "./views/Terms";
+import Privacy from "./views/Privacy";
+import Returns from "./views/Returns";
+import News from "./views/News";
+import ArticleDetail from "./views/ArticleDetail";
+import NotFound from "./views/NotFound";
 
 // Lazy load heavy admin component
-const Admin = lazy(() => import("./pages/Admin"));
+const Admin = lazy(() => import("./views/Admin"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -91,6 +92,7 @@ const AppRoutes = () => {
         }
       />
       <Route path="/collections/nobody" element={<NobodyCollection />} />
+      <Route path="/affiliate" element={<AffiliateDashboard />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
@@ -104,17 +106,16 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <BannerProvider>
-              <CartProvider>
-                <WishlistProvider>
-                  <CartDrawer />
-                  <FeedbackButton />
-                  <ErrorBoundary>
-                    <AppRoutes />
-                  </ErrorBoundary>
-                </WishlistProvider>
-              </CartProvider>
-            </BannerProvider>
+            <AffiliateTracker />
+            <CartProvider>
+              <WishlistProvider>
+                <CartDrawer />
+                <FeedbackButton />
+                <ErrorBoundary>
+                  <AppRoutes />
+                </ErrorBoundary>
+              </WishlistProvider>
+            </CartProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

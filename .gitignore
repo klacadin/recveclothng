@@ -35,3 +35,21 @@ supabase/.temp/**
 *.njsproj
 *.sln
 *.sw?
+
+# Next.js
+.next/
+
+.vercel
+.env*
+
+# local restore artifacts
+tmp-storage-backup/
+*.storage.zip
+*.backup.gz
+src/db_cluster*
+src/txiwvjfdlxgwjtaibbpb*
+.env.vercel.prod
+
+
+_local_backups/
+

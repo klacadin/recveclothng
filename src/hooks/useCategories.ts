@@ -33,6 +33,15 @@ export const useCategories = () => {
   return useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
+      try {
+        const res = await fetch('/api/categories');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) return data as Category[];
+        }
+      } catch {
+        /* fall through */
+      }
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -49,6 +58,15 @@ export const useActiveCategories = () => {
   return useQuery({
     queryKey: ['categories', 'active'],
     queryFn: async () => {
+      try {
+        const res = await fetch('/api/categories');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) return data as Category[];
+        }
+      } catch {
+        /* fall through */
+      }
       const { data, error } = await supabase
         .from('categories')
         .select('*')
