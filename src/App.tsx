@@ -12,6 +12,7 @@ import FeedbackButton from "@/components/FeedbackButton";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AffiliateDashboard from "@/views/AffiliateDashboard";
+import AffiliateReferralLanding from "@/components/affiliate/AffiliateReferralLanding";
 import { AffiliateTracker } from "@/components/affiliate/AffiliateTracker";
 import Index from "./views/Index";
 import Shop from "./views/Shop";
@@ -92,6 +93,10 @@ const AppRoutes = () => {
         }
       />
       <Route path="/collections/nobody" element={<NobodyCollection />} />
+      <Route path="/affiliate/join" element={<AffiliateDashboard />} />
+      <Route path="/affiliate/login" element={<AffiliateDashboard />} />
+      <Route path="/affiliate/dashboard" element={<AffiliateDashboard />} />
+      <Route path="/affiliate/:code" element={<AffiliateReferralLanding />} />
       <Route path="/affiliate" element={<AffiliateDashboard />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

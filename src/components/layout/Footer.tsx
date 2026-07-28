@@ -123,19 +123,19 @@ const Footer = () => {
             </h4>
             <nav className="flex flex-col gap-2">
               <Link
-                to="/affiliate?action=register"
+                to="/affiliate/join"
                 className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors"
               >
                 Become an affiliate
               </Link>
               <Link
-                to="/affiliate?action=login"
+                to="/affiliate/login"
                 className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors"
               >
                 Affiliate login
               </Link>
               <Link
-                to="/affiliate"
+                to="/affiliate/dashboard"
                 className="text-primary-foreground/70 hover:text-primary-foreground text-sm transition-colors"
               >
                 Manage affiliate

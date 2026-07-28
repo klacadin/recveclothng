@@ -14,7 +14,8 @@ function clearAffiliateCookie() {
 }
 
 /**
- * Captures ?ref=CODE (or ?aff=CODE) into a 30-day cookie only after server validation.
+ * Legacy query capture: ?ref=CODE or ?aff=CODE.
+ * Preferred share links use /affiliate/{code} (see AffiliateReferralLanding).
  */
 export function AffiliateTracker() {
   const [params] = useSearchParams();

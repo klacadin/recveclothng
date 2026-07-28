@@ -1,6 +1,11 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import {
+  AFFILIATE_DASHBOARD_PATH,
+  AFFILIATE_JOIN_PATH,
+  AFFILIATE_LOGIN_PATH,
+} from "@/lib/affiliate-constants";
 
 /**
  * Homepage CTA for the affiliate program.
@@ -22,18 +27,21 @@ const AffiliateCta = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <Button size="lg" asChild>
-              <Link to="/affiliate?action=register">
+              <Link to={AFFILIATE_JOIN_PATH}>
                 Become an affiliate
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link to="/affiliate?action=login">Sign in to manage</Link>
+              <Link to={AFFILIATE_LOGIN_PATH}>Sign in to manage</Link>
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
             Already approved?{" "}
-            <Link to="/affiliate" className="underline underline-offset-2 hover:text-foreground">
+            <Link
+              to={AFFILIATE_DASHBOARD_PATH}
+              className="underline underline-offset-2 hover:text-foreground"
+            >
               Open affiliate dashboard
             </Link>
           </p>

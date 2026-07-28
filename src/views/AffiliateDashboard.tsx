@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -12,6 +12,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Copy, Link2, Loader2, ShieldCheck } from "lucide-react";
 import {
   AFFILIATE_CODE_LENGTH,
+  AFFILIATE_DASHBOARD_PATH,
+  AFFILIATE_JOIN_PATH,
+  AFFILIATE_LOGIN_PATH,
+  affiliateShareUrl,
   isValidAffiliateCode,
   normalizeAffiliateCode,
 } from "@/lib/affiliate-constants";
@@ -41,10 +45,7 @@ type Affiliate = {
 };
 
 function affiliateLink(code: string) {
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}/?ref=${code}`;
-  }
-  return `/?ref=${code}`;
+  return affiliateShareUrl(code);
 }
 
 function userEmail(user: { email?: string } | null): string {
@@ -63,11 +64,20 @@ export default function AffiliateDashboard() {
     verifySignUpCode,
     resendSignUpCode,
   } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const action = searchParams.get("action");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const legacyAction = searchParams.get("action");
+
+  const pathMode: "login" | "register" | "dashboard" =
+    location.pathname === AFFILIATE_LOGIN_PATH
+      ? "login"
+      : location.pathname === AFFILIATE_JOIN_PATH
+        ? "register"
+        : "dashboard";
 
   const [authMode, setAuthMode] = useState<"login" | "register">(
-    action === "login" ? "login" : "register"
+    pathMode === "register" ? "register" : "login"
   );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,10 +104,38 @@ export default function AffiliateDashboard() {
 
   const formDisabled = authSubmitting || authLoading || authUnavailable;
 
+  // Canonical paths + legacy ?action= redirects
   useEffect(() => {
-    if (action === "login") setAuthMode("login");
-    if (action === "register") setAuthMode("register");
-  }, [action]);
+    if (location.pathname === "/affiliate") {
+      if (legacyAction === "login") {
+        navigate(AFFILIATE_LOGIN_PATH, { replace: true });
+        return;
+      }
+      if (legacyAction === "register") {
+        navigate(AFFILIATE_JOIN_PATH, { replace: true });
+        return;
+      }
+      navigate(AFFILIATE_DASHBOARD_PATH, { replace: true });
+      return;
+    }
+    if (legacyAction === "login" || legacyAction === "register") {
+      navigate(
+        legacyAction === "login" ? AFFILIATE_LOGIN_PATH : AFFILIATE_JOIN_PATH,
+        { replace: true }
+      );
+    }
+  }, [location.pathname, legacyAction, navigate]);
+
+  useEffect(() => {
+    if (pathMode === "login" || pathMode === "dashboard") setAuthMode("login");
+    if (pathMode === "register") setAuthMode("register");
+  }, [pathMode]);
+
+  useEffect(() => {
+    if (user && (pathMode === "login" || pathMode === "register")) {
+      navigate(AFFILIATE_DASHBOARD_PATH, { replace: true });
+    }
+  }, [user, pathMode, navigate]);
 
   const load = async () => {
     setLoading(true);
@@ -125,12 +163,8 @@ export default function AffiliateDashboard() {
     }
   }, [user]);
 
-  const clearAuthQuery = () => {
-    if (action) {
-      const next = new URLSearchParams(searchParams);
-      next.delete("action");
-      setSearchParams(next, { replace: true });
-    }
+  const goToDashboard = () => {
+    navigate(AFFILIATE_DASHBOARD_PATH, { replace: true });
   };
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
@@ -166,7 +200,7 @@ export default function AffiliateDashboard() {
           return;
         }
         if (err) throw err;
-        clearAuthQuery();
+        goToDashboard();
       } else {
         const { error: err, needsVerification: verifyNext } = await signUp(
           trimmedEmail,
@@ -192,15 +226,16 @@ export default function AffiliateDashboard() {
               setNeedsVerification(true);
               setAuthCode("");
               setAuthMode("login");
+              navigate(AFFILIATE_LOGIN_PATH, { replace: true });
               return;
             }
             if (login.error) throw login.error;
-            clearAuthQuery();
+            goToDashboard();
             return;
           }
           throw err;
         }
-        clearAuthQuery();
+        goToDashboard();
       }
     } catch (err: unknown) {
       setAuthError(getErrorMessage(err, "Authentication failed. Please try again."));
@@ -225,7 +260,7 @@ export default function AffiliateDashboard() {
           : await verifySignInCode(trimmed);
       if (err) throw err;
       setNeedsVerification(false);
-      clearAuthQuery();
+      goToDashboard();
     } catch (err: unknown) {
       setAuthError(getErrorMessage(err, "Verification failed."));
     } finally {
@@ -343,22 +378,23 @@ export default function AffiliateDashboard() {
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mb-8 text-muted-foreground">
           <Link
-            to="/affiliate?action=register"
+            to={AFFILIATE_JOIN_PATH}
             className="hover:text-foreground underline-offset-2 hover:underline"
-            onClick={() => setAuthMode("register")}
           >
             Register
           </Link>
           <span aria-hidden>·</span>
           <Link
-            to="/affiliate?action=login"
+            to={AFFILIATE_LOGIN_PATH}
             className="hover:text-foreground underline-offset-2 hover:underline"
-            onClick={() => setAuthMode("login")}
           >
             Login
           </Link>
           <span aria-hidden>·</span>
-          <Link to="/affiliate" className="hover:text-foreground underline-offset-2 hover:underline">
+          <Link
+            to={AFFILIATE_DASHBOARD_PATH}
+            className="hover:text-foreground underline-offset-2 hover:underline"
+          >
             Manage dashboard
           </Link>
         </div>
@@ -522,9 +558,14 @@ export default function AffiliateDashboard() {
                       className="text-sm text-primary hover:underline"
                       disabled={formDisabled}
                       onClick={() => {
+                        const next =
+                          authMode === "login"
+                            ? AFFILIATE_JOIN_PATH
+                            : AFFILIATE_LOGIN_PATH;
                         setAuthMode(authMode === "login" ? "register" : "login");
                         setAuthError(null);
                         setNeedsVerification(false);
+                        navigate(next);
                       }}
                     >
                       {authMode === "login"
@@ -580,7 +621,7 @@ export default function AffiliateDashboard() {
                     <p className="text-xs text-muted-foreground">
                       Link will be:{" "}
                       {typeof window !== "undefined" ? window.location.origin : ""}
-                      /?ref={desiredCode || "________"}
+                      /affiliate/{desiredCode || "________"}
                     </p>
                   </div>
                   <Button

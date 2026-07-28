@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AFFILIATE_CODE_LENGTH,
   DEFAULT_AFFILIATE_COMMISSION_RATE,
+  affiliateShareUrl,
   isValidAffiliateCode,
   normalizeAffiliateCode,
   toAffiliateCode,
@@ -38,10 +39,7 @@ type CommissionRow = {
 };
 
 function shareLink(code: string) {
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}/?ref=${code}`;
-  }
-  return `/?ref=${code}`;
+  return affiliateShareUrl(code);
 }
 
 export default function AdminAffiliateManagement() {
