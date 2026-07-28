@@ -30,7 +30,9 @@ const AdminSettings = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
         const userIds = adminUsers.map((a) => a.user_id);
-        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-user-emails`, {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        if (!supabaseUrl) return;
+        const res = await fetch(`${supabaseUrl}/functions/v1/get-user-emails`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -135,7 +137,7 @@ const AdminSettings = () => {
         {/* Current Admins List */}
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-foreground">Current Admins</h4>
-          
+
           {isLoading ? (
             <div className="p-4 text-center text-muted-foreground">Loading...</div>
           ) : adminUsers.length === 0 ? (
@@ -149,62 +151,62 @@ const AdminSettings = () => {
                 const name = details?.full_name?.trim();
                 const email = details?.email;
                 return (
-                <div 
-                  key={adminRole.id} 
-                  className="flex items-center justify-between p-3 bg-secondary rounded-sm"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {name || email || 'Loading user details...'}
-                      {adminRole.user_id === user?.id && (
-                        <span className="text-xs text-accent ml-1">(You)</span>
+                  <div
+                    key={adminRole.id}
+                    className="flex items-center justify-between p-3 bg-secondary rounded-sm"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {name || email || 'Loading user details...'}
+                        {adminRole.user_id === user?.id && (
+                          <span className="text-xs text-accent ml-1">(You)</span>
+                        )}
+                      </p>
+                      {name && email && (
+                        <p className="text-sm text-muted-foreground">{email}</p>
                       )}
-                    </p>
-                    {name && email && (
-                      <p className="text-sm text-muted-foreground">{email}</p>
-                    )}
-                    {!name && email && (
-                      <p className="text-sm text-muted-foreground">{email}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Added: {new Date(adminRole.created_at).toLocaleDateString()}
-                      {!name && !email && (
-                        <span className="ml-1 text-muted-foreground/60">(User ID: {adminRole.user_id.slice(0, 8)}…)</span>
+                      {!name && email && (
+                        <p className="text-sm text-muted-foreground">{email}</p>
                       )}
-                    </p>
-                  </div>
-                  
-                  {confirmRevoke === adminRole.user_id ? (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleRevokeAdmin(adminRole.user_id)}
-                        disabled={revokeAdmin.isPending}
-                      >
-                        Confirm
-                      </Button>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Added: {new Date(adminRole.created_at).toLocaleDateString()}
+                        {!name && !email && (
+                          <span className="ml-1 text-muted-foreground/60">(User ID: {adminRole.user_id.slice(0, 8)}…)</span>
+                        )}
+                      </p>
+                    </div>
+
+                    {confirmRevoke === adminRole.user_id ? (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleRevokeAdmin(adminRole.user_id)}
+                          disabled={revokeAdmin.isPending}
+                        >
+                          Confirm
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConfirmRevoke(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
                       <Button
                         variant="ghost"
-                        size="sm"
-                        onClick={() => setConfirmRevoke(null)}
+                        size="icon"
+                        onClick={() => setConfirmRevoke(adminRole.user_id)}
+                        disabled={adminRole.user_id === user?.id}
+                        className="text-destructive hover:text-destructive"
                       >
-                        Cancel
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setConfirmRevoke(adminRole.user_id)}
-                      disabled={adminRole.user_id === user?.id}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              );
+                    )}
+                  </div>
+                );
               })}
             </div>
           )}

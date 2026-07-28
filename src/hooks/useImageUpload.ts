@@ -1,13 +1,26 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { MAX_UPLOAD_SIZE_BYTES } from '@/config/constants';
+import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB } from '@/config/constants';
 import { compressImageForUpload } from '@/utils/compressImageForUpload';
+import { buildSeoImageFilename } from '@/utils/seoImageFilename';
+
+/** Soft ceiling for source files before compression (output must still be ≤ 2MB). */
+const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
+
+export interface ImageUploadMeta {
+  name?: string | null;
+  sku?: string | null;
+  folder?: string;
+}
 
 export const useImageUpload = () => {
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
-  const uploadImage = async (file: File): Promise<string | null> => {
+  const uploadImage = async (
+    file: File,
+    meta: ImageUploadMeta = {}
+  ): Promise<string | null> => {
     if (!file) return null;
 
     const validTypes = [
@@ -32,10 +45,10 @@ export const useImageUpload = () => {
       return null;
     }
 
-    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+    if (file.size > MAX_SOURCE_BYTES) {
       toast({
         title: 'File too large',
-        description: `Please upload an image smaller than 2MB.`,
+        description: 'Please upload an image smaller than 25MB.',
         variant: 'destructive',
       });
       return null;
@@ -43,29 +56,56 @@ export const useImageUpload = () => {
 
     setIsUploading(true);
     try {
-      let toUpload: File | Blob;
-      try {
-        toUpload = await compressImageForUpload(file, { maxSizeBytes: MAX_UPLOAD_SIZE_BYTES });
-      } catch {
-        if (file.size <= MAX_UPLOAD_SIZE_BYTES) {
-          toUpload = file;
-        } else {
-          throw new Error(
-            'Image could not be processed. Try a smaller file (under 2MB) or different format.'
-          );
+      let toUpload: Blob = file;
+      const isSvg = file.type === 'image/svg+xml' || fileExtension === '.svg';
+
+      if (!isSvg) {
+        try {
+          toUpload = await compressImageForUpload(file, {
+            maxSizeBytes: MAX_UPLOAD_SIZE_BYTES,
+          });
+        } catch {
+          if (file.size <= MAX_UPLOAD_SIZE_BYTES) {
+            toUpload = file;
+          } else {
+            throw new Error(
+              'Image could not be optimized. Try a smaller file or different format.'
+            );
+          }
         }
       }
-      const fileExt =
-        (toUpload instanceof File ? toUpload.name : file.name).split('.').pop() || 'jpg';
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const payload =
-        toUpload instanceof File
-          ? toUpload
-          : new File([toUpload], fileName, { type: toUpload.type || file.type });
+
+      if (toUpload.size > MAX_UPLOAD_SIZE_BYTES) {
+        throw new Error(
+          `Image is still over ${MAX_UPLOAD_SIZE_MB}MB after optimization. Try a smaller source image.`
+        );
+      }
+
+      const outType = toUpload.type || file.type || 'image/webp';
+      const ext = outType.includes('webp')
+        ? 'webp'
+        : outType.includes('png')
+          ? 'png'
+          : outType.includes('jpeg') || outType.includes('jpg')
+            ? 'jpg'
+            : 'webp';
+
+      const seoName = buildSeoImageFilename({
+        originalName: file.name,
+        name: meta.name,
+        sku: meta.sku,
+        ext,
+        uniqueSuffix: Date.now().toString(36).slice(-6),
+      });
+
+      const payload = new File([toUpload], seoName, { type: outType });
 
       const form = new FormData();
       form.append('file', payload);
-      form.append('folder', 'product-images');
+      form.append('folder', meta.folder || 'product-images');
+      if (meta.name) form.append('seoName', meta.name);
+      if (meta.sku) form.append('seoSku', meta.sku);
+
       const res = await fetch('/api/upload', { method: 'POST', body: form });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -91,10 +131,16 @@ export const useImageUpload = () => {
     }
   };
 
-  const uploadMultipleImages = async (files: File[]): Promise<string[]> => {
-    const uploadPromises = files.map((file) => uploadImage(file));
-    const results = await Promise.all(uploadPromises);
-    return results.filter((url): url is string => url !== null);
+  const uploadMultipleImages = async (
+    files: File[],
+    meta: ImageUploadMeta = {}
+  ): Promise<string[]> => {
+    const results: string[] = [];
+    for (const file of files) {
+      const url = await uploadImage(file, meta);
+      if (url) results.push(url);
+    }
+    return results;
   };
 
   return {

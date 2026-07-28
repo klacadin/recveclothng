@@ -71,8 +71,9 @@ const UploadProof = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
-      toast({ title: 'File too large', description: 'Max 2MB.', variant: 'destructive' });
+    // PDFs must already be ≤2MB; images are optimized on upload
+    if (file.type.includes('pdf') && file.size > MAX_UPLOAD_SIZE_BYTES) {
+      toast({ title: 'File too large', description: 'Max 2MB for PDFs.', variant: 'destructive' });
       return;
     }
     if (file.type.startsWith('image/')) {
@@ -96,9 +97,12 @@ const UploadProof = () => {
       const toSend = file.type.startsWith('image/')
         ? await compressImageForUpload(file, { maxSizeBytes: MAX_UPLOAD_SIZE_BYTES })
         : file;
-      const uploadMimeType = toSend.type || (file.type.startsWith('image/') ? 'image/jpeg' : file.type);
-      const uploadFileName = toSend !== file && uploadMimeType === 'image/jpeg'
-        ? file.name.replace(/\.[^.]+$/, '.jpg')
+      if (toSend.size > MAX_UPLOAD_SIZE_BYTES) {
+        throw new Error('File still exceeds 2MB after optimization.');
+      }
+      const uploadMimeType = toSend.type || (file.type.startsWith('image/') ? 'image/webp' : file.type);
+      const uploadFileName = file.type.startsWith('image/')
+        ? file.name.replace(/\.[^.]+$/, uploadMimeType.includes('webp') ? '.webp' : uploadMimeType.includes('png') ? '.png' : '.jpg')
         : file.name;
 
       const reader = new FileReader();

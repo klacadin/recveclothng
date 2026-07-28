@@ -43,7 +43,8 @@ export const useArticles = () => {
         .select('*')
         .order('published_at', { ascending: false });
       if (error) throw error;
-      return data as Article[];
+      // Supabase stub returns data:null — never hand null to list UIs
+      return (data ?? []) as Article[];
     },
   });
 };

@@ -70,7 +70,11 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const url = await uploadImage(file);
+    const url = await uploadImage(file, {
+      name: formData.name,
+      sku: formData.sku,
+      folder: 'product-images',
+    });
     if (url) {
       setFormData({ ...formData, image_url: url });
     }
@@ -84,9 +88,13 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Upload multiple files
+    // Upload multiple files (auto-optimized + SEO filenames)
     const fileArray = Array.from(files);
-    const urls = await uploadMultipleImages(fileArray);
+    const urls = await uploadMultipleImages(fileArray, {
+      name: formData.name,
+      sku: formData.sku,
+      folder: 'product-images',
+    });
 
     // Add all successfully uploaded images
     if (urls.length > 0) {

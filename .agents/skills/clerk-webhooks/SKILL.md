@@ -73,7 +73,8 @@ export async function POST(req: NextRequest) {
   if (evt.type === 'user.updated') {
     const { id, email_addresses, first_name, last_name } = evt.data
     const email = email_addresses[0]?.email_address
-    await db.users.update({ where: { clerkId: id }, data: { email, first_name, last_name } })
+    const name = `${first_name ?? ''} ${last_name ?? ''}`.trim()
+    await db.users.update({ where: { clerkId: id }, data: { email, name } })
   }
 
   if (evt.type === 'user.deleted') {
@@ -179,6 +180,7 @@ export async function POST(req: NextRequest) {
     return new Response('Verification failed', { status: 400 })
   }
 
+  // Workspaces are org-level (one row per org). Memberships go in team_members.
   if (evt.type === 'organization.created') {
     const { id, name } = evt.data
     await db.workspaces.create({
@@ -186,37 +188,27 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  if (evt.type === 'organization.deleted') {
+    const { id } = evt.data
+    await db.team_members.deleteMany({ where: { orgId: id } })
+    await db.workspaces.delete({ where: { orgId: id } })
+  }
+
   if (evt.type === 'organizationMembership.created') {
-    // Extract organization ID, user ID, and role from payload
     const { organization, public_user_data, role } = evt.data
     const orgId = organization.id
     const userId = public_user_data.user_id
-
-    // Add to team_members table
     await db.team_members.create({
       data: { orgId, userId, role },
-    })
-
-    // Create workspace record for new member
-    await db.workspaces.create({
-      data: { orgId, userId, createdAt: new Date() },
     })
   }
 
   if (evt.type === 'organizationMembership.deleted') {
-    // Extract organization ID and user ID from payload
     const { organization, public_user_data } = evt.data
     const orgId = organization.id
     const userId = public_user_data.user_id
-
-    // Remove from team_members table
     await db.team_members.delete({
-      where: { orgId, userId },
-    })
-
-    // Remove workspace record
-    await db.workspaces.deleteMany({
-      where: { orgId, userId },
+      where: { orgId_userId: { orgId, userId } },
     })
   }
 

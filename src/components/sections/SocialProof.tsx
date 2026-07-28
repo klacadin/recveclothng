@@ -15,7 +15,9 @@ const FALLBACK_IMAGES = [
 ];
 
 const SocialProof = () => {
-  const { data: carouselItems = [], isLoading } = useEventCarousel();
+  const { data, isLoading } = useEventCarousel();
+  // React Query can surface null; default `= []` only covers undefined
+  const carouselItems = data ?? [];
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
 

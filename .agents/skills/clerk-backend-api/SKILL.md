@@ -65,16 +65,19 @@ curl -s -X POST "https://api.clerk.com/v1/organizations/${ORG_ID}/invitations" \
 import { clerkClient } from '@clerk/nextjs/server'
 // OR if using @clerk/backend directly:
 // import { createClerkClient } from '@clerk/backend'
-// const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
+// const client = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
+
+// In @clerk/nextjs v6+, clerkClient is an async factory — always await it first
+const client = await clerkClient()
 
 // Step 1: Create organization
-const org = await clerkClient.organizations.createOrganization({
+const org = await client.organizations.createOrganization({
   name: 'Acme Corp',
   createdBy: userId,  // required — the ID of the user creating the org
 })
 
 // Step 2: Invite member to the org
-const invitation = await clerkClient.organizations.createOrganizationInvitation({
+const invitation = await client.organizations.createOrganizationInvitation({
   organizationId: org.id,
   emailAddress: 'user@example.com',
   role: 'org:admin',  // or 'org:member'
@@ -107,7 +110,8 @@ curl -s -X PATCH "https://api.clerk.com/v1/users/${USER_ID}" \
 import { clerkClient } from '@clerk/nextjs/server'
 // OR: import { createClerkClient } from '@clerk/backend'
 
-await clerkClient.users.updateUser(userId, {
+const client = await clerkClient()
+await client.users.updateUser(userId, {
   publicMetadata: { plan: 'pro', onboarded: true },   // readable by client, writable server-only
   // privateMetadata: { stripeId: 'cus_xxx' },         // server-only read AND write
   // unsafeMetadata: { step: 'welcome' },              // client-writable, avoid sensitive data
@@ -123,13 +127,16 @@ curl -s "https://api.clerk.com/v1/users?limit=100&offset=0&order_by=-created_at&
   -H "Authorization: Bearer $CLERK_SECRET_KEY" \
   | python3 -c "
 import sys, json
-data = json.load(sys.stdin)
-if isinstance(data, list):
-    print(f'Found {len(data)} users:')
-    for u in data:
+payload = json.load(sys.stdin)
+# BAPI returns { data: [...], total_count: N }; older versions may return a bare array
+users = payload['data'] if isinstance(payload, dict) and 'data' in payload else payload
+total = payload.get('total_count', len(users)) if isinstance(payload, dict) else len(users)
+if isinstance(users, list):
+    print(f'Found {len(users)} users (total_count={total}):')
+    for u in users:
         print(f'  {u[\"id\"]}: {u.get(\"email_addresses\", [{}])[0].get(\"email_address\", \"no email\")}')
 else:
-    print(json.dumps(data, indent=2))
+    print(json.dumps(payload, indent=2))
 "
 ```
 
@@ -155,7 +162,7 @@ Auth: `Authorization: Bearer $CLERK_SECRET_KEY` on every request.
 ```
 GET /v1/users
 Query params: limit (max 500, default 10), offset, order_by (+/-created_at, +/-updated_at, +/-email_address, +/-web3wallet, +/-first_name, +/-last_name, +/-phone_number, +/-username, +/-last_active_at, +/-last_sign_in_at), email_address[], phone_number[], username[], web3wallet[], user_id[], query, created_at (ISO 8601 range: gt:TIMESTAMP or lt:TIMESTAMP in Unix ms)
-Returns: array of User objects
+Returns: { data: User[], total_count: number } (paginated). Older API versions may return a bare User[] array.
 ```
 
 **Get user**
@@ -279,14 +286,16 @@ Use the output to determine the latest version and available tags.
 
 Wrong:
 ```typescript
-await clerkClient.users.updateUser(userId, { publicMetadata: { newField: 'value' } })
+const client = await clerkClient()
+await client.users.updateUser(userId, { publicMetadata: { newField: 'value' } })
 ```
 This DELETES all other `publicMetadata` fields.
 
 Right:
 ```typescript
-const user = await clerkClient.users.getUser(userId)
-await clerkClient.users.updateUser(userId, {
+const client = await clerkClient()
+const user = await client.users.getUser(userId)
+await client.users.updateUser(userId, {
   publicMetadata: { ...user.publicMetadata, newField: 'value' },
 })
 ```
@@ -409,13 +418,15 @@ RESPONSE=$(curl -s "https://api.clerk.com/v1/users?limit=10" \
   -H "Authorization: Bearer $CLERK_SECRET_KEY")
 echo "$RESPONSE" | python3 -c "
 import sys, json
-data = json.load(sys.stdin)
-if isinstance(data, list):
-    print(f'Found {len(data)} users:')
-    for u in data:
+payload = json.load(sys.stdin)
+users = payload['data'] if isinstance(payload, dict) and 'data' in payload else payload
+total = payload.get('total_count', len(users)) if isinstance(payload, dict) else len(users)
+if isinstance(users, list):
+    print(f'Found {len(users)} users (total_count={total}):')
+    for u in users:
         print(f'  {u[\"id\"]}: {u.get(\"email_addresses\", [{}])[0].get(\"email_address\", \"no email\")}')
 else:
-    print(json.dumps(data, indent=2))
+    print(json.dumps(payload, indent=2))
 "
 ```
 

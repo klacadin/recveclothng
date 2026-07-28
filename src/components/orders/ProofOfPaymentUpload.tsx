@@ -60,11 +60,11 @@ const ProofOfPaymentUpload = ({
       return;
     }
 
-    // Max 2MB after compression (project rule)
-    if (file.size > MAX_UPLOAD_SIZE_BYTES && !file.type.includes('pdf')) {
+    // Max 2MB after compression (project rule) — allow large sources, compress first
+    if (file.type.includes('pdf') && file.size > MAX_UPLOAD_SIZE_BYTES) {
       toast({
         title: 'File too large',
-        description: `Please upload a file smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)}MB.`,
+        description: `Please upload a PDF smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)}MB.`,
         variant: 'destructive',
       });
       return;
@@ -86,6 +86,9 @@ const ProofOfPaymentUpload = ({
           toUpload = await compressImageForUpload(file, { maxSizeBytes: MAX_UPLOAD_SIZE_BYTES });
         } catch {
           if (file.size > MAX_UPLOAD_SIZE_BYTES) throw new Error('Image too large after compression');
+        }
+        if (toUpload.size > MAX_UPLOAD_SIZE_BYTES) {
+          throw new Error('Image too large after compression');
         }
       }
       const payload =
