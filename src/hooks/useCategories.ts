@@ -48,7 +48,7 @@ export const useCategories = () => {
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
-      return data as Category[];
+      return (data ?? []) as Category[];
     },
   });
 };
@@ -74,7 +74,7 @@ export const useActiveCategories = () => {
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
-      return data as Category[];
+      return (data ?? []) as Category[];
     },
   });
 };
@@ -85,8 +85,8 @@ const isProductCategory = (c: Category) =>
 
 // Fetch active categories for product assignment (excludes NOBODY - it's a brand, running apparel are the categories)
 export const useProductCategories = () => {
-  const { data = [], ...rest } = useActiveCategories();
-  return { data: data.filter(isProductCategory), ...rest };
+  const { data, ...rest } = useActiveCategories();
+  return { data: (data ?? []).filter(isProductCategory), ...rest };
 };
 
 // Create category

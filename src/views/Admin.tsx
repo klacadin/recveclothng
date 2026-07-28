@@ -249,11 +249,17 @@ const Admin = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: products = [], isLoading: productsLoading } = useProducts();
-  const { data: categories = [] } = useProductCategories();
-  const { data: orders = [], isLoading: ordersLoading } = useOrders();
-  const { data: allVariants = [] } = useAllProductVariants();
-  const { data: pendingUsers = [] } = usePendingUsers();
+  const { data: productsData, isLoading: productsLoading } = useProducts();
+  const { data: categoriesData } = useProductCategories();
+  const { data: ordersData, isLoading: ordersLoading } = useOrders();
+  const { data: allVariantsData } = useAllProductVariants();
+  const { data: pendingUsersData } = usePendingUsers();
+  // React Query can surface null; `= []` defaults only cover undefined
+  const products = productsData ?? [];
+  const categories = categoriesData ?? [];
+  const orders = ordersData ?? [];
+  const allVariants = allVariantsData ?? [];
+  const pendingUsers = pendingUsersData ?? [];
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();

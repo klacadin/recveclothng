@@ -32,10 +32,8 @@ export const usePendingUsers = () => {
 
       if (approvalsError) throw approvalsError;
 
-      // Get user emails from auth.users (we'll need to use a function for this)
-      // Since we can't directly query auth.users, we'll return the approvals
-      // and fetch emails separately if needed
-      return approvals as UserApproval[];
+      // Supabase stub returns data:null — never hand null to list UIs
+      return (approvals ?? []) as UserApproval[];
     },
   });
 };
@@ -50,7 +48,7 @@ export const useAllUserApprovals = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return approvals as UserApproval[];
+      return (approvals ?? []) as UserApproval[];
     },
   });
 };

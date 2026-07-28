@@ -67,7 +67,7 @@ export const useProductVariants = (productId?: string) => {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as ProductVariant[];
+      return (data ?? []) as ProductVariant[];
     },
     enabled: !!productId,
   });
@@ -92,7 +92,7 @@ export const useAllProductVariants = () => {
         .order('product_id', { ascending: true });
 
       if (error) throw error;
-      return data as ProductVariant[];
+      return (data ?? []) as ProductVariant[];
     },
   });
 };

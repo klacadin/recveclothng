@@ -26,7 +26,7 @@ export const useAdminUsers = () => {
         .eq('role', 'admin');
 
       if (error) throw error;
-      return roles as UserRole[];
+      return (roles ?? []) as UserRole[];
     },
   });
 };
