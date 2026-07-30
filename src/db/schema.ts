@@ -112,7 +112,7 @@ export const affiliates = pgTable(
     status: affiliateStatusEnum("status").notNull().default("active"),
     commissionRate: numeric("commission_rate", { precision: 5, scale: 4 })
       .notNull()
-      .default("0.1500"),
+      .default("0.1000"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -281,6 +281,13 @@ export const PAID_ORDER_STATUSES = [
   "completed",
 ] as const;
 
-export const DEFAULT_AFFILIATE_COMMISSION_RATE = 0.15;
+export const DEFAULT_AFFILIATE_COMMISSION_RATE = 0.1;
 export const AFFILIATE_COOKIE_NAME = "reve_aff";
 export const AFFILIATE_COOKIE_DAYS = 30;
+
+/** Key/value store settings (e.g. default affiliate commission rate). */
+export const storeSettings = pgTable("store_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});

@@ -1,5 +1,4 @@
 import {
-  DEFAULT_AFFILIATE_COMMISSION_RATE,
   isValidAffiliateCode,
   normalizeAffiliateCode,
   toAffiliateCode,
@@ -10,6 +9,7 @@ import {
   listAffiliateCommissions,
   listAllAffiliateActivity,
 } from "@/db/affiliates";
+import { getDefaultAffiliateCommissionRate } from "@/db/settings";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db/client";
@@ -162,13 +162,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "name and email required" }, { status: 400 });
     }
 
-    const rate =
-      body.commission_rate != null
+    const defaultRate = await getDefaultAffiliateCommissionRate(db);
+    // Self-signup always uses the admin-configured default (cannot set own rate).
+    const rate = isSelfRegister
+      ? defaultRate
+      : body.commission_rate != null
         ? Number(body.commission_rate)
-        : DEFAULT_AFFILIATE_COMMISSION_RATE;
+        : defaultRate;
     if (!Number.isFinite(rate) || rate < 0 || rate > 1) {
       return NextResponse.json(
-        { error: "commission_rate must be between 0 and 1 (e.g. 0.15 for 15%)" },
+        { error: "commission_rate must be between 0 and 1 (e.g. 0.10 for 10%)" },
         { status: 400 }
       );
     }

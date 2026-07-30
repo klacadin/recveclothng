@@ -372,8 +372,8 @@ export default function AffiliateDashboard() {
       <main className="flex-1 container pt-24 pb-12 px-4">
         <h1 className="font-display text-2xl md:text-3xl font-bold mb-2">Affiliate program</h1>
         <p className="text-muted-foreground text-sm mb-6 max-w-xl">
-          Earn 15% commission on product subtotal for confirmed paid orders attributed to your
-          unique link.
+          Earn commission on product subtotal for confirmed paid orders attributed to your
+          unique link (default 10% — your exact rate is shown on your account once approved).
         </p>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mb-8 text-muted-foreground">

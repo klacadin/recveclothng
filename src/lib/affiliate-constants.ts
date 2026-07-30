@@ -1,7 +1,10 @@
 /** Client-safe affiliate constants (no DB imports) */
 export const AFFILIATE_COOKIE_NAME = "reve_aff";
 export const AFFILIATE_COOKIE_DAYS = 30;
-export const DEFAULT_AFFILIATE_COMMISSION_RATE = 0.15;
+/** Fallback when store_settings has no value yet (10%). */
+export const DEFAULT_AFFILIATE_COMMISSION_RATE = 0.1;
+
+export const AFFILIATE_DEFAULT_RATE_SETTING_KEY = "affiliate_default_commission_rate";
 
 /** Exactly 8 alphanumeric characters (handle / ref code) */
 export const AFFILIATE_CODE_LENGTH = 8;

@@ -19,7 +19,7 @@ const AffiliateCta = () => {
             Affiliate program
           </p>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground">
-            Earn 15% sharing REVE
+            Earn 10% sharing REVE
           </h2>
           <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
             Get a unique link, share with your community, and earn commission on confirmed paid

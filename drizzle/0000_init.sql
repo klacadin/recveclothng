@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS affiliates (
   name text NOT NULL,
   email text NOT NULL,
   status affiliate_status NOT NULL DEFAULT 'active',
-  commission_rate numeric(5, 4) NOT NULL DEFAULT 0.1500,
+  commission_rate numeric(5, 4) NOT NULL DEFAULT 0.1000,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );

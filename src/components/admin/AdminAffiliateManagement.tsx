@@ -60,6 +60,26 @@ export default function AdminAffiliateManagement() {
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
   const [editRatePercent, setEditRatePercent] = useState("");
 
+  const [defaultRatePercent, setDefaultRatePercent] = useState(
+    String(DEFAULT_AFFILIATE_COMMISSION_RATE * 100)
+  );
+  const [applyDefaultToAll, setApplyDefaultToAll] = useState(false);
+  const [savingDefault, setSavingDefault] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+
+  const loadSettings = async () => {
+    try {
+      const res = await fetch("/api/admin/affiliate-settings");
+      const data = await res.json();
+      if (!res.ok) return;
+      const pct = data.default_commission_percent ?? DEFAULT_AFFILIATE_COMMISSION_RATE * 100;
+      setDefaultRatePercent(String(pct));
+      setRatePercent(String(pct));
+    } catch {
+      // keep fallback constant
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -84,7 +104,42 @@ export default function AdminAffiliateManagement() {
 
   useEffect(() => {
     void load();
+    void loadSettings();
   }, []);
+
+  const saveDefaultRate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const shouldApplyAll = applyDefaultToAll;
+    setSavingDefault(true);
+    setError(null);
+    setSettingsMessage(null);
+    try {
+      const res = await fetch("/api/admin/affiliate-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          commission_percent: Number(defaultRatePercent),
+          apply_to_all: shouldApplyAll,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save default rate");
+      const pct = data.default_commission_percent;
+      setDefaultRatePercent(String(pct));
+      setRatePercent(String(pct));
+      setSettingsMessage(
+        shouldApplyAll
+          ? `Default set to ${pct}%. Updated ${data.updated_affiliates ?? 0} affiliate(s).`
+          : `Default set to ${pct}% for new affiliates.`
+      );
+      setApplyDefaultToAll(false);
+      if (shouldApplyAll) await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save default rate");
+    } finally {
+      setSavingDefault(false);
+    }
+  };
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +173,7 @@ export default function AdminAffiliateManagement() {
     setEmail("");
     setCode("");
     setClerkUserId("");
-    setRatePercent(String(DEFAULT_AFFILIATE_COMMISSION_RATE * 100));
+    setRatePercent(defaultRatePercent);
     await load();
   };
 
@@ -146,7 +201,7 @@ export default function AdminAffiliateManagement() {
 
   const saveRate = async (id: string) => {
     const rate = Number(editRatePercent) / 100;
-    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+    if (!Number.isFinite(rate) || rate < 0 || rate > 1) {
       setError("Rate must be between 0 and 100%");
       return;
     }
@@ -165,6 +220,46 @@ export default function AdminAffiliateManagement() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {settingsMessage && <p className="text-sm text-green-700">{settingsMessage}</p>}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Default commission %</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={saveDefaultRate} className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="w-full sm:w-40">
+              <Label htmlFor="default-aff-rate">Program default %</Label>
+              <Input
+                id="default-aff-rate"
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                value={defaultRatePercent}
+                onChange={(e) => setDefaultRatePercent(e.target.value)}
+                required
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground pb-2">
+              <input
+                type="checkbox"
+                className="rounded border-border"
+                checked={applyDefaultToAll}
+                onChange={(e) => setApplyDefaultToAll(e.target.checked)}
+              />
+              Apply to all existing affiliates
+            </label>
+            <Button type="submit" disabled={savingDefault}>
+              {savingDefault ? "Saving…" : "Save default %"}
+            </Button>
+          </form>
+          <p className="text-xs text-muted-foreground mt-3">
+            New signups and new admin-created affiliates use this rate unless you override it.
+            You can still edit each affiliate’s rate in the table below.
+          </p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
