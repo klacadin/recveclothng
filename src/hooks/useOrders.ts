@@ -15,14 +15,15 @@ export type OrderWithItems = Order & {
   affiliate_name?: string | null;
 };
 
-export const useOrders = () => {
+export const useOrders = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ["orders"],
     queryFn: async () => {
       const fromApi = await apiGet<OrderWithItems[]>("/api/orders");
       return fromApi ?? [];
     },
-    refetchInterval: 30000,
+    refetchInterval: 60_000,
+    enabled: options?.enabled ?? true,
   });
 };
 

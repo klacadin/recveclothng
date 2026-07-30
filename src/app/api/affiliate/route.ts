@@ -6,6 +6,7 @@ import {
 import { affiliates, orders } from "@/db/schema";
 import {
   getAffiliateStats,
+  getAffiliateStatsForMany,
   listAffiliateCommissions,
   listAllAffiliateActivity,
 } from "@/db/affiliates";
@@ -62,33 +63,53 @@ async function loadPersonalAffiliate(
 
 export async function GET(req: Request) {
   try {
-    const { userId } = await auth();
+    const { userId, sessionClaims } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = getDb();
-    const user = await currentUser();
-    const role = (user?.publicMetadata?.role as string) || "";
-    const isAdmin = role === "admin";
-    const email = (
-      user?.primaryEmailAddress?.emailAddress ||
-      user?.emailAddresses?.[0]?.emailAddress ||
-      ""
+    const claimsMeta =
+      (sessionClaims?.publicMetadata as { role?: string } | undefined) ||
+      (sessionClaims?.metadata as { role?: string } | undefined);
+    let role = claimsMeta?.role || "";
+    let email = String(
+      (sessionClaims as { email?: string } | null)?.email ||
+        (sessionClaims as { primaryEmail?: string } | null)?.primaryEmail ||
+        ""
     )
       .trim()
       .toLowerCase();
+
+    // Fallback to Clerk user API only when claims lack role/email
+    if (!role || !email) {
+      const user = await currentUser();
+      if (!role) role = (user?.publicMetadata?.role as string) || "";
+      if (!email) {
+        email = (
+          user?.primaryEmailAddress?.emailAddress ||
+          user?.emailAddresses?.[0]?.emailAddress ||
+          ""
+        )
+          .trim()
+          .toLowerCase();
+      }
+    }
+    const isAdmin = role === "admin";
 
     const { searchParams } = new URL(req.url);
     // Admin dashboard requests full list; affiliate page uses personal view
     const wantAdminList = isAdmin && searchParams.get("all") === "1";
 
     if (wantAdminList) {
-      const activity = await listAllAffiliateActivity();
-      const withStats = await Promise.all(
-        activity.affiliates.map(async (a) => ({
-          ...a,
-          stats: await getAffiliateStats(a.id),
-        }))
-      );
+      const activity = await listAllAffiliateActivity(200);
+      const statsMap = await getAffiliateStatsForMany(activity.affiliates.map((a) => a.id));
+      const withStats = activity.affiliates.map((a) => ({
+        ...a,
+        stats: statsMap.get(a.id) ?? {
+          confirmedOrders: 0,
+          totalSales: 0,
+          totalEarnings: 0,
+        },
+      }));
       return NextResponse.json({
         role: "admin",
         affiliates: withStats,
@@ -107,8 +128,10 @@ export async function GET(req: Request) {
       });
     }
 
-    const stats = await getAffiliateStats(affiliate.id);
-    const commissions = await listAffiliateCommissions(affiliate.id);
+    const [stats, commissions] = await Promise.all([
+      getAffiliateStats(affiliate.id),
+      listAffiliateCommissions(affiliate.id, 100),
+    ]);
     return NextResponse.json({
       role: isAdmin ? "admin" : "affiliate",
       affiliate,

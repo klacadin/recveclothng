@@ -19,7 +19,7 @@ export type UserApprovalWithEmail = UserApproval & {
   created_at_user: string;
 };
 
-export const usePendingUsers = () => {
+export const usePendingUsers = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['pending-users'],
     queryFn: async () => {
@@ -35,6 +35,7 @@ export const usePendingUsers = () => {
       // Supabase stub returns data:null — never hand null to list UIs
       return (approvals ?? []) as UserApproval[];
     },
+    enabled: options?.enabled ?? true,
   });
 };
 

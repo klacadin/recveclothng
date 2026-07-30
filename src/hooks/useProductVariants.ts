@@ -73,7 +73,7 @@ export const useProductVariants = (productId?: string) => {
   });
 };
 
-export const useAllProductVariants = () => {
+export const useAllProductVariants = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['product-variants', 'all'],
     queryFn: async () => {
@@ -94,6 +94,7 @@ export const useAllProductVariants = () => {
       if (error) throw error;
       return (data ?? []) as ProductVariant[];
     },
+    enabled: options?.enabled ?? true,
   });
 };
 

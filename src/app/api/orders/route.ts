@@ -110,11 +110,22 @@ export async function GET(req: Request) {
     }
 
     const affMap = await affiliateMapForOrders(db, rows);
-    const result = [];
-    for (const o of rows) {
-      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, o.id));
+    const orderIds = rows.map((o) => o.id);
+    const allItems =
+      orderIds.length > 0
+        ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
+        : [];
+    const itemsByOrder = new Map<string, typeof allItems>();
+    for (const item of allItems) {
+      const list = itemsByOrder.get(item.orderId);
+      if (list) list.push(item);
+      else itemsByOrder.set(item.orderId, [item]);
+    }
+
+    const result = rows.map((o) => {
+      const items = itemsByOrder.get(o.id) ?? [];
       const aff = o.affiliateId ? affMap.get(o.affiliateId) : null;
-      result.push({
+      return {
         ...mapOrder(o, aff),
         order_items: items.map((i) => ({
           id: i.id,
@@ -128,8 +139,8 @@ export async function GET(req: Request) {
           total_price: Number(i.totalPrice),
           created_at: i.createdAt,
         })),
-      });
-    }
+      };
+    });
 
     return NextResponse.json(result);
   } catch (e) {

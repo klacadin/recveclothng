@@ -14,10 +14,11 @@ async function fetchProductsFromApi(): Promise<Product[]> {
   return (Array.isArray(data) ? data : []).slice(0, MAX_PRODUCTS) as Product[];
 }
 
-export const useProducts = () => {
+export const useProducts = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['products'],
     queryFn: fetchProductsFromApi,
+    enabled: options?.enabled ?? true,
   });
 };
 

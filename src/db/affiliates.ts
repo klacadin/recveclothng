@@ -1,8 +1,14 @@
-import { and, eq, sql, desc } from "drizzle-orm";
+import { and, eq, sql, desc, inArray } from "drizzle-orm";
 import { getDb } from "./client";
 import { affiliateCommissions, affiliates, orders, PAID_ORDER_STATUSES } from "./schema";
 
 type PaidStatus = (typeof PAID_ORDER_STATUSES)[number];
+
+export type AffiliateStats = {
+  confirmedOrders: number;
+  totalSales: number;
+  totalEarnings: number;
+};
 
 export async function recordAffiliateCommissionForOrder(orderId: string) {
   const db = getDb();
@@ -43,40 +49,67 @@ export async function recordAffiliateCommissionForOrder(orderId: string) {
   return row;
 }
 
-export async function getAffiliateStats(affiliateId: string) {
+export async function getAffiliateStats(affiliateId: string): Promise<AffiliateStats> {
+  const map = await getAffiliateStatsForMany([affiliateId]);
+  return (
+    map.get(affiliateId) ?? {
+      confirmedOrders: 0,
+      totalSales: 0,
+      totalEarnings: 0,
+    }
+  );
+}
+
+/** One grouped query for many affiliates (admin list). */
+export async function getAffiliateStatsForMany(
+  affiliateIds: string[]
+): Promise<Map<string, AffiliateStats>> {
+  const map = new Map<string, AffiliateStats>();
+  for (const id of affiliateIds) {
+    map.set(id, { confirmedOrders: 0, totalSales: 0, totalEarnings: 0 });
+  }
+  if (!affiliateIds.length) return map;
+
   const db = getDb();
-  const [agg] = await db
+  const rows = await db
     .select({
+      affiliateId: affiliateCommissions.affiliateId,
       confirmedOrders: sql<number>`count(*)::int`,
       totalSales: sql<string>`coalesce(sum(${affiliateCommissions.orderSubtotal}), 0)`,
       totalEarnings: sql<string>`coalesce(sum(${affiliateCommissions.commissionAmount}), 0)`,
     })
     .from(affiliateCommissions)
-    .where(eq(affiliateCommissions.affiliateId, affiliateId));
+    .where(inArray(affiliateCommissions.affiliateId, affiliateIds))
+    .groupBy(affiliateCommissions.affiliateId);
 
-  return {
-    confirmedOrders: agg?.confirmedOrders ?? 0,
-    totalSales: Number(agg?.totalSales ?? 0),
-    totalEarnings: Number(agg?.totalEarnings ?? 0),
-  };
+  for (const row of rows) {
+    map.set(row.affiliateId, {
+      confirmedOrders: row.confirmedOrders ?? 0,
+      totalSales: Number(row.totalSales ?? 0),
+      totalEarnings: Number(row.totalEarnings ?? 0),
+    });
+  }
+  return map;
 }
 
-export async function listAffiliateCommissions(affiliateId: string) {
+export async function listAffiliateCommissions(affiliateId: string, limit = 100) {
   const db = getDb();
   return db
     .select()
     .from(affiliateCommissions)
     .where(eq(affiliateCommissions.affiliateId, affiliateId))
-    .orderBy(desc(affiliateCommissions.createdAt));
+    .orderBy(desc(affiliateCommissions.createdAt))
+    .limit(limit);
 }
 
-export async function listAllAffiliateActivity() {
+export async function listAllAffiliateActivity(commissionLimit = 200) {
   const db = getDb();
   const allAffiliates = await db.select().from(affiliates).orderBy(desc(affiliates.createdAt));
   const commissions = await db
     .select()
     .from(affiliateCommissions)
-    .orderBy(desc(affiliateCommissions.createdAt));
+    .orderBy(desc(affiliateCommissions.createdAt))
+    .limit(commissionLimit);
 
   return { affiliates: allAffiliates, commissions };
 }
