@@ -14,7 +14,7 @@ import {
 } from "@/db/affiliates";
 import { getDefaultAffiliateCommissionRate } from "@/db/settings";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { NextResponse } from "next/server";
 
@@ -29,24 +29,38 @@ function statusMessage(status: string) {
   return null;
 }
 
-async function claimUnlinkedByEmail(
+function isRealClerkUserId(id: string | null | undefined): boolean {
+  return !!id && id.startsWith("user_");
+}
+
+async function claimByEmail(
   db: ReturnType<typeof getDb>,
   userId: string,
   email: string
 ) {
   if (!email) return null;
-  const [unlinked] = await db
+  const [row] = await db
     .select()
     .from(affiliates)
-    .where(and(eq(affiliates.email, email), isNull(affiliates.clerkUserId)))
+    .where(eq(affiliates.email, email))
     .limit(1);
-  if (!unlinked) return null;
+  if (!row) return null;
+
+  // Already correctly linked to this Clerk user
+  if (row.clerkUserId === userId) return row;
+
+  // Linked to a different real Clerk account — do not steal
+  if (isRealClerkUserId(row.clerkUserId) && row.clerkUserId !== userId) {
+    return null;
+  }
+
+  // Unlinked or invalid placeholder clerk id (e.g. admin typed a code) — bind now
   const [claimed] = await db
     .update(affiliates)
     .set({ clerkUserId: userId, updatedAt: new Date() })
-    .where(eq(affiliates.id, unlinked.id))
+    .where(eq(affiliates.id, row.id))
     .returning();
-  return claimed ?? null;
+  return claimed ?? row;
 }
 
 async function loadPersonalAffiliate(
@@ -60,41 +74,25 @@ async function loadPersonalAffiliate(
     .where(eq(affiliates.clerkUserId, userId))
     .limit(1);
   if (byClerk) return byClerk;
-  return claimUnlinkedByEmail(db, userId, email);
+  return claimByEmail(db, userId, email);
 }
 
 export async function GET(req: Request) {
   try {
-    const { userId, sessionClaims } = await auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = getDb();
-    const claimsMeta =
-      (sessionClaims?.publicMetadata as { role?: string } | undefined) ||
-      (sessionClaims?.metadata as { role?: string } | undefined);
-    let role = claimsMeta?.role || "";
-    let email = String(
-      (sessionClaims as { email?: string } | null)?.email ||
-      (sessionClaims as { primaryEmail?: string } | null)?.primaryEmail ||
+    // Always resolve email/role from Clerk user — JWT claims often omit email
+    const user = await currentUser();
+    const role = (user?.publicMetadata?.role as string) || "";
+    const email = (
+      user?.primaryEmailAddress?.emailAddress ||
+      user?.emailAddresses?.[0]?.emailAddress ||
       ""
     )
       .trim()
       .toLowerCase();
-
-    // Fallback to Clerk user API only when claims lack role/email
-    if (!role || !email) {
-      const user = await currentUser();
-      if (!role) role = (user?.publicMetadata?.role as string) || "";
-      if (!email) {
-        email = (
-          user?.primaryEmailAddress?.emailAddress ||
-          user?.emailAddresses?.[0]?.emailAddress ||
-          ""
-        )
-          .trim()
-          .toLowerCase();
-      }
-    }
     const isAdmin = role === "admin";
 
     const { searchParams } = new URL(req.url);
@@ -243,7 +241,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const claimed = await claimUnlinkedByEmail(db, userId, selfEmail);
+      const claimed = await claimByEmail(db, userId, selfEmail);
       if (claimed) {
         // Let them set their preferred code when claiming an admin-created invite
         if (code && code !== claimed.code) {
