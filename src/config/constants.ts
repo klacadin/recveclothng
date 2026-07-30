@@ -26,11 +26,11 @@ export const MAX_ORDER_PIECES = 10;
 /**
  * Shipping (PHP) by exact total piece count in the order (nationwide).
  * Index 0 unused; `SHIPPING_PHP_BY_PIECE_COUNT[n]` = fee when total pieces === n (1..10).
- * Sync array with `supabase/functions/create-order/index.ts`.
+ * Keep in sync with checkout UI (`shippingFeeByTotalPiecesPhp`).
  */
 export const SHIPPING_PHP_BY_PIECE_COUNT: readonly number[] = [
-    0,
-    130, 130, 180, 180, 230, 250, 250, 300, 350, 350,
+  0,
+  130, 130, 180, 180, 230, 250, 250, 300, 350, 350,
 ];
 
 /** Default weight per product when unset (0.5 kg) — admin catalog; not used for checkout shipping. */
