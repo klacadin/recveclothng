@@ -194,6 +194,26 @@ export async function POST(req: Request) {
       )
     );
 
+    // Keep products.stock_quantity in sync with size totals (shop reads this field)
+    const touchedProductIds = [...new Set(reserved.map((i) => i.product_id))];
+    await Promise.all(
+      touchedProductIds.map(async (productId) => {
+        const [sumRow] = await db
+          .select({
+            total: sql<number>`coalesce(sum(${productVariants.stockQuantity}), 0)`,
+          })
+          .from(productVariants)
+          .where(eq(productVariants.productId, productId));
+        await db
+          .update(products)
+          .set({
+            stockQuantity: Number(sumRow?.total ?? 0),
+            updatedAt: new Date(),
+          })
+          .where(eq(products.id, productId));
+      })
+    );
+
     const serverSubtotal = reserved.reduce((s, i) => s + i.total_price, 0);
     const shippingFee = shippingFeeByTotalPiecesPhp(totalPieces);
     const discount = await computeVoucherDiscount(

@@ -367,7 +367,7 @@ const Shop = () => {
                     image={getProductDisplayImage(product)}
                     category={product.category || undefined}
                     isNew={isProductNew(product.created_at)}
-                    inStock={(product.stock_quantity ?? 0) > 0}
+                    inStock={Number(product.stock_quantity ?? 0) > 0}
                     soldCount={soldCountByProductId.get(product.id) ?? 0}
                     product={product}
                   />

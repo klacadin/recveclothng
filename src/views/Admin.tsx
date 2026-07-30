@@ -1474,7 +1474,12 @@ const Admin = () => {
                   <p className="text-xs text-muted-foreground mb-4">Preview how products appear on the shop — click to open product page</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {filteredProducts.map((product) => {
-                      const totalStock = (variantsByProduct[product.id] || []).reduce((s, v) => s + v.stock_quantity, 0);
+                      const variantTotal = (variantsByProduct[product.id] || []).reduce(
+                        (s, v) => s + v.stock_quantity,
+                        0
+                      );
+                      const totalStock =
+                        variantTotal > 0 ? variantTotal : (product.stock_quantity ?? 0);
                       const inStock = totalStock > 0 && product.is_active;
                       return (
                         <ProductCard

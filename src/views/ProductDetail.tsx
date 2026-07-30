@@ -45,13 +45,21 @@ const ProductDetail = () => {
 
   // Get stock for selected size
   const getStockForSize = (size: ProductSize): number => {
-    if (!variants) return 0;
-    const variant = variants.find(v => v.size === size);
-    return variant?.stock_quantity || 0;
+    if (variants && variants.length > 0) {
+      const variant = variants.find((v) => v.size === size);
+      return Number(variant?.stock_quantity) || 0;
+    }
+    // No size rows yet: expose product-level stock on M only (avoids oversell across sizes)
+    if (size === "M") return Number(product?.stock_quantity ?? 0) || 0;
+    return 0;
   };
 
   const selectedSizeStock = selectedSize ? getStockForSize(selectedSize) : 0;
-  const totalStock = variants?.reduce((sum, v) => sum + v.stock_quantity, 0) || 0;
+  const variantTotal =
+    variants?.reduce((sum, v) => sum + (Number(v.stock_quantity) || 0), 0) || 0;
+  const productStock = Number(product?.stock_quantity ?? 0) || 0;
+  // Prefer variant sum; fall back to product total when variants missing/empty
+  const totalStock = variantTotal > 0 ? variantTotal : productStock;
 
   // Reset quantity when size changes
   useEffect(() => {
