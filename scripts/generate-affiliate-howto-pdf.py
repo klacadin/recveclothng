@@ -14,7 +14,7 @@ OUT.parent.mkdir(parents=True, exist_ok=True)
 DOCS_OUT.parent.mkdir(parents=True, exist_ok=True)
 TMP.mkdir(parents=True, exist_ok=True)
 
-BRAND = "Reve Clothing x Nobody at MC2"
+BRAND = "Reve Clothing x Nobody"
 BLACK = (20, 20, 20)
 GRAY = (90, 90, 90)
 LIGHT = (245, 245, 245)

@@ -23,7 +23,7 @@ const AffiliateCta = () => {
             Earn 10% sharing REVE
           </h2>
           <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
-            Reve Clothing x Nobody at MC2 affiliate program — get a unique link, share with your
+            Reve Clothing x Nobody affiliate program — get a unique link, share with your
             community, and earn commission on confirmed paid orders. Free to join — approval
             required.
           </p>

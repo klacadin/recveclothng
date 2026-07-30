@@ -16,7 +16,7 @@ import SEO from "@/components/SEO";
 import reveLogo from "@/assets/reve-logo.jpg";
 import nobodyLogo from "@/assets/nobody-logo.png";
 
-const BRAND = "Reve Clothing x Nobody at MC2";
+const BRAND = "Reve Clothing x Nobody";
 
 /**
  * In-app guide — logos + posters displayed on the page (not download-only).
@@ -26,7 +26,7 @@ export default function AffiliateGuide() {
     <div className="min-h-screen bg-background flex flex-col">
       <SEO
         title={`${BRAND} | Affiliate How to Use`}
-        description="How to join and use the Reve Clothing x Nobody at MC2 affiliate program. Earn 10% on confirmed paid orders."
+        description="How to join and use the Reve Clothing x Nobody affiliate program. Earn 10% on confirmed paid orders."
       />
       <Header />
       <main className="flex-1 container pt-24 pb-12 px-4 max-w-4xl">

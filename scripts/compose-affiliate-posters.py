@@ -86,7 +86,7 @@ def make_poster(size: tuple[int, int], out_name: str, story: bool = False):
         cta_y = int(h * 0.82)
 
     lockup_font = load_font(int(h * (0.024 if story else 0.028)), bold=True)
-    draw_centered(draw, "REVE CLOTHING  x  NOBODY  at  MC2", lockup_y, lockup_font, WHITE, w)
+    draw_centered(draw, "REVE CLOTHING  x  NOBODY", lockup_y, lockup_font, WHITE, w)
 
     headline_font = load_font(int(h * (0.048 if story else 0.055)), bold=True)
     draw_centered(draw, "Earn 10% sharing REVE", headline_y, headline_font, WHITE, w)
