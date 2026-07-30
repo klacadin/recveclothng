@@ -110,10 +110,35 @@ export async function POST(req: Request) {
       });
     }
 
-    const eligibleAmount =
-      items.length > 0
-        ? items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0)
-        : subtotal;
+    const minOrder = Number(voucher.minOrderAmount ?? 0);
+    if (minOrder > 0 && subtotal < minOrder) {
+      return json({
+        valid: false,
+        discount_amount: 0,
+        message: `Minimum order of ₱${minOrder.toLocaleString("en-PH")} required`,
+      });
+    }
+
+    const productIds = Array.isArray(voucher.productIds) ? voucher.productIds : [];
+    const categoryIds = Array.isArray(voucher.categoryIds) ? voucher.categoryIds : [];
+    let eligibleAmount = subtotal;
+    if (items.length > 0) {
+      if (productIds.length > 0 || categoryIds.length > 0) {
+        eligibleAmount = items.reduce((sum, i) => {
+          const matchProduct = productIds.length > 0 && productIds.includes(i.product_id);
+          const matchCategory =
+            categoryIds.length > 0 &&
+            !!i.category &&
+            categoryIds.includes(String(i.category));
+          const ok =
+            (productIds.length > 0 && matchProduct) ||
+            (categoryIds.length > 0 && matchCategory);
+          return ok ? sum + i.quantity * i.unit_price : sum;
+        }, 0);
+      } else {
+        eligibleAmount = items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+      }
+    }
 
     if (eligibleAmount <= 0) {
       return json({

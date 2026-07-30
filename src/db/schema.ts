@@ -214,11 +214,16 @@ export const vouchers = pgTable("vouchers", {
   code: text("code").notNull().unique(),
   discountType: text("discount_type").notNull().default("percent"),
   discountValue: numeric("discount_value", { precision: 12, scale: 2 }).notNull(),
+  minOrderAmount: numeric("min_order_amount", { precision: 12, scale: 2 }).default("0"),
+  description: text("description"),
+  productIds: jsonb("product_ids").$type<string[]>().default([]),
+  categoryIds: jsonb("category_ids").$type<string[]>().default([]),
   isActive: boolean("is_active").notNull().default(true),
   maxUses: integer("max_uses"),
   usedCount: integer("used_count").notNull().default(0),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const articles = pgTable("articles", {
