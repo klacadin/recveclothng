@@ -6,6 +6,10 @@ export const DEFAULT_AFFILIATE_COMMISSION_RATE = 0.1;
 
 export const AFFILIATE_DEFAULT_RATE_SETTING_KEY = "affiliate_default_commission_rate";
 
+/** Canonical brand naming (use one of these — never invent variants). */
+export const BRAND_COLLAB = "Reve Clothing x Nobody";
+export const BRAND_COLLECTION = "Nobody by Reve Clothing";
+
 /** Exactly 8 alphanumeric characters (handle / ref code) */
 export const AFFILIATE_CODE_LENGTH = 8;
 export const AFFILIATE_CODE_REGEX = /^[a-z0-9]{8}$/;

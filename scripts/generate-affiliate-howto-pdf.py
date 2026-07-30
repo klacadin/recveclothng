@@ -15,6 +15,7 @@ DOCS_OUT.parent.mkdir(parents=True, exist_ok=True)
 TMP.mkdir(parents=True, exist_ok=True)
 
 BRAND = "Reve Clothing x Nobody"
+BRAND_ALT = "Nobody by Reve Clothing"
 BLACK = (20, 20, 20)
 GRAY = (90, 90, 90)
 LIGHT = (245, 245, 245)
@@ -160,6 +161,9 @@ def main():
     pdf.set_font("Helvetica", "B", 12)
     pdf.set_text_color(*WHITE)
     pdf.cell(0, 6, BRAND, align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 11)
+    pdf.set_text_color(*GRAY)
+    pdf.cell(0, 6, BRAND_ALT, align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "B", 20)
     pdf.cell(0, 9, "How to Use Affiliate", align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
@@ -289,7 +293,7 @@ def main():
     body(
         pdf,
         "1. Always share YOUR link (not the plain homepage).\n"
-        "2. Tell people what to buy and why you like REVE x NOBODY.\n"
+        "2. Tell people what to buy and why you like Nobody by Reve Clothing.\n"
         "3. Ask shoppers to check out on the same phone/browser within 30 days.\n"
         "4. Keep your code short and memorable (8 characters).\n"
         "5. Check your dashboard weekly for earnings.",
@@ -326,7 +330,7 @@ def main():
         "Login: /affiliate/login\n"
         "Dashboard: /affiliate/dashboard",
     )
-    muted(pdf, "Thank you for sharing REVE x NOBODY with your community. Timing is Everything.")
+    muted(pdf, f"Thank you for sharing {BRAND} with your community. Timing is Everything.")
 
     pdf.output(OUT)
     pdf.output(DOCS_OUT)

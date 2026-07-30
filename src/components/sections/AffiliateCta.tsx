@@ -6,6 +6,8 @@ import {
   AFFILIATE_GUIDE_PATH,
   AFFILIATE_JOIN_PATH,
   AFFILIATE_LOGIN_PATH,
+  BRAND_COLLAB,
+  BRAND_COLLECTION,
 } from "@/lib/affiliate-constants";
 
 /**
@@ -20,12 +22,11 @@ const AffiliateCta = () => {
             Affiliate program
           </p>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground">
-            Earn 10% sharing REVE
+            Earn 10% with {BRAND_COLLAB}
           </h2>
           <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
-            Reve Clothing x Nobody affiliate program — get a unique link, share with your
-            community, and earn commission on confirmed paid orders. Free to join — approval
-            required.
+            Share {BRAND_COLLECTION} — get a unique link, share with your community, and earn
+            commission on confirmed paid orders. Free to join — approval required.
           </p>
           <p className="text-sm">
             <Link

@@ -1,18 +1,18 @@
-"""Compose affiliate invite posters using official REVE + NOBODY logos."""
+"""Overlay official REVE + NOBODY logos onto the original affiliate invite posters."""
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
 REVE = ROOT / "src" / "assets" / "reve-logo.jpg"
 NOBODY = ROOT / "src" / "assets" / "nobody-logo.png"
 OUT_DIR = ROOT / "public" / "marketing"
+BASE_SQUARE = OUT_DIR / "_base-affiliate-invite-square.png"
+BASE_STORY = OUT_DIR / "_base-affiliate-invite-story.png"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-BLACK = (8, 8, 8)
 WHITE = (245, 245, 245)
-MUTED = (180, 180, 180)
-RED = (180, 40, 40)
+MUTED = (200, 200, 200)
 
 
 def load_font(size: int, bold: bool = False):
@@ -29,15 +29,13 @@ def load_font(size: int, bold: bool = False):
 
 def prepare_logo(path: Path, max_w: int, max_h: int) -> Image.Image:
     img = Image.open(path).convert("RGBA")
-    # Keep black logos readable on black bg by ensuring contrast crop
-    img = ImageOps.contain(img, (max_w, max_h), method=Image.Resampling.LANCZOS)
-    return img
+    return ImageOps.contain(img, (max_w, max_h), method=Image.Resampling.LANCZOS)
 
 
 def paste_center(base: Image.Image, overlay: Image.Image, cy: int):
     x = (base.width - overlay.width) // 2
     y = cy - overlay.height // 2
-    base.alpha_composite(overlay, (x, y))
+    base.alpha_composite(overlay, (x, max(0, y)))
 
 
 def draw_centered(draw: ImageDraw.ImageDraw, text: str, y: int, font, fill, width: int):
@@ -47,85 +45,76 @@ def draw_centered(draw: ImageDraw.ImageDraw, text: str, y: int, font, fill, widt
     return bbox[3] - bbox[1]
 
 
-def make_poster(size: tuple[int, int], out_name: str, story: bool = False):
-    w, h = size
-    canvas = Image.new("RGBA", (w, h), BLACK + (255,))
-    draw = ImageDraw.Draw(canvas)
+def cover_top_brand(canvas: Image.Image, cover_bottom_y: int):
+    """Fully mask the original wordmark zone so real logos read cleanly."""
+    w, _h = canvas.size
+    veil = Image.new("RGBA", (w, cover_bottom_y), (0, 0, 0, 255))
+    fade_h = max(16, cover_bottom_y // 12)
+    fade = Image.new("RGBA", (w, fade_h), (0, 0, 0, 0))
+    fd = ImageDraw.Draw(fade)
+    for i in range(fade_h):
+        alpha = int(255 * (1 - i / fade_h))
+        fd.line([(0, i), (w, i)], fill=(0, 0, 0, alpha))
+    canvas.alpha_composite(veil, (0, 0))
+    canvas.alpha_composite(fade, (0, cover_bottom_y))
 
-    # Soft vignette
-    vignette = Image.new("L", (w, h), 0)
-    vd = ImageDraw.Draw(vignette)
-    vd.ellipse((-w // 4, -h // 8, w + w // 4, h + h // 8), fill=255)
-    vignette = vignette.filter(ImageFilter.GaussianBlur(120))
-    dark = Image.new("RGBA", (w, h), (0, 0, 0, 90))
-    canvas = Image.composite(canvas, dark, ImageOps.invert(vignette))
-    draw = ImageDraw.Draw(canvas)
 
-    # Brand logos
+def compose(base_path: Path, out_name: str, story: bool):
+    base = Image.open(base_path).convert("RGBA")
+    w, h = base.size
+    canvas = base.copy()
+
     if story:
-        reve = prepare_logo(REVE, int(w * 0.55), int(h * 0.20))
-        nobody = prepare_logo(NOBODY, int(w * 0.72), int(h * 0.07))
-        paste_center(canvas, reve, int(h * 0.16))
-        x_font = load_font(int(h * 0.032), bold=True)
-        draw_centered(draw, "×", int(h * 0.28), x_font, WHITE, w)
-        paste_center(canvas, nobody, int(h * 0.34))
-        lockup_y = int(h * 0.41)
-        headline_y = int(h * 0.49)
-        support_y = int(h * 0.57)
-        cta_y = int(h * 0.78)
+        cover_y = int(h * 0.195)
+        cover_top_brand(canvas, cover_y)
+        reve = prepare_logo(REVE, int(w * 0.40), int(h * 0.11))
+        nobody = prepare_logo(NOBODY, int(w * 0.68), int(h * 0.042))
+        paste_center(canvas, reve, int(h * 0.075))
+        draw = ImageDraw.Draw(canvas)
+        x_font = load_font(int(h * 0.026), bold=True)
+        draw_centered(draw, "×", int(h * 0.125), x_font, WHITE, w)
+        paste_center(canvas, nobody, int(h * 0.155))
+        lockup_font = load_font(int(h * 0.015), bold=True)
+        draw_centered(draw, "Reve Clothing x Nobody", int(h * 0.185), lockup_font, MUTED, w)
     else:
-        reve = prepare_logo(REVE, int(w * 0.40), int(h * 0.26))
-        nobody = prepare_logo(NOBODY, int(w * 0.62), int(h * 0.08))
-        paste_center(canvas, reve, int(h * 0.20))
-        x_font = load_font(int(h * 0.045), bold=True)
-        draw_centered(draw, "×", int(h * 0.36), x_font, WHITE, w)
-        paste_center(canvas, nobody, int(h * 0.45))
-        lockup_y = int(h * 0.54)
-        headline_y = int(h * 0.62)
-        support_y = int(h * 0.70)
-        cta_y = int(h * 0.82)
-
-    lockup_font = load_font(int(h * (0.024 if story else 0.028)), bold=True)
-    draw_centered(draw, "REVE CLOTHING  x  NOBODY", lockup_y, lockup_font, WHITE, w)
-
-    headline_font = load_font(int(h * (0.048 if story else 0.055)), bold=True)
-    draw_centered(draw, "Earn 10% sharing REVE", headline_y, headline_font, WHITE, w)
-
-    support_font = load_font(int(h * (0.022 if story else 0.024)))
-    support = (
-        "Free to join. Share your unique link.\nEarn on confirmed paid orders."
-        if story
-        else "Join our affiliate program. Share your link.\nGet paid on confirmed orders."
-    )
-    # multi-line support
-    lines = support.split("\n")
-    y = support_y
-    for line in lines:
-        lh = draw_centered(draw, line, y, support_font, MUTED, w)
-        y += lh + int(h * 0.01)
-
-    # CTA bar
-    pad_x = int(w * 0.12)
-    bar_h = int(h * (0.08 if story else 0.09))
-    bar = Image.new("RGBA", (w - 2 * pad_x, bar_h), RED + (255,))
-    canvas.alpha_composite(bar, (pad_x, cta_y))
-    cta_font = load_font(int(h * 0.028), bold=True)
-    url_font = load_font(int(h * 0.018))
-    draw_centered(draw, "Become an affiliate", cta_y + int(bar_h * 0.18), cta_font, WHITE, w)
-    draw_centered(
-        draw,
-        "reveclothingxnobody.com/affiliate/join",
-        cta_y + int(bar_h * 0.55),
-        url_font,
-        WHITE,
-        w,
-    )
+        # Kill original REVE CLOTHING + GAWANG block; keep mountain + EARN 10%
+        cover_y = int(h * 0.455)
+        cover_top_brand(canvas, cover_y)
+        reve = prepare_logo(REVE, int(w * 0.30), int(h * 0.13))
+        nobody = prepare_logo(NOBODY, int(w * 0.56), int(h * 0.045))
+        paste_center(canvas, reve, int(h * 0.11))
+        draw = ImageDraw.Draw(canvas)
+        x_font = load_font(int(h * 0.028), bold=True)
+        draw_centered(draw, "×", int(h * 0.19), x_font, WHITE, w)
+        paste_center(canvas, nobody, int(h * 0.24))
+        lockup_font = load_font(int(h * 0.02), bold=True)
+        draw_centered(draw, "Reve Clothing x Nobody", int(h * 0.295), lockup_font, MUTED, w)
+        line_y = int(h * 0.34)
+        draw.rectangle([int(w * 0.28), line_y, int(w * 0.72), line_y + 3], fill=(180, 40, 40, 255))
+        tag_font = load_font(int(h * 0.016), bold=True)
+        draw_centered(draw, "Nobody by Reve Clothing", int(h * 0.36), tag_font, MUTED, w)
 
     out = OUT_DIR / out_name
     canvas.convert("RGB").save(out, "PNG", optimize=True)
-    print(f"Wrote {out}")
+    print(f"Wrote {out} ({w}x{h})")
 
 
 if __name__ == "__main__":
-    make_poster((1080, 1080), "reve-affiliate-invite-square.png", story=False)
-    make_poster((1080, 1920), "reve-affiliate-invite-story.png", story=True)
+    # Prefer committed bases; fall back to restored _old copies if needed
+    square_base = BASE_SQUARE if BASE_SQUARE.exists() else OUT_DIR / "_old-square.png"
+    story_base = BASE_STORY if BASE_STORY.exists() else OUT_DIR / "_old-story.png"
+    if not square_base.exists() or not story_base.exists():
+        raise SystemExit(
+            "Missing base posters. Expected "
+            f"{BASE_SQUARE.name} / {BASE_STORY.name} (or _old-*.png)."
+        )
+    # Normalize names for future runs
+    if square_base != BASE_SQUARE:
+        Image.open(square_base).save(BASE_SQUARE, "PNG")
+        square_base = BASE_SQUARE
+    if story_base != BASE_STORY:
+        Image.open(story_base).save(BASE_STORY, "PNG")
+        story_base = BASE_STORY
+
+    compose(square_base, "reve-affiliate-invite-square.png", story=False)
+    compose(story_base, "reve-affiliate-invite-story.png", story=True)

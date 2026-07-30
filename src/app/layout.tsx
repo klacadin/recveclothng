@@ -3,9 +3,9 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "@/index.css";
 
 export const metadata: Metadata = {
-  title: "REVE Clothing | Performance Apparel - GAWANG BUKID",
+  title: "Reve Clothing x Nobody | Performance Apparel",
   description:
-    "Performance apparel for trail, road & endurance athletes. GAWANG BUKID - crafted in Bukidnon, Philippines. COD, GCash & nationwide shipping.",
+    "Nobody by Reve Clothing — performance apparel for trail, road & endurance athletes. Crafted in Bukidnon, Philippines. COD, GCash & nationwide shipping.",
   metadataBase: new URL("https://www.reveclothingxnobody.com"),
 };
 

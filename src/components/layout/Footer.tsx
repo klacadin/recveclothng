@@ -173,7 +173,7 @@ const Footer = () => {
         {/* Bottom Bar — 3 columns: copyright | payment methods | powered by */}
         <div className="mt-12 pt-8 border-t border-primary-foreground/10 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
           <div className="text-primary-foreground/50 text-xs text-center md:text-left order-2 md:order-1">
-            <p>© 2025 REVE Clothing. Timing is Everything.</p>
+            <p>© 2025 Reve Clothing x Nobody. Timing is Everything.</p>
           </div>
           <div className="flex items-center justify-center gap-6 text-xs text-primary-foreground/50 order-1 md:order-2">
             <span>GCash / Maya</span>

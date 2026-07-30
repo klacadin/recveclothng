@@ -680,7 +680,7 @@ export default function AffiliateDashboard() {
                   <p className="font-medium">Account inactive</p>
                   <p className="text-sm text-muted-foreground">
                     {message ||
-                      "Your affiliate account is inactive. Contact REVE if you think this is a mistake."}
+                      "Your affiliate account is inactive. Contact Reve Clothing x Nobody if you think this is a mistake."}
                   </p>
                 </CardContent>
               </Card>

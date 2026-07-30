@@ -51,7 +51,7 @@ function confirmationHtml(data: EmailRequest) {
   Shipping: ${formatPrice(data.shipping_fee || 0)}<br/>
   <strong>Total: ${formatPrice(data.total || 0)}</strong></p>
   <p><a href="${process.env.APP_URL || SERVER_BASE_URL}/my-orders">View your orders</a></p>
-  <p style="color:#6b7280;font-size:14px">REVE Clothing — From Nobody to Somebody</p>
+  <p style="color:#6b7280;font-size:14px">Reve Clothing x Nobody — From Nobody to Somebody</p>
   </body></html>`;
 }
 

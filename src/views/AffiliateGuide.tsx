@@ -11,12 +11,12 @@ import {
   AFFILIATE_JOIN_PATH,
   AFFILIATE_POSTER_SQUARE_PATH,
   AFFILIATE_POSTER_STORY_PATH,
+  BRAND_COLLAB,
+  BRAND_COLLECTION,
 } from "@/lib/affiliate-constants";
 import SEO from "@/components/SEO";
 import reveLogo from "@/assets/reve-logo.jpg";
 import nobodyLogo from "@/assets/nobody-logo.png";
-
-const BRAND = "Reve Clothing x Nobody";
 
 /**
  * In-app guide — logos + posters displayed on the page (not download-only).
@@ -25,8 +25,8 @@ export default function AffiliateGuide() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEO
-        title={`${BRAND} | Affiliate How to Use`}
-        description="How to join and use the Reve Clothing x Nobody affiliate program. Earn 10% on confirmed paid orders."
+        title={`${BRAND_COLLAB} | Affiliate How to Use`}
+        description={`How to join and use the ${BRAND_COLLAB} affiliate program (${BRAND_COLLECTION}). Earn 10% on confirmed paid orders.`}
       />
       <Header />
       <main className="flex-1 container pt-24 pb-12 px-4 max-w-4xl">
@@ -34,7 +34,7 @@ export default function AffiliateGuide() {
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
             <img
               src={reveLogo}
-              alt="REVE logo"
+              alt="Reve Clothing logo"
               className="h-20 sm:h-24 w-auto object-contain bg-black rounded-sm p-1.5"
             />
             <span className="text-3xl font-bold text-foreground" aria-hidden>
@@ -42,14 +42,15 @@ export default function AffiliateGuide() {
             </span>
             <img
               src={nobodyLogo}
-              alt="NOBODY logo"
+              alt="Nobody logo"
               className="h-12 sm:h-14 w-auto object-contain bg-black rounded-sm px-3 py-2"
             />
           </div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Affiliate program
           </p>
-          <h1 className="font-display text-2xl sm:text-4xl font-bold">{BRAND}</h1>
+          <h1 className="font-display text-2xl sm:text-4xl font-bold">{BRAND_COLLAB}</h1>
+          <p className="text-sm text-muted-foreground">{BRAND_COLLECTION}</p>
           <p className="text-muted-foreground max-w-xl text-sm sm:text-base">
             How to use Affiliate — join free, get approved, share your unique link, and earn{" "}
             <strong className="text-foreground">10%</strong> on confirmed paid product subtotals.
@@ -69,7 +70,7 @@ export default function AffiliateGuide() {
               <div className="rounded-sm border border-border overflow-hidden bg-black shadow-sm">
                 <img
                   src={AFFILIATE_POSTER_SQUARE_PATH}
-                  alt={`${BRAND} affiliate invite poster — square feed version`}
+                  alt={`${BRAND_COLLAB} affiliate invite poster — square feed version`}
                   className="w-full h-auto block"
                   loading="eager"
                 />
@@ -82,7 +83,7 @@ export default function AffiliateGuide() {
               <div className="rounded-sm border border-border overflow-hidden bg-black shadow-sm">
                 <img
                   src={AFFILIATE_POSTER_STORY_PATH}
-                  alt={`${BRAND} affiliate invite poster — story version`}
+                  alt={`${BRAND_COLLAB} affiliate invite poster — story version`}
                   className="w-full h-auto block"
                   loading="eager"
                 />
