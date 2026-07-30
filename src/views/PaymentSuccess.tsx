@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, Loader2, ShoppingBag } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle2, Loader2, ShoppingBag } from "lucide-react";
 
 interface OrderData {
   order_number: string;
@@ -18,7 +17,7 @@ const PaymentSuccess = () => {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const orderId = searchParams.get('order_id');
+  const orderId = searchParams.get("order_id");
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -27,35 +26,75 @@ const PaymentSuccess = () => {
         return;
       }
 
-      // Poll for order status update (webhook may take a moment)
       let attempts = 0;
-      const maxAttempts = 10;
+      const maxAttempts = 8;
 
       const checkOrder = async () => {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('order_number, customer_name, total, status')
-          .eq('id', orderId)
-          .single();
-
-        if (!error && data) {
-          setOrder(data);
-          // If status is still 'new', webhook hasn't processed yet
-          if (data.status === 'new' && attempts < maxAttempts) {
-            attempts++;
-            setTimeout(checkOrder, 2000);
+        try {
+          // Prefer HitPay reconcile — covers missed webhooks (apex→www 308)
+          const reconcile = await fetch("/api/orders/confirm-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ order_id: orderId }),
+          });
+          if (reconcile.ok) {
+            const data = await reconcile.json();
+            if (data.order_number) {
+              setOrder({
+                order_number: data.order_number,
+                customer_name: data.customer_name,
+                total: Number(data.total || 0),
+                status: data.status,
+              });
+              if (
+                ["paid", "preparing", "packed", "shipped", "for_pickup", "completed"].includes(
+                  data.status
+                ) ||
+                attempts >= maxAttempts
+              ) {
+                setLoading(false);
+                return;
+              }
+            }
           } else {
-            setLoading(false);
+            const fallback = await fetch(`/api/orders?id=${encodeURIComponent(orderId)}`);
+            if (fallback.ok) {
+              const data = await fallback.json();
+              setOrder({
+                order_number: data.order_number,
+                customer_name: data.customer_name,
+                total: Number(data.total || 0),
+                status: data.status,
+              });
+              if (
+                ["paid", "preparing", "packed", "shipped", "for_pickup", "completed"].includes(
+                  data.status
+                ) ||
+                attempts >= maxAttempts
+              ) {
+                setLoading(false);
+                return;
+              }
+            } else if (attempts >= maxAttempts) {
+              setLoading(false);
+              return;
+            }
           }
-        } else {
-          setLoading(false);
+        } catch {
+          if (attempts >= maxAttempts) {
+            setLoading(false);
+            return;
+          }
         }
+
+        attempts += 1;
+        setTimeout(checkOrder, 2000);
       };
 
       await checkOrder();
     };
 
-    fetchOrder();
+    void fetchOrder();
   }, [orderId]);
 
   if (loading) {
@@ -91,7 +130,7 @@ const PaymentSuccess = () => {
                 </div>
                 <div className="bg-muted p-4 rounded-lg">
                   <p className="text-sm text-muted-foreground">Amount Paid</p>
-                  <p className="text-xl font-bold">₱{order.total.toFixed(2)}</p>
+                  <p className="text-xl font-bold">₱{Number(order.total).toFixed(2)}</p>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   We've sent a confirmation email with your order details.
@@ -102,13 +141,13 @@ const PaymentSuccess = () => {
                 Your payment has been processed. Check your email for order details.
               </p>
             )}
-            
+
             <div className="pt-4 space-y-2">
-              <Button onClick={() => navigate('/shop')} className="w-full">
+              <Button onClick={() => navigate("/shop")} className="w-full">
                 <ShoppingBag className="mr-2 h-4 w-4" />
                 Continue Shopping
               </Button>
-              <Button variant="outline" onClick={() => navigate('/')} className="w-full">
+              <Button variant="outline" onClick={() => navigate("/")} className="w-full">
                 Back to Home
               </Button>
             </div>

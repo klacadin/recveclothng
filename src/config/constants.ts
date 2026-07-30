@@ -2,11 +2,20 @@
  * Application Configuration Constants
  */
 
-// Server base URL - Domain for redirects and email links
-export const SERVER_BASE_URL = 'https://reveclothingxnobody.com';
+// Canonical public URL (www). Apex 308-redirects to www — HitPay webhooks do not follow redirects.
+export const SERVER_BASE_URL = "https://www.reveclothingxnobody.com";
 
 // Base URL for redirects and email links
 export const BASE_URL = SERVER_BASE_URL;
+
+/** Resolve app URL for redirects/webhooks; force www so payment webhooks are not dropped. */
+export function getAppBaseUrl(): string {
+  const raw = (process.env.APP_URL || SERVER_BASE_URL).trim().replace(/\/$/, "");
+  if (!raw || raw === "https://reveclothingxnobody.com") {
+    return SERVER_BASE_URL;
+  }
+  return raw;
+}
 
 // Checkout fees (from REVE CLOTHING spreadsheet)
 export const CONVENIENCE_FEE = 38;

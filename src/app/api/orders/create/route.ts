@@ -7,7 +7,7 @@ import { AFFILIATE_COOKIE_NAME, MAX_ORDER_PIECES_SAFE } from "@/lib/commerce";
 import {
   MAX_ORDER_PIECES,
   SHIPPING_PHP_BY_PIECE_COUNT,
-  SERVER_BASE_URL,
+  getAppBaseUrl,
 } from "@/config/constants";
 
 type CartItem = {
@@ -180,7 +180,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const appUrl = process.env.APP_URL || SERVER_BASE_URL;
+      const appUrl = getAppBaseUrl();
       const hitpayBase =
         process.env.HITPAY_SANDBOX === "true"
           ? "https://api.sandbox.hit-pay.com"

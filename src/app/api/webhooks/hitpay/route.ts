@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { getAppBaseUrl } from "@/config/constants";
+import { recordAffiliateCommissionForOrder } from "@/db/affiliates";
 import { getDb } from "@/db/client";
 import { orderItems, orders } from "@/db/schema";
-import { recordAffiliateCommissionForOrder } from "@/db/affiliates";
-import { SERVER_BASE_URL } from "@/config/constants";
+import { eq } from "drizzle-orm";
+import { NextResponse } from "next/server";
 
 async function verifyHitpaySignature(rawBody: string, signature: string | null) {
   const salt =
@@ -27,7 +27,7 @@ async function sendConfirmationEmail(order: typeof orders.$inferSelect) {
   try {
     const db = getDb();
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
-    const appUrl = process.env.APP_URL || SERVER_BASE_URL;
+    const appUrl = getAppBaseUrl();
     await fetch(`${appUrl}/api/emails/order`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -61,6 +61,7 @@ export async function POST(req: Request) {
     const rawBody = await req.text();
 
     if (!(await verifyHitpaySignature(rawBody, signature))) {
+      console.error("hitpay webhook: invalid signature");
       return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
     }
 
@@ -98,6 +99,7 @@ export async function POST(req: Request) {
       .returning();
 
     if (!order) {
+      console.error("hitpay webhook: order not found", orderId);
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
