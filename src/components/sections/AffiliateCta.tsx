@@ -25,6 +25,16 @@ const AffiliateCta = () => {
             Get a unique link, share with your community, and earn commission on confirmed paid
             orders. Free to join — approval required.
           </p>
+          <p className="text-sm">
+            <a
+              href="/REVE-Affiliate-How-To-Use.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Download How to Use Affiliate (PDF)
+            </a>
+          </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <Button size="lg" asChild>
               <Link to={AFFILIATE_JOIN_PATH}>

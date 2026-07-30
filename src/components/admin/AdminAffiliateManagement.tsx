@@ -236,7 +236,15 @@ export default function AdminAffiliateManagement() {
         <h2 className="text-xl font-bold">Affiliates</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Unique links, paid-order attribution, and commission activity. Self-signups start as
-          pending until you approve them.
+          pending until you approve them.{" "}
+          <a
+            href="/REVE-Affiliate-How-To-Use.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            Partner how-to PDF
+          </a>
         </p>
       </div>
 

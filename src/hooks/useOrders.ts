@@ -123,13 +123,9 @@ export const useDeleteOrder = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft-delete via cancelled status — DELETE route not exposed on Neon API.
-      const patched = await apiSend<Order>("/api/orders", "PATCH", {
-        id,
-        status: "cancelled",
-      });
-      if (!patched.ok) {
-        throw new Error(patched.error || "Failed to delete order");
+      const deleted = await apiSend<{ deleted?: number }>("/api/orders", "DELETE", { id });
+      if (!deleted.ok) {
+        throw new Error(deleted.error || "Failed to delete order");
       }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["orders"] }),

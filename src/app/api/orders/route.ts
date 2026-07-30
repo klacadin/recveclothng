@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { affiliates, orderItems, orders } from "@/db/schema";
+import { affiliateCommissions, affiliates, orderItems, orders } from "@/db/schema";
 import { recordAffiliateCommissionForOrder } from "@/db/affiliates";
 
 async function isAdmin() {
@@ -197,5 +197,58 @@ export async function PATCH(req: Request) {
   } catch (e) {
     console.error("orders PATCH", e);
     return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
+  }
+}
+
+/** Admin hard-delete: removes order items, affiliate commissions, then orders. */
+export async function DELETE(req: Request) {
+  try {
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const { searchParams } = new URL(req.url);
+    const ids: string[] = Array.isArray(body.ids)
+      ? body.ids.map(String)
+      : body.id
+        ? [String(body.id)]
+        : searchParams.get("id")
+          ? [String(searchParams.get("id"))]
+          : [];
+
+    if (!ids.length) {
+      return NextResponse.json({ error: "id or ids required" }, { status: 400 });
+    }
+
+    const db = getDb();
+
+    // Explicit cleanup in case older DBs lack ON DELETE CASCADE
+    try {
+      await db.delete(affiliateCommissions).where(inArray(affiliateCommissions.orderId, ids));
+    } catch (e) {
+      // Table may not exist on older DBs
+      console.warn("affiliate_commissions cleanup skipped:", e);
+    }
+    await db.delete(orderItems).where(inArray(orderItems.orderId, ids));
+    const removed = await db
+      .delete(orders)
+      .where(inArray(orders.id, ids))
+      .returning({ id: orders.id, orderNumber: orders.orderNumber });
+
+    return NextResponse.json({
+      deleted: removed.length,
+      ids: removed.map((r) => r.id),
+      order_numbers: removed.map((r) => r.orderNumber),
+    });
+  } catch (e) {
+    console.error("orders DELETE", e);
+    return NextResponse.json(
+      {
+        error: "Failed to delete orders",
+        detail: e instanceof Error ? e.message : String(e),
+      },
+      { status: 500 }
+    );
   }
 }

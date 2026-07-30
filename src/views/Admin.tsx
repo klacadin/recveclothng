@@ -301,6 +301,7 @@ const Admin = () => {
     selectedCount: selectedOrderCount,
     hasSelection: hasOrderSelection,
     bulkUpdateStatus: bulkUpdateOrderStatus,
+    bulkDelete: bulkDeleteOrders,
     bulkExportCSV: bulkExportOrdersCSV,
   } = useBulkOrderActions();
 
@@ -976,6 +977,25 @@ const Admin = () => {
                   >
                     <Download className="h-4 w-4 mr-1" />
                     Export CSV
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={bulkDeleteOrders.isPending}
+                    onClick={() => {
+                      const count = selectedOrderCount;
+                      if (
+                        !window.confirm(
+                          `Permanently delete ${count} selected order${count === 1 ? "" : "s"}?\n\nThis cannot be undone.`
+                        )
+                      ) {
+                        return;
+                      }
+                      bulkDeleteOrders.mutate(Array.from(selectedOrderIds));
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    {bulkDeleteOrders.isPending ? "Deleting…" : "Delete selected"}
                   </Button>
                 </div>
               )}

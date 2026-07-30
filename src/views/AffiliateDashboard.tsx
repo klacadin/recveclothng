@@ -373,7 +373,15 @@ export default function AffiliateDashboard() {
         <h1 className="font-display text-2xl md:text-3xl font-bold mb-2">Affiliate program</h1>
         <p className="text-muted-foreground text-sm mb-6 max-w-xl">
           Earn commission on product subtotal for confirmed paid orders attributed to your
-          unique link (default 10% — your exact rate is shown on your account once approved).
+          unique link (default 10% — your exact rate is shown on your account once approved).{" "}
+          <a
+            href="/REVE-Affiliate-How-To-Use.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            How to use (PDF)
+          </a>
         </p>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mb-8 text-muted-foreground">

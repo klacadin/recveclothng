@@ -48,6 +48,26 @@ export const useBulkOrderActions = () => {
     },
   });
 
+  const bulkDelete = useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (!ids.length) throw new Error('No orders selected');
+      const res = await apiSend<{ deleted?: number }>('/api/orders', 'DELETE', { ids });
+      if (!res.ok) throw new Error(res.error || 'Failed to delete orders');
+      return res.data?.deleted ?? ids.length;
+    },
+    onSuccess: (deleted) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      setSelectedIds(new Set());
+      toast({
+        title: 'Orders deleted',
+        description: `${deleted} order${deleted === 1 ? '' : 's'} permanently removed.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
   const bulkExportCSV = (orders: Array<{ id: string; order_number: string; customer_name: string; customer_email: string; total: number; status: string; created_at: string }>) => {
     const ids = Array.from(selectedIds);
     const toExport = orders.filter((o) => ids.includes(o.id));
@@ -79,6 +99,7 @@ export const useBulkOrderActions = () => {
     selectedCount,
     hasSelection,
     bulkUpdateStatus,
+    bulkDelete,
     bulkExportCSV,
   };
 };
