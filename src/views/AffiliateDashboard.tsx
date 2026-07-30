@@ -13,6 +13,7 @@ import { Copy, Link2, Loader2, ShieldCheck } from "lucide-react";
 import {
   AFFILIATE_CODE_LENGTH,
   AFFILIATE_DASHBOARD_PATH,
+  AFFILIATE_GUIDE_PATH,
   AFFILIATE_JOIN_PATH,
   AFFILIATE_LOGIN_PATH,
   affiliateShareUrl,
@@ -374,14 +375,12 @@ export default function AffiliateDashboard() {
         <p className="text-muted-foreground text-sm mb-6 max-w-xl">
           Earn commission on product subtotal for confirmed paid orders attributed to your
           unique link (default 10% — your exact rate is shown on your account once approved).{" "}
-          <a
-            href="/REVE-Affiliate-How-To-Use.pdf"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            to={AFFILIATE_GUIDE_PATH}
             className="underline underline-offset-2 hover:text-foreground"
           >
-            How to use (PDF)
-          </a>
+            How to use (guide + PDF)
+          </Link>
         </p>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mb-8 text-muted-foreground">

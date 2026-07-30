@@ -35,11 +35,17 @@ export function affiliateShareUrl(code: string, origin?: string): string {
 export const AFFILIATE_JOIN_PATH = "/affiliate/join";
 export const AFFILIATE_LOGIN_PATH = "/affiliate/login";
 export const AFFILIATE_DASHBOARD_PATH = "/affiliate/dashboard";
+export const AFFILIATE_GUIDE_PATH = "/affiliate/guide";
+/** Public static assets */
+export const AFFILIATE_HOWTO_PDF_PATH = "/REVE-Affiliate-How-To-Use.pdf";
+export const AFFILIATE_POSTER_SQUARE_PATH = "/marketing/reve-affiliate-invite-square.png";
+export const AFFILIATE_POSTER_STORY_PATH = "/marketing/reve-affiliate-invite-story.png";
 
 export const AFFILIATE_RESERVED_SEGMENTS = new Set([
     "join",
     "login",
     "dashboard",
+    "guide",
 ]);
 
 

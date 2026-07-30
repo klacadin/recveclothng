@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import {
   AFFILIATE_DASHBOARD_PATH,
+  AFFILIATE_GUIDE_PATH,
   AFFILIATE_JOIN_PATH,
   AFFILIATE_LOGIN_PATH,
 } from "@/lib/affiliate-constants";
@@ -26,14 +27,12 @@ const AffiliateCta = () => {
             orders. Free to join — approval required.
           </p>
           <p className="text-sm">
-            <a
-              href="/REVE-Affiliate-How-To-Use.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              to={AFFILIATE_GUIDE_PATH}
               className="underline underline-offset-2 hover:text-foreground"
             >
-              Download How to Use Affiliate (PDF)
-            </a>
+              How to use Affiliate (guide + PDF)
+            </Link>
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <Button size="lg" asChild>

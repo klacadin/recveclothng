@@ -238,12 +238,10 @@ export default function AdminAffiliateManagement() {
           Unique links, paid-order attribution, and commission activity. Self-signups start as
           pending until you approve them.{" "}
           <a
-            href="/REVE-Affiliate-How-To-Use.pdf"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/affiliate/guide"
             className="underline underline-offset-2 hover:text-foreground"
           >
-            Partner how-to PDF
+            Partner guide + PDF
           </a>
         </p>
       </div>
