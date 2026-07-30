@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, ShoppingBag, Heart, ChevronDown, User, Package, LogOut } from "lucide-react";
+import { Menu, X, ShoppingBag, Heart, ChevronDown, User, Package, LogOut, Handshake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import reveLogo from "@/assets/reve-logo.jpg";
 import { assetUrl } from "@/lib/assetUrl";
+import { AFFILIATE_DASHBOARD_PATH } from "@/lib/affiliate-constants";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -170,6 +171,12 @@ const Header = () => {
                       My Orders
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to={AFFILIATE_DASHBOARD_PATH} className="cursor-pointer">
+                      <Handshake className="h-4 w-4 mr-2" />
+                      Affiliate Dashboard
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer text-destructive">
                     <LogOut className="h-4 w-4 mr-2" />
@@ -269,19 +276,32 @@ const Header = () => {
                 )}
               </Link>
 
-              {/* Mobile My Orders Link (if logged in) */}
+              {/* Mobile My Orders + Affiliate (if logged in) */}
               {user && (
-                <Link
-                  to="/my-orders"
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors flex items-center gap-2 ${isActive('/my-orders')
-                    ? "bg-secondary text-foreground"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                >
-                  <Package className="h-4 w-4" />
-                  My Orders
-                </Link>
+                <>
+                  <Link
+                    to="/my-orders"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors flex items-center gap-2 ${isActive('/my-orders')
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      }`}
+                  >
+                    <Package className="h-4 w-4" />
+                    My Orders
+                  </Link>
+                  <Link
+                    to={AFFILIATE_DASHBOARD_PATH}
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`py-3 px-4 text-sm font-medium uppercase tracking-wide rounded transition-colors flex items-center gap-2 ${isActive(AFFILIATE_DASHBOARD_PATH)
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      }`}
+                  >
+                    <Handshake className="h-4 w-4" />
+                    Affiliate Dashboard
+                  </Link>
+                </>
               )}
 
               {/* Mobile Collections */}
