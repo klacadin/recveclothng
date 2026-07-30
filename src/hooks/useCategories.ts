@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { apiSend } from '@/lib/api';
 
 export interface Category {
   id: string;
@@ -18,7 +18,6 @@ export interface Category {
 export type CategoryInsert = Omit<Category, 'id' | 'created_at' | 'updated_at'>;
 export type CategoryUpdate = Partial<CategoryInsert>;
 
-// Generate slug from name
 export const slugify = (text: string): string => {
   return text
     .toLowerCase()
@@ -28,81 +27,48 @@ export const slugify = (text: string): string => {
     .trim();
 };
 
-// Fetch all categories
 export const useCategories = () => {
   return useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      try {
-        const res = await fetch('/api/categories');
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) return data as Category[];
-        }
-      } catch {
-        /* fall through */
+      const res = await fetch('/api/categories?all=1', { credentials: 'include' });
+      if (!res.ok) {
+        // Non-admin: fall back to public active list
+        const pub = await fetch('/api/categories');
+        if (!pub.ok) throw new Error('Failed to load categories');
+        return (await pub.json()) as Category[];
       }
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('sort_order', { ascending: true });
-
-      if (error) throw error;
-      return (data ?? []) as Category[];
+      return (await res.json()) as Category[];
     },
   });
 };
 
-// Fetch active categories only
 export const useActiveCategories = () => {
   return useQuery({
     queryKey: ['categories', 'active'],
     queryFn: async () => {
-      try {
-        const res = await fetch('/api/categories');
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) return data as Category[];
-        }
-      } catch {
-        /* fall through */
-      }
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-
-      if (error) throw error;
-      return (data ?? []) as Category[];
+      const res = await fetch('/api/categories');
+      if (!res.ok) throw new Error('Failed to load categories');
+      return (await res.json()) as Category[];
     },
   });
 };
 
-// NOBODY is a sub-brand, not a product category. Exclude it from product category options.
 const isProductCategory = (c: Category) =>
   !c.slug?.toLowerCase().includes('nobody') && !c.name?.toLowerCase().includes('nobody collection');
 
-// Fetch active categories for product assignment (excludes NOBODY - it's a brand, running apparel are the categories)
 export const useProductCategories = () => {
   const { data, ...rest } = useActiveCategories();
   return { data: (data ?? []).filter(isProductCategory), ...rest };
 };
 
-// Create category
 export const useCreateCategory = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (category: CategoryInsert) => {
-      const { data, error } = await supabase
-        .from('categories')
-        .insert(category)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as Category;
+      const via = await apiSend<Category>('/api/categories', 'POST', category);
+      if (via.ok && via.data) return via.data;
+      throw new Error(via.error || 'Failed to create category');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -110,21 +76,13 @@ export const useCreateCategory = () => {
   });
 };
 
-// Update category
 export const useUpdateCategory = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: CategoryUpdate }) => {
-      const { data, error } = await supabase
-        .from('categories')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as Category;
+      const via = await apiSend<Category>('/api/categories', 'PATCH', { id, ...updates });
+      if (via.ok && via.data) return via.data;
+      throw new Error(via.error || 'Failed to update category');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -132,18 +90,12 @@ export const useUpdateCategory = () => {
   });
 };
 
-// Delete category
 export const useDeleteCategory = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      const via = await apiSend('/api/categories', 'DELETE', { id });
+      if (!via.ok) throw new Error(via.error || 'Failed to delete category');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -151,25 +103,12 @@ export const useDeleteCategory = () => {
   });
 };
 
-// Reorder categories
 export const useReorderCategories = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (orderedIds: string[]) => {
-      const updates = orderedIds.map((id, index) => ({
-        id,
-        sort_order: index + 1,
-      }));
-
-      for (const update of updates) {
-        const { error } = await supabase
-          .from('categories')
-          .update({ sort_order: update.sort_order })
-          .eq('id', update.id);
-
-        if (error) throw error;
-      }
+      const via = await apiSend('/api/categories', 'PATCH', { ordered_ids: orderedIds });
+      if (!via.ok) throw new Error(via.error || 'Failed to reorder');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -177,25 +116,13 @@ export const useReorderCategories = () => {
   });
 };
 
-// Get products count by category
 export const useCategoryProductCounts = () => {
   return useQuery({
     queryKey: ['categories', 'product-counts'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('category')
-        .eq('is_active', true);
-
-      if (error) throw error;
-
-      const counts: Record<string, number> = {};
-      data.forEach((product) => {
-        const cat = product.category || 'uncategorized';
-        counts[cat] = (counts[cat] || 0) + 1;
-      });
-
-      return counts;
+      const res = await fetch('/api/categories?counts=1');
+      if (!res.ok) throw new Error('Failed to load counts');
+      return (await res.json()) as Record<string, number>;
     },
   });
 };

@@ -5,7 +5,6 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Mail, Phone, RefreshCw } from 'lucide-react';
 import { getErrorMessage } from '@/utils/errors';
 
@@ -54,32 +53,15 @@ const OTPVerification = ({ email, phone, customerName, onVerified, onBack }: OTP
         setCurrentIdentifier(phone!);
       }
 
-      const { data, error } = await supabase.functions.invoke('send-otp', {
-        body,
-      });
-
-      if (error) throw error;
-
-      setOtpSent(true);
-      toast({
-        title: 'Code Sent!',
-        description: selectedMethod === 'email' 
-          ? `We sent a verification code to ${email}`
-          : `We sent a verification code to ${phone}`,
-      });
+      throw new Error(
+        'Checkout OTP is disabled. Payment continues without this step.'
+      );
     } catch (error: unknown) {
       console.error('Error sending OTP:', error);
       const msg = getErrorMessage(error, '');
-      const isEdgeFunctionError =
-        msg.includes('Edge Function') ||
-        msg.includes('Failed to send a request') ||
-        msg.includes('fetch failed');
-      const description = isEdgeFunctionError
-        ? 'Verification service is unavailable. Please check your connection or try again later. If you run this site, deploy the send-otp Edge Function in your Supabase project.'
-        : msg || 'Please try again.';
       toast({
         title: 'Failed to send code',
-        description,
+        description: msg || 'Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -99,34 +81,9 @@ const OTPVerification = ({ email, phone, customerName, onVerified, onBack }: OTP
 
     setIsVerifying(true);
     try {
-      const { data, error } = await supabase.functions.invoke('verify-otp', {
-        body: { identifier: currentIdentifier, code: otp },
-      });
-
-      if (error) {
-        // Try to extract the actual error message from the response
-        let errorMessage = 'Invalid or expired code. Please try again.';
-        const functionError = error as FunctionErrorWithContext;
-        if (functionError.context?.body) {
-          try {
-            const errorBody = await functionError.context.body.json();
-            if (errorBody?.error) {
-              errorMessage = errorBody.error;
-            }
-          } catch {
-            // Use default message if parsing fails
-          }
-        }
-        throw new Error(errorMessage);
-      }
-
-      if (data.verified) {
-        toast({
-          title: 'Verified!',
-          description: 'Your order is being placed.',
-        });
-        onVerified();
-      }
+      throw new Error(
+        'Checkout OTP is disabled. Payment continues without this step.'
+      );
     } catch (error: unknown) {
       console.error('Error verifying OTP:', error);
       toast({

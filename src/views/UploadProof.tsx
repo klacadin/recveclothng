@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { MAX_UPLOAD_SIZE_BYTES } from '@/config/constants';
 import { compressImageForUpload } from '@/utils/compressImageForUpload';
 import { Button } from '@/components/ui/button';
@@ -40,24 +39,16 @@ const UploadProof = () => {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('get-pending-order', {
-        body: { order_number: orderNumber.trim(), customer_email: email.trim() },
+      const res = await fetch('/api/orders/pending-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_number: orderNumber.trim(),
+          customer_email: email.trim(),
+        }),
       });
-      if (data?.error) throw new Error(data.error);
-      if (error) {
-        let msg = error.message || 'Failed to find order';
-        const cf = error as { context?: { json?: () => Promise<{ error?: string }> } };
-        if (cf?.context?.json) {
-          try {
-            const body = await cf.context.json();
-            if (body?.error) msg = body.error;
-          } catch {
-            // use msg as-is
-          }
-        }
-        throw new Error(msg);
-      }
-      if (!data) throw new Error('Order not found. Check order number and email.');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Order not found. Check order number and email.');
       setOrder(data as PendingOrder);
       setStep('upload');
     } catch (err: unknown) {
@@ -71,7 +62,6 @@ const UploadProof = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // PDFs must already be ≤2MB; images are optimized on upload
     if (file.type.includes('pdf') && file.size > MAX_UPLOAD_SIZE_BYTES) {
       toast({ title: 'File too large', description: 'Max 2MB for PDFs.', variant: 'destructive' });
       return;
@@ -93,7 +83,6 @@ const UploadProof = () => {
     if (!file || !order) return;
     setUploading(true);
     try {
-      // Optimize images before upload (NON-NEGOTIABLE); PDFs use as-is
       const toSend = file.type.startsWith('image/')
         ? await compressImageForUpload(file, { maxSizeBytes: MAX_UPLOAD_SIZE_BYTES })
         : file;
@@ -102,30 +91,27 @@ const UploadProof = () => {
       }
       const uploadMimeType = toSend.type || (file.type.startsWith('image/') ? 'image/webp' : file.type);
       const uploadFileName = file.type.startsWith('image/')
-        ? file.name.replace(/\.[^.]+$/, uploadMimeType.includes('webp') ? '.webp' : uploadMimeType.includes('png') ? '.png' : '.jpg')
+        ? file.name.replace(
+            /\.[^.]+$/,
+            uploadMimeType.includes('webp')
+              ? '.webp'
+              : uploadMimeType.includes('png')
+                ? '.png'
+                : '.jpg'
+          )
         : file.name;
 
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1] || result);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(toSend);
-      });
-      const { data, error } = await supabase.functions.invoke('upload-order-proof', {
-        body: {
-          order_number: order.order_number,
-          customer_email: order.customer_email,
-          file_base64: base64,
-          file_name: uploadFileName,
-          file_mime_type: uploadMimeType,
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setOrder(prev => prev ? { ...prev, proof_of_payment_url: data.proof_url } : null);
+      const fd = new FormData();
+      fd.append('order_id', order.id);
+      fd.append('file', toSend, uploadFileName);
+
+      const res = await fetch('/api/orders/proof', { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Upload failed');
+
+      setOrder((prev) =>
+        prev ? { ...prev, proof_of_payment_url: data.proof_of_payment_url } : null
+      );
       setStep('done');
       toast({ title: 'Proof uploaded', description: 'We’ll confirm once we verify your payment.' });
     } catch (err: unknown) {
@@ -163,7 +149,7 @@ const UploadProof = () => {
                   <Input
                     id="orderNumber"
                     value={orderNumber}
-                    onChange={e => setOrderNumber(e.target.value)}
+                    onChange={(e) => setOrderNumber(e.target.value)}
                     placeholder="e.g. ORD-20260204-1234"
                   />
                 </div>
@@ -173,7 +159,7 @@ const UploadProof = () => {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="your@email.com"
                   />
                 </div>
@@ -190,13 +176,17 @@ const UploadProof = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Order {order.order_number}</CardTitle>
-              <p className="text-sm text-muted-foreground">Amount: ₱{Number(order.total).toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">
+                Amount: ₱{Number(order.total).toLocaleString()}
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
               {order.proof_of_payment_url ? (
                 <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200">
                   <CheckCircle className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-800 dark:text-green-200">Proof already uploaded. We’ll confirm soon.</span>
+                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                    Proof already uploaded. We’ll confirm soon.
+                  </span>
                 </div>
               ) : (
                 <form onSubmit={handleUpload} className="space-y-4">
@@ -206,7 +196,10 @@ const UploadProof = () => {
                     </div>
                   )}
                   <div>
-                    <Label htmlFor="proofFile" className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Label
+                      htmlFor="proofFile"
+                      className="flex items-center gap-2 text-sm text-muted-foreground"
+                    >
                       <ImageIcon className="h-4 w-4" />
                       Screenshot or receipt (JPG, PNG, PDF — max 2MB)
                     </Label>
@@ -220,7 +213,11 @@ const UploadProof = () => {
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={uploading}>
-                    {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                    {uploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
                     Upload proof
                   </Button>
                 </form>

@@ -251,6 +251,25 @@ export const contactSubmissions = pgTable("contact_submissions", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const productReviews = pgTable(
+  "product_reviews",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    orderId: uuid("order_id"),
+    userId: text("user_id"),
+    reviewerName: text("reviewer_name").notNull(),
+    reviewerEmail: text("reviewer_email").notNull(),
+    rating: integer("rating").notNull(),
+    comment: text("comment"),
+    isApproved: boolean("is_approved").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("product_reviews_product_id_idx").on(t.productId)]
+);
+
 export const eventCarousel = pgTable("event_carousel", {
   id: uuid("id").defaultRandom().primaryKey(),
   imageUrl: text("image_url").notNull(),

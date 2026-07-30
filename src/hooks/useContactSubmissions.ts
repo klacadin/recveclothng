@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { apiSend } from '@/lib/api';
 
 export type ContactSubmission = {
   id: string;
@@ -16,12 +16,10 @@ export const useContactSubmissions = () => {
   return useQuery({
     queryKey: ['contact-submissions'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('contact_submissions')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as ContactSubmission[];
+      const res = await fetch('/api/contact', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load contact submissions');
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []) as ContactSubmission[];
     },
   });
 };
@@ -30,11 +28,8 @@ export const useMarkContactRead = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('contact_submissions')
-        .update({ read_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
+      const via = await apiSend('/api/contact', 'PATCH', { id });
+      if (!via.ok) throw new Error(via.error || 'Failed to mark read');
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['contact-submissions'] }),
   });
