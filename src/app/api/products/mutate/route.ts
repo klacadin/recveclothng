@@ -68,6 +68,7 @@ export async function PATCH(req: Request) {
         lowStockThreshold: body.low_stock_threshold ?? undefined,
         weightGrams: body.weight_grams ?? undefined,
         isActive: body.is_active ?? undefined,
+        updatedByEmail: body.updated_by_email ?? undefined,
         updatedAt: new Date(),
       })
       .where(eq(products.id, id))

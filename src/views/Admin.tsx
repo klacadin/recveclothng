@@ -1810,9 +1810,13 @@ const Admin = () => {
                 stock_quantity: sizeStocks[size],
               }));
               await bulkUpdateVariants.mutateAsync({ productId: stockUpdateProduct.id, variants });
+              const totalStock = Object.values(sizeStocks).reduce((sum, qty) => sum + qty, 0);
               await updateProduct.mutateAsync({
                 id: stockUpdateProduct.id,
-                updates: { updated_by_email: user?.email ?? null },
+                updates: {
+                  stock_quantity: totalStock,
+                  updated_by_email: user?.email ?? null,
+                },
               });
               toast({ title: "Stock updated", description: "Inventory has been updated successfully." });
               setStockUpdateProduct(null);
