@@ -30,7 +30,26 @@ function statusMessage(status: string) {
 }
 
 function isRealClerkUserId(id: string | null | undefined): boolean {
-  return !!id && id.startsWith("user_");
+  return !!id && /^user_[a-zA-Z0-9]+$/.test(id);
+}
+
+/** Empty → null; invalid non-empty → throw-style error payload for callers. */
+function parseOptionalClerkUserId(
+  raw: unknown
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (raw === undefined || raw === null || raw === "") {
+    return { ok: true, value: null };
+  }
+  const value = String(raw).trim();
+  if (!value) return { ok: true, value: null };
+  if (!isRealClerkUserId(value)) {
+    return {
+      ok: false,
+      error:
+        "clerk_user_id must be a real Clerk id starting with user_ (or leave blank to link by email on sign-in)",
+    };
+  }
+  return { ok: true, value };
 }
 
 async function claimByEmail(
@@ -314,9 +333,10 @@ export async function POST(req: Request) {
     }
 
     // Admin creating invite-style or linked affiliate
-    const clerkUserId = body.clerk_user_id
-      ? String(body.clerk_user_id).trim() || null
-      : null;
+    const parsedClerk = parseOptionalClerkUserId(body.clerk_user_id);
+    if (!parsedClerk.ok) {
+      return NextResponse.json({ error: parsedClerk.error }, { status: 400 });
+    }
     const status = ["active", "inactive", "pending"].includes(body.status)
       ? body.status
       : "active";
@@ -325,7 +345,7 @@ export async function POST(req: Request) {
       const [created] = await db
         .insert(affiliates)
         .values({
-          clerkUserId,
+          clerkUserId: parsedClerk.value,
           code,
           name,
           email,
@@ -339,12 +359,15 @@ export async function POST(req: Request) {
         message: statusMessage(created.status),
       });
     } catch (e) {
-      if (isUniqueViolation(e)) {
-        return NextResponse.json(
-          { error: "An affiliate with this email or code already exists" },
-          { status: 409 }
-        );
-      }
+        if (isUniqueViolation(e)) {
+          return NextResponse.json(
+            {
+              error:
+                "An affiliate with this email, code, or Clerk user already exists",
+            },
+            { status: 409 }
+          );
+        }
       throw e;
     }
   } catch (e) {
@@ -375,11 +398,14 @@ export async function PATCH(req: Request) {
           { status: 400 }
         );
       }
-      const [mine] = await db
-        .select()
-        .from(affiliates)
-        .where(eq(affiliates.clerkUserId, userId))
-        .limit(1);
+      const email = (
+        user?.primaryEmailAddress?.emailAddress ||
+        user?.emailAddresses?.[0]?.emailAddress ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+      const mine = await loadPersonalAffiliate(db, userId, email);
       if (!mine) {
         return NextResponse.json({ error: "Affiliate account not found" }, { status: 404 });
       }
@@ -441,8 +467,11 @@ export async function PATCH(req: Request) {
       patch.code = code;
     }
     if (body.clerk_user_id !== undefined) {
-      const cid = body.clerk_user_id;
-      patch.clerkUserId = cid === null || cid === "" ? null : String(cid).trim();
+      const parsedClerk = parseOptionalClerkUserId(body.clerk_user_id);
+      if (!parsedClerk.ok) {
+        return NextResponse.json({ error: parsedClerk.error }, { status: 400 });
+      }
+      patch.clerkUserId = parsedClerk.value;
     }
 
     try {
@@ -460,7 +489,7 @@ export async function PATCH(req: Request) {
     } catch (e) {
       if (isUniqueViolation(e)) {
         return NextResponse.json(
-          { error: "Email or code already in use" },
+          { error: "Email, code, or Clerk user already in use" },
           { status: 409 }
         );
       }

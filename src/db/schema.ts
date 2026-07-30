@@ -11,7 +11,7 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 export const orderStatusEnum = pgEnum("order_status", [
   "new",
@@ -119,7 +119,10 @@ export const affiliates = pgTable(
   (t) => [
     uniqueIndex("affiliates_code_idx").on(t.code),
     uniqueIndex("affiliates_email_idx").on(t.email),
-    index("affiliates_clerk_user_id_idx").on(t.clerkUserId),
+    // One Clerk account → at most one affiliate row (nulls allowed for invites)
+    uniqueIndex("affiliates_clerk_user_id_uidx")
+      .on(t.clerkUserId)
+      .where(sql`${t.clerkUserId} IS NOT NULL`),
   ]
 );
 

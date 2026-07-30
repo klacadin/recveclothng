@@ -55,7 +55,6 @@ export default function AdminAffiliateManagement() {
   const [ratePercent, setRatePercent] = useState(
     String(DEFAULT_AFFILIATE_COMMISSION_RATE * 100)
   );
-  const [clerkUserId, setClerkUserId] = useState("");
 
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
   const [editRatePercent, setEditRatePercent] = useState("");
@@ -165,7 +164,6 @@ export default function AdminAffiliateManagement() {
         email,
         code: normalized,
         commission_rate: rate,
-        clerk_user_id: clerkUserId.trim() || null,
         status: "active",
       }),
     });
@@ -177,7 +175,6 @@ export default function AdminAffiliateManagement() {
     setName("");
     setEmail("");
     setCode("");
-    setClerkUserId("");
     setRatePercent(defaultRatePercent);
     await load();
   };
@@ -335,14 +332,9 @@ export default function AdminAffiliateManagement() {
                 onChange={(e) => setRatePercent(e.target.value)}
               />
             </div>
-            <div>
-              <Label htmlFor="aff-clerk">Clerk user id (optional)</Label>
-              <Input
-                id="aff-clerk"
-                value={clerkUserId}
-                onChange={(e) => setClerkUserId(e.target.value)}
-                placeholder="leave blank to claim by email later"
-              />
+            <div className="sm:col-span-2 lg:col-span-2 text-xs text-muted-foreground self-end pb-2">
+              Leave Clerk linking blank — when they sign in with this email, the account binds
+              automatically. Do not paste codes or handles as user ids.
             </div>
             <Button type="submit">Add active affiliate</Button>
           </form>
