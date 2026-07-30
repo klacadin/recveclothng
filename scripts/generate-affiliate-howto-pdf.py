@@ -1,17 +1,37 @@
-"""Generate a simple HOW TO USE AFFILIATE PDF for REVE Clothing."""
+"""Generate HOW TO USE AFFILIATE PDF with official logos."""
 from pathlib import Path
 
 from fpdf import FPDF
+from PIL import Image
 
-OUT = Path(__file__).resolve().parents[1] / "public" / "REVE-Affiliate-How-To-Use.pdf"
+ROOT = Path(__file__).resolve().parents[1]
+OUT = ROOT / "public" / "REVE-Affiliate-How-To-Use.pdf"
+DOCS_OUT = ROOT / "docs" / "REVE-Affiliate-How-To-Use.pdf"
+REVE_LOGO = ROOT / "src" / "assets" / "reve-logo.jpg"
+NOBODY_LOGO = ROOT / "src" / "assets" / "nobody-logo.png"
+TMP = ROOT / "scripts" / ".tmp-pdf-assets"
 OUT.parent.mkdir(parents=True, exist_ok=True)
+DOCS_OUT.parent.mkdir(parents=True, exist_ok=True)
+TMP.mkdir(parents=True, exist_ok=True)
 
-# Brand-ish dark + red accent (print-safe)
+BRAND = "Reve Clothing x Nobody at MC2"
 BLACK = (20, 20, 20)
 GRAY = (90, 90, 90)
 LIGHT = (245, 245, 245)
 ACCENT = (180, 40, 40)
 WHITE = (255, 255, 255)
+
+
+def prep_logo(src: Path, name: str, max_w: int, max_h: int) -> Path:
+    """Save a RGB/PNG suitable for fpdf on white or dark contexts."""
+    img = Image.open(src).convert("RGBA")
+    img.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
+    # Place on white card so black-bg logos stay visible in PDF
+    canvas = Image.new("RGB", (img.width + 16, img.height + 16), (255, 255, 255))
+    canvas.paste(img, (8, 8), img)
+    dest = TMP / name
+    canvas.save(dest, "PNG")
+    return dest
 
 
 class GuidePDF(FPDF):
@@ -20,14 +40,19 @@ class GuidePDF(FPDF):
             return
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*GRAY)
-        self.cell(0, 8, "REVE Clothing  |  How to Use Affiliate", align="L")
+        self.cell(0, 8, f"{BRAND}  |  How to Use Affiliate", align="L")
         self.ln(10)
 
     def footer(self):
         self.set_y(-15)
         self.set_font("Helvetica", "", 8)
         self.set_text_color(*GRAY)
-        self.cell(0, 10, f"Page {self.page_no()}/{{nb}}  |  reveclothingxnobody.com", align="C")
+        self.cell(
+            0,
+            10,
+            f"Page {self.page_no()}/{{nb}}  |  {BRAND}  |  reveclothingxnobody.com",
+            align="C",
+        )
 
 
 def section_title(pdf: GuidePDF, text: str):
@@ -57,7 +82,6 @@ def muted(pdf: GuidePDF, text: str):
 
 
 def step_box(pdf: GuidePDF, number: int, title: str, lines: list[str]):
-    # Ensure room for the box
     needed = 18 + len(lines) * 6
     if pdf.get_y() + needed > pdf.h - 25:
         pdf.add_page()
@@ -66,11 +90,9 @@ def step_box(pdf: GuidePDF, number: int, title: str, lines: list[str]):
     y = pdf.get_y()
     w = pdf.epw
 
-    # Soft background
     pdf.set_fill_color(*LIGHT)
     pdf.rect(x, y, w, needed, style="F")
 
-    # Number circle-ish
     pdf.set_xy(x + 4, y + 4)
     pdf.set_fill_color(*ACCENT)
     pdf.set_text_color(*WHITE)
@@ -82,7 +104,6 @@ def step_box(pdf: GuidePDF, number: int, title: str, lines: list[str]):
     pdf.set_font("Helvetica", "B", 12)
     pdf.cell(0, 8, title, new_x="LMARGIN", new_y="NEXT")
 
-    pdf.set_x(x + 18)
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(*BLACK)
     for line in lines:
@@ -114,34 +135,55 @@ def tip_box(pdf: GuidePDF, title: str, text: str):
 
 
 def main():
+    reve_png = prep_logo(REVE_LOGO, "reve-logo-pdf.png", 420, 420)
+    nobody_png = prep_logo(NOBODY_LOGO, "nobody-logo-pdf.png", 520, 160)
+
     pdf = GuidePDF(orientation="P", unit="mm", format="A4")
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=18)
     pdf.set_margins(18, 18, 18)
     pdf.add_page()
 
-    # Cover / title
+    # Cover bar
     pdf.set_fill_color(*BLACK)
-    pdf.rect(0, 0, 210, 52, style="F")
-    pdf.set_y(16)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(*WHITE)
-    pdf.cell(0, 6, "REVE CLOTHING", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "B", 22)
-    pdf.cell(0, 10, "How to Use Affiliate", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 7, "Simple guide for partners  |  Earn 10% on confirmed paid orders", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.rect(0, 0, 210, 62, style="F")
 
-    pdf.set_y(60)
+    # Logos on white cards inside the dark header area
+    pdf.image(str(reve_png), x=28, y=8, h=28)
+    pdf.set_xy(78, 16)
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(*WHITE)
+    pdf.cell(20, 12, "x", align="C")
+    pdf.image(str(nobody_png), x=100, y=14, h=16)
+
+    pdf.set_y(40)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(*WHITE)
+    pdf.cell(0, 6, BRAND, align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "B", 20)
+    pdf.cell(0, 9, "How to Use Affiliate", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(
+        0,
+        6,
+        "Simple guide for partners  |  Earn 10% on confirmed paid orders",
+        align="C",
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
+
+    pdf.set_y(70)
     section_title(pdf, "What is this?")
     body(
         pdf,
-        "The REVE Affiliate program lets you share a personal link. When someone buys through your link "
-        "and the order is paid/confirmed, you earn commission (default 10% of the product subtotal).",
+        f"The {BRAND} Affiliate program lets you share a personal link. When someone buys "
+        "through your link and the order is paid/confirmed, you earn commission "
+        "(default 10% of the product subtotal).",
     )
     muted(
         pdf,
         "Website: https://www.reveclothingxnobody.com\n"
+        "Guide: https://www.reveclothingxnobody.com/affiliate/guide\n"
         "Join: https://www.reveclothingxnobody.com/affiliate/join\n"
         "Login: https://www.reveclothingxnobody.com/affiliate/login\n"
         "Dashboard: https://www.reveclothingxnobody.com/affiliate/dashboard",
@@ -174,7 +216,7 @@ def main():
         "Wait for approval",
         [
             "Your status starts as PENDING.",
-            "REVE admin must approve you before your link works for commission.",
+            f"{BRAND} admin must approve you before your link earns commission.",
             "You will see ACTIVE when approved.",
         ],
     )
@@ -194,6 +236,7 @@ def main():
         "Share and earn",
         [
             "Share your link on Facebook, Instagram, Messenger, TikTok, SMS, etc.",
+            "Use the official invite posters from /affiliate/guide.",
             "When a shopper clicks your link, they are remembered for 30 days.",
             "You earn when their order is confirmed paid (not when they only click).",
         ],
@@ -232,11 +275,21 @@ def main():
         "- Change your 8-character code (if available)",
     )
 
+    section_title(pdf, "Share assets")
+    body(
+        pdf,
+        "Download ready-made posters from the Affiliate Guide page:\n"
+        "https://www.reveclothingxnobody.com/affiliate/guide\n\n"
+        "- Square poster for Facebook / Instagram feed\n"
+        "- Story poster for Instagram / Facebook Stories\n"
+        "Always pair posters with YOUR unique affiliate link.",
+    )
+
     section_title(pdf, "Best practices (easy wins)")
     body(
         pdf,
         "1. Always share YOUR link (not the plain homepage).\n"
-        "2. Tell people what to buy and why you like REVE.\n"
+        "2. Tell people what to buy and why you like REVE x NOBODY.\n"
         "3. Ask shoppers to check out on the same phone/browser within 30 days.\n"
         "4. Keep your code short and memorable (8 characters).\n"
         "5. Check your dashboard weekly for earnings.",
@@ -258,7 +311,7 @@ def main():
         "Q: Can I change my code?\n"
         "A: Yes, from the dashboard (must be exactly 8 letters/numbers).\n\n"
         "Q: What if my account is inactive?\n"
-        "A: Contact REVE Clothing support to ask about reactivation.\n\n"
+        f"A: Contact {BRAND} support to ask about reactivation.\n\n"
         "Q: Who do I contact for help?\n"
         "A: Use the website contact form, or message REVE on Facebook.",
     )
@@ -266,15 +319,19 @@ def main():
     section_title(pdf, "Need help?")
     body(
         pdf,
+        f"{BRAND}\n"
         "Website: https://www.reveclothingxnobody.com\n"
-        "Affiliate join: /affiliate/join\n"
-        "Affiliate login: /affiliate/login\n"
-        "Affiliate dashboard: /affiliate/dashboard",
+        "Guide: /affiliate/guide\n"
+        "Join: /affiliate/join\n"
+        "Login: /affiliate/login\n"
+        "Dashboard: /affiliate/dashboard",
     )
-    muted(pdf, "Thank you for sharing REVE with your community. Timing is Everything.")
+    muted(pdf, "Thank you for sharing REVE x NOBODY with your community. Timing is Everything.")
 
     pdf.output(OUT)
+    pdf.output(DOCS_OUT)
     print(f"Wrote {OUT}")
+    print(f"Wrote {DOCS_OUT}")
 
 
 if __name__ == "__main__":
