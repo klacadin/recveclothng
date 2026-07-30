@@ -28,7 +28,7 @@ function readAffiliateCodeFromCookie(): string | null {
   if (!match) return null;
   const value = decodeURIComponent(match.slice(AFFILIATE_COOKIE_NAME.length + 1)).trim().toLowerCase();
   return value || null;
-}const checkoutSchema = z.object({
+} const checkoutSchema = z.object({
   customerName: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
   customerEmail: z.string().email('Invalid email address').max(320, 'Email is too long'),
   customerPhone: z.string().min(1, 'Phone number is required').max(50, 'Phone number is too long'),
@@ -103,11 +103,17 @@ const Checkout = () => {
   // Discount applies to subtotal only — never to shipping or convenience fee
   const total = Math.max(1, subtotal - voucherDiscountAmount + shippingFee + CONVENIENCE_FEE);
 
-  // Re-validate voucher when subtotal changes (e.g. cart updated) if voucher is applied
+  // Stable cart signature — avoids voucher flicker from cart array identity changes
+  const cartSignature = items
+    .map((i) => `${i.product.id}:${i.size}:${i.quantity}:${i.product.price}`)
+    .join("|");
+
+  // Re-validate voucher when cart totals change (not on every items array identity change)
   useEffect(() => {
     if (!voucherApplied || !voucherCode.trim()) return;
     let cancelled = false;
     const validate = async () => {
+      setIsValidatingVoucher(true);
       try {
         const res = await fetch('/api/vouchers/validate', {
           method: 'POST',
@@ -143,11 +149,14 @@ const Checkout = () => {
           setVoucherDiscountAmount(0);
           setVoucherMessage('');
         }
+      } finally {
+        if (!cancelled) setIsValidatingVoucher(false);
       }
     };
-    validate();
+    void validate();
     return () => { cancelled = true; };
-  }, [subtotal, voucherApplied, voucherCode, items]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cartSignature captures item changes
+  }, [subtotal, voucherApplied, voucherCode, cartSignature]);
 
   // Initialize step: allow guest checkout (skip auth), or go to details when logged in
   useEffect(() => {
@@ -184,6 +193,14 @@ const Checkout = () => {
         title: 'Too many items',
         description: `Orders are limited to ${MAX_ORDER_PIECES} pieces total. Reduce quantities in your cart.`,
         variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isValidatingVoucher) {
+      toast({
+        title: 'Updating total',
+        description: 'Please wait a moment while the voucher amount finishes updating.',
       });
       return;
     }
@@ -671,9 +688,13 @@ const Checkout = () => {
                       type="submit"
                       className="w-full"
                       size="lg"
-                      disabled={isSubmitting || pieceCapExceeded}
+                      disabled={isSubmitting || pieceCapExceeded || isValidatingVoucher}
                     >
-                      {user ? 'Continue to Verification' : 'Proceed to Payment'}
+                      {isValidatingVoucher
+                        ? 'Updating total…'
+                        : user
+                          ? 'Continue to Verification'
+                          : 'Proceed to Payment'}
                     </Button>
                   </CardContent>
                 </Card>

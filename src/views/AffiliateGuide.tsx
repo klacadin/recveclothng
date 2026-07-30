@@ -115,13 +115,13 @@ export default function AffiliateGuide() {
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
           <Button asChild size="lg">
-            <Link to={AFFILIATE_JOIN_PATH}>
-              Become an affiliate
+            <Link to={AFFILIATE_DASHBOARD_PATH}>
+              Open affiliate dashboard
               <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link to={AFFILIATE_DASHBOARD_PATH}>Open dashboard</Link>
+            <Link to={AFFILIATE_JOIN_PATH}>Become an affiliate</Link>
           </Button>
           <Button asChild size="lg" variant="secondary">
             <a href={AFFILIATE_HOWTO_PDF_PATH} target="_blank" rel="noopener noreferrer">

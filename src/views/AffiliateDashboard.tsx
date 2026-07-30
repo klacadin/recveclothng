@@ -401,26 +401,46 @@ export default function AffiliateDashboard() {
         </p>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mb-8 text-muted-foreground">
-          <Link
-            to={AFFILIATE_JOIN_PATH}
-            className="hover:text-foreground underline-offset-2 hover:underline"
-          >
-            Register
-          </Link>
-          <span aria-hidden>·</span>
-          <Link
-            to={AFFILIATE_LOGIN_PATH}
-            className="hover:text-foreground underline-offset-2 hover:underline"
-          >
-            Login
-          </Link>
-          <span aria-hidden>·</span>
-          <Link
-            to={AFFILIATE_DASHBOARD_PATH}
-            className="hover:text-foreground underline-offset-2 hover:underline"
-          >
-            Manage dashboard
-          </Link>
+          {user && affiliate ? (
+            <>
+              <Link
+                to={AFFILIATE_DASHBOARD_PATH}
+                className="hover:text-foreground underline-offset-2 hover:underline"
+              >
+                Dashboard
+              </Link>
+              <span aria-hidden>·</span>
+              <Link
+                to={AFFILIATE_GUIDE_PATH}
+                className="hover:text-foreground underline-offset-2 hover:underline"
+              >
+                Guide
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                to={AFFILIATE_JOIN_PATH}
+                className="hover:text-foreground underline-offset-2 hover:underline"
+              >
+                Register
+              </Link>
+              <span aria-hidden>·</span>
+              <Link
+                to={AFFILIATE_LOGIN_PATH}
+                className="hover:text-foreground underline-offset-2 hover:underline"
+              >
+                Login
+              </Link>
+              <span aria-hidden>·</span>
+              <Link
+                to={AFFILIATE_DASHBOARD_PATH}
+                className="hover:text-foreground underline-offset-2 hover:underline"
+              >
+                Manage dashboard
+              </Link>
+            </>
+          )}
         </div>
 
         {authLoading || (user && loading) ? (
@@ -658,51 +678,28 @@ export default function AffiliateDashboard() {
                   </Button>
                 </CardContent>
               </Card>
-            ) : status === "pending" ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Application pending</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    {message ||
-                      "Your application is pending. You can still change your 8-character code."}
-                  </p>
-                  <p className="text-sm">
-                    Current code:{" "}
-                    <code className="bg-secondary px-1.5 py-0.5 rounded">{affiliate.code}</code>
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Input
-                      value={desiredCode}
-                      maxLength={AFFILIATE_CODE_LENGTH}
-                      onChange={(e) =>
-                        setDesiredCode(normalizeAffiliateCode(e.target.value).slice(0, 8))
-                      }
-                      placeholder={affiliate.code}
-                      className="font-mono"
-                    />
-                    <Button
-                      onClick={saveCode}
-                      disabled={savingCode || desiredCode.length !== AFFILIATE_CODE_LENGTH}
-                    >
-                      {savingCode ? "Saving…" : "Update code"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : status === "inactive" ? (
-              <Card>
-                <CardContent className="py-10 text-center space-y-2">
-                  <p className="font-medium">Account inactive</p>
-                  <p className="text-sm text-muted-foreground">
-                    {message ||
-                      "Your affiliate account is inactive. Contact Reve Clothing x Nobody if you think this is a mistake."}
-                  </p>
-                </CardContent>
-              </Card>
             ) : (
               <div className="space-y-4">
+                {status === "pending" && (
+                  <Card className="border-amber-200 bg-amber-50/60">
+                    <CardContent className="py-4 text-sm text-amber-900">
+                      {message ||
+                        "Your application is pending approval. Earnings and orders will appear below; your share link goes live after approval."}
+                    </CardContent>
+                  </Card>
+                )}
+                {status === "inactive" && (
+                  <Card className="border-destructive/30 bg-destructive/5">
+                    <CardContent className="py-4 text-sm">
+                      <p className="font-medium">Account inactive</p>
+                      <p className="text-muted-foreground mt-1">
+                        {message ||
+                          "Your affiliate account is inactive. Contact Reve Clothing x Nobody if you think this is a mistake."}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -716,14 +713,23 @@ export default function AffiliateDashboard() {
                       <code className="bg-secondary px-1.5 py-0.5 rounded">{affiliate.code}</code>
                       {" · "}
                       {(Number(affiliate.commissionRate) * 100).toFixed(0)}% commission
+                      {status !== "active" && (
+                        <span className="text-amber-700"> · link not live yet</span>
+                      )}
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Input readOnly value={link} className="font-mono text-sm" />
-                      <Button type="button" onClick={copyLink} variant="outline">
-                        <Copy className="h-4 w-4 mr-2" />
-                        {copied ? "Copied" : "Copy"}
-                      </Button>
-                    </div>
+                    {status === "active" ? (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Input readOnly value={link} className="font-mono text-sm" />
+                        <Button type="button" onClick={copyLink} variant="outline">
+                          <Copy className="h-4 w-4 mr-2" />
+                          {copied ? "Copied" : "Copy"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Share link unlocks when your account is active.
+                      </p>
+                    )}
                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
                       <Input
                         value={desiredCode}
