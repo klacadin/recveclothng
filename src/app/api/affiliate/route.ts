@@ -3,7 +3,7 @@ import {
   normalizeAffiliateCode,
   toAffiliateCode,
 } from "@/lib/affiliate-constants";
-import { affiliates } from "@/db/schema";
+import { affiliates, orders } from "@/db/schema";
 import {
   getAffiliateStats,
   listAffiliateCommissions,
@@ -439,5 +439,53 @@ export async function PATCH(req: Request) {
   } catch (e) {
     console.error("affiliate PATCH", e);
     return NextResponse.json({ error: "Failed to update affiliate" }, { status: 500 });
+  }
+}
+
+/** Admin-only: delete an affiliate entry (commissions cascade; orders unlink). */
+export async function DELETE(req: Request) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await currentUser();
+    const isAdmin = (user?.publicMetadata?.role as string) === "admin";
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const { searchParams } = new URL(req.url);
+    const id = String(body.id || searchParams.get("id") || "").trim();
+    if (!id) {
+      return NextResponse.json({ error: "id required" }, { status: 400 });
+    }
+
+    const db = getDb();
+
+    // Unlink orders first (FK may be RESTRICT depending on migration history)
+    await db
+      .update(orders)
+      .set({ affiliateId: null, updatedAt: new Date() })
+      .where(eq(orders.affiliateId, id));
+
+    const [removed] = await db
+      .delete(affiliates)
+      .where(eq(affiliates.id, id))
+      .returning({ id: affiliates.id, code: affiliates.code, email: affiliates.email });
+
+    if (!removed) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ deleted: removed });
+  } catch (e) {
+    console.error("affiliate DELETE", e);
+    return NextResponse.json(
+      {
+        error: "Failed to delete affiliate",
+        detail: e instanceof Error ? e.message : String(e),
+      },
+      { status: 500 }
+    );
   }
 }

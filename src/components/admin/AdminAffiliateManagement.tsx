@@ -199,6 +199,27 @@ export default function AdminAffiliateManagement() {
     }
   };
 
+  const deleteAffiliate = async (id: string) => {
+    setBusyId(id);
+    setError(null);
+    setSettingsMessage(null);
+    try {
+      const res = await fetch("/api/affiliate", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.detail || "Delete failed");
+      setSettingsMessage(`Deleted affiliate ${data.deleted?.code || id}`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const saveRate = async (id: string) => {
     const rate = Number(editRatePercent) / 100;
     if (!Number.isFinite(rate) || rate < 0 || rate > 1) {
@@ -441,6 +462,24 @@ export default function AdminAffiliateManagement() {
                             Pending
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 text-xs"
+                          disabled={busyId === a.id}
+                          onClick={() => {
+                            if (
+                              !window.confirm(
+                                `Delete affiliate "${a.name}" (${a.code})?\n\nThis removes the entry and commission history. It does not remove the affiliate feature.`
+                              )
+                            ) {
+                              return;
+                            }
+                            void deleteAffiliate(a.id);
+                          }}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </td>
                   </tr>
