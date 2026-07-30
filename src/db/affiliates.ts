@@ -1,4 +1,4 @@
-import { and, eq, sql, desc, inArray } from "drizzle-orm";
+import { and, eq, sql, desc, inArray, isNull } from "drizzle-orm";
 import { getDb } from "./client";
 import { affiliateCommissions, affiliates, orders, PAID_ORDER_STATUSES } from "./schema";
 
@@ -100,6 +100,76 @@ export async function listAffiliateCommissions(affiliateId: string, limit = 100)
     .where(eq(affiliateCommissions.affiliateId, affiliateId))
     .orderBy(desc(affiliateCommissions.createdAt))
     .limit(limit);
+}
+
+/**
+ * Backfill commission rows for confirmed affiliate orders that are missing them
+ * (e.g. payment marked paid manually / webhook missed commission write).
+ */
+export async function reconcileAffiliateCommissions(affiliateId?: string) {
+  const db = getDb();
+  const conditions = [
+    sql`${orders.affiliateId} IS NOT NULL`,
+    inArray(orders.status, [...PAID_ORDER_STATUSES]),
+    isNull(affiliateCommissions.id),
+  ];
+  if (affiliateId) {
+    conditions.push(eq(orders.affiliateId, affiliateId));
+  }
+
+  const missing = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .leftJoin(affiliateCommissions, eq(affiliateCommissions.orderId, orders.id))
+    .where(and(...conditions))
+    .limit(500);
+
+  let created = 0;
+  for (const row of missing) {
+    const commission = await recordAffiliateCommissionForOrder(row.id);
+    if (commission) created += 1;
+  }
+  return { scanned: missing.length, created };
+}
+
+/** Orders attributed to an affiliate (any status) for dashboard pipeline. */
+export async function listAffiliateAttributedOrders(affiliateId: string, limit = 50) {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      status: orders.status,
+      subtotal: orders.subtotal,
+      total: orders.total,
+      paymentMethod: orders.paymentMethod,
+      createdAt: orders.createdAt,
+    })
+    .from(orders)
+    .where(eq(orders.affiliateId, affiliateId))
+    .orderBy(desc(orders.createdAt))
+    .limit(limit);
+
+  const rateRow = await db
+    .select({ commissionRate: affiliates.commissionRate })
+    .from(affiliates)
+    .where(eq(affiliates.id, affiliateId))
+    .limit(1);
+  const rate = Number(rateRow[0]?.commissionRate ?? 0);
+
+  return rows.map((o) => {
+    const subtotal = Number(o.subtotal);
+    const isConfirmed = PAID_ORDER_STATUSES.includes(o.status as PaidStatus);
+    const estimatedEarnings = Math.round(subtotal * rate * 100) / 100;
+    return {
+      ...o,
+      subtotal,
+      total: Number(o.total),
+      isConfirmed,
+      estimatedEarnings,
+      commissionRate: rate,
+    };
+  });
 }
 
 export async function listAllAffiliateActivity(commissionLimit = 200) {

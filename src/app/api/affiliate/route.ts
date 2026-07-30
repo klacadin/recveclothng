@@ -7,8 +7,10 @@ import { affiliates, orders } from "@/db/schema";
 import {
   getAffiliateStats,
   getAffiliateStatsForMany,
+  listAffiliateAttributedOrders,
   listAffiliateCommissions,
   listAllAffiliateActivity,
+  reconcileAffiliateCommissions,
 } from "@/db/affiliates";
 import { getDefaultAffiliateCommissionRate } from "@/db/settings";
 import { auth, currentUser } from "@clerk/nextjs/server";
@@ -73,8 +75,8 @@ export async function GET(req: Request) {
     let role = claimsMeta?.role || "";
     let email = String(
       (sessionClaims as { email?: string } | null)?.email ||
-        (sessionClaims as { primaryEmail?: string } | null)?.primaryEmail ||
-        ""
+      (sessionClaims as { primaryEmail?: string } | null)?.primaryEmail ||
+      ""
     )
       .trim()
       .toLowerCase();
@@ -100,6 +102,7 @@ export async function GET(req: Request) {
     const wantAdminList = isAdmin && searchParams.get("all") === "1";
 
     if (wantAdminList) {
+      const reconciled = await reconcileAffiliateCommissions();
       const activity = await listAllAffiliateActivity(200);
       const statsMap = await getAffiliateStatsForMany(activity.affiliates.map((a) => a.id));
       const withStats = activity.affiliates.map((a) => ({
@@ -114,6 +117,7 @@ export async function GET(req: Request) {
         role: "admin",
         affiliates: withStats,
         commissions: activity.commissions,
+        reconciled,
       });
     }
 
@@ -124,19 +128,24 @@ export async function GET(req: Request) {
         affiliate: null,
         stats: null,
         commissions: [],
+        attributedOrders: [],
         message: null,
       });
     }
 
-    const [stats, commissions] = await Promise.all([
+    const reconciled = await reconcileAffiliateCommissions(affiliate.id);
+    const [stats, commissions, attributedOrders] = await Promise.all([
       getAffiliateStats(affiliate.id),
       listAffiliateCommissions(affiliate.id, 100),
+      listAffiliateAttributedOrders(affiliate.id, 50),
     ]);
     return NextResponse.json({
       role: isAdmin ? "admin" : "affiliate",
       affiliate,
       stats,
       commissions,
+      attributedOrders,
+      reconciled,
       message: statusMessage(affiliate.status),
     });
   } catch (e) {

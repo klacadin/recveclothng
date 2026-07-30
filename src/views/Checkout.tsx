@@ -13,11 +13,22 @@ import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 // OTP verification removed - only COD requires it, but COD is hidden for now
 import { CONVENIENCE_FEE, MAX_ORDER_PIECES } from '@/config/constants';
+import { AFFILIATE_COOKIE_NAME } from '@/lib/affiliate-constants';
 import { shippingFeeByTotalPiecesPhp, totalPiecesFromLineItems } from '@/utils/orderShippingRates';
 import PhilippineAddressSelect from '@/components/checkout/PhilippineAddressSelect';
 import { buildAddressString } from '@/hooks/usePhilippineAddress';
 import { getProductDisplayImage } from '@/data/productImages';
-const checkoutSchema = z.object({
+
+function readAffiliateCodeFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie
+    .split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${AFFILIATE_COOKIE_NAME}=`));
+  if (!match) return null;
+  const value = decodeURIComponent(match.slice(AFFILIATE_COOKIE_NAME.length + 1)).trim().toLowerCase();
+  return value || null;
+}const checkoutSchema = z.object({
   customerName: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
   customerEmail: z.string().email('Invalid email address').max(320, 'Email is too long'),
   customerPhone: z.string().min(1, 'Phone number is required').max(50, 'Phone number is too long'),
@@ -211,6 +222,7 @@ const Checkout = () => {
         total,
         voucher_code: voucherApplied ? voucherCode.trim() : null,
         user_id: user?.id || null, // Link order to authenticated user
+        affiliate_code: readAffiliateCodeFromCookie(),
         items: items.map(item => ({
           product_id: item.product.id,
           product_name: item.product.name,

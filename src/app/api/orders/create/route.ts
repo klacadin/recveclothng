@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       payment_method,
       items,
       user_id,
+      affiliate_code: bodyAffiliateCode,
     } = body as {
       customer_name: string;
       customer_email: string;
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
       payment_method: "cod" | "gcash" | "maya" | "bank_transfer";
       items: CartItem[];
       user_id?: string;
+      affiliate_code?: string;
     };
 
     if (!customer_name || !customer_email || !shipping_address || !payment_method) {
@@ -120,7 +122,12 @@ export async function POST(req: Request) {
     const serverTotal = serverSubtotal + shippingFee;
 
     const jar = await cookies();
-    const affCode = jar.get(AFFILIATE_COOKIE_NAME)?.value?.toLowerCase();
+    const cookieCode = jar.get(AFFILIATE_COOKIE_NAME)?.value?.toLowerCase() || "";
+    const bodyCode = String(bodyAffiliateCode || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    const affCode = cookieCode || bodyCode;
     let affiliateId: string | null = null;
     if (affCode) {
       const [aff] = await db

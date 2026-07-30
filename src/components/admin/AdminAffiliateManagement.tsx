@@ -95,6 +95,11 @@ export default function AdminAffiliateManagement() {
       }
       setAffiliates(data.affiliates || []);
       setCommissions(data.commissions || []);
+      if (data.reconciled?.created > 0) {
+        setSettingsMessage(
+          `Reconciled ${data.reconciled.created} missing commission(s) into affiliate earnings.`
+        );
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {

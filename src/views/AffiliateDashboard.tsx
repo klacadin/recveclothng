@@ -37,6 +37,18 @@ type Stats = {
   totalEarnings: number;
 };
 
+type AttributedOrder = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  subtotal: number;
+  total: number;
+  paymentMethod: string | null;
+  createdAt: string;
+  isConfirmed: boolean;
+  estimatedEarnings: number;
+};
+
 type Affiliate = {
   id: string;
   code: string;
@@ -96,6 +108,7 @@ export default function AffiliateDashboard() {
   const [affiliate, setAffiliate] = useState<Affiliate | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [commissions, setCommissions] = useState<Commission[]>([]);
+  const [attributedOrders, setAttributedOrders] = useState<AttributedOrder[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -148,6 +161,7 @@ export default function AffiliateDashboard() {
       setAffiliate(data.affiliate ?? null);
       setStats(data.stats);
       setCommissions(data.commissions || []);
+      setAttributedOrders(data.attributedOrders || []);
       setMessage(data.message || null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
@@ -161,6 +175,9 @@ export default function AffiliateDashboard() {
     else {
       setLoading(false);
       setAffiliate(null);
+      setStats(null);
+      setCommissions([]);
+      setAttributedOrders([]);
     }
   }, [user]);
 
@@ -740,20 +757,23 @@ export default function AffiliateDashboard() {
                   <Card>
                     <CardContent className="pt-6">
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                        Sales
+                        Confirmed sales
                       </p>
                       <p className="text-2xl font-bold mt-1">
                         ₱{(stats?.totalSales ?? 0).toLocaleString("en-PH")}
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="border-accent/40 bg-accent/5">
                     <CardContent className="pt-6">
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                        Earnings
+                        Your earnings
                       </p>
-                      <p className="text-2xl font-bold mt-1">
+                      <p className="text-2xl font-bold mt-1 text-accent">
                         ₱{(stats?.totalEarnings ?? 0).toLocaleString("en-PH")}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        From confirmed paid orders only
                       </p>
                     </CardContent>
                   </Card>
@@ -761,11 +781,71 @@ export default function AffiliateDashboard() {
 
                 <Card>
                   <CardHeader>
+                    <CardTitle>Attributed orders</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {attributedOrders.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No orders through your link yet. Share your link to start earning.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-muted-foreground border-b">
+                              <th className="py-2 pr-2">Order</th>
+                              <th className="py-2 pr-2">Status</th>
+                              <th className="py-2 pr-2">Subtotal</th>
+                              <th className="py-2 pr-2">Est. earnings</th>
+                              <th className="py-2">Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {attributedOrders.map((o) => (
+                              <tr key={o.id} className="border-b border-border/60">
+                                <td className="py-2 pr-2 font-mono text-xs">{o.orderNumber}</td>
+                                <td className="py-2 pr-2">
+                                  <span
+                                    className={
+                                      o.isConfirmed
+                                        ? "text-green-700 font-medium"
+                                        : "text-amber-700"
+                                    }
+                                  >
+                                    {o.isConfirmed ? "Confirmed" : o.status.replace(/_/g, " ")}
+                                  </span>
+                                </td>
+                                <td className="py-2 pr-2">
+                                  ₱{Number(o.subtotal).toLocaleString("en-PH")}
+                                </td>
+                                <td className="py-2 pr-2">
+                                  ₱{Number(o.estimatedEarnings).toLocaleString("en-PH")}
+                                  {!o.isConfirmed && (
+                                    <span className="text-xs text-muted-foreground"> pending</span>
+                                  )}
+                                </td>
+                                <td className="py-2">
+                                  {new Date(o.createdAt).toLocaleDateString("en-PH")}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
                     <CardTitle>Commission history</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {commissions.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No commissions yet.</p>
+                      <p className="text-sm text-muted-foreground">
+                        No confirmed commissions yet. Earnings appear here when an attributed
+                        order is paid/confirmed.
+                      </p>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -773,6 +853,7 @@ export default function AffiliateDashboard() {
                             <tr className="text-left text-muted-foreground border-b">
                               <th className="py-2 pr-2">Order</th>
                               <th className="py-2 pr-2">Subtotal</th>
+                              <th className="py-2 pr-2">Rate</th>
                               <th className="py-2 pr-2">Commission</th>
                               <th className="py-2">Date</th>
                             </tr>
@@ -785,6 +866,9 @@ export default function AffiliateDashboard() {
                                   ₱{Number(c.orderSubtotal).toLocaleString("en-PH")}
                                 </td>
                                 <td className="py-2 pr-2">
+                                  {(Number(c.commissionRate) * 100).toFixed(0)}%
+                                </td>
+                                <td className="py-2 pr-2 font-medium">
                                   ₱{Number(c.commissionAmount).toLocaleString("en-PH")}
                                 </td>
                                 <td className="py-2">
