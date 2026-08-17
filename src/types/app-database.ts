@@ -90,6 +90,12 @@ export interface EventCarouselItem {
 export type EventCarouselInsert = Omit<EventCarouselItem, "id" | "created_at">;
 export type EventCarouselUpdate = Partial<EventCarouselInsert>;
 
+export interface EventTicketTier {
+  slug: string;
+  name: string;
+  price: number;
+}
+
 export interface Event {
   id: string;
   slug: string;
@@ -104,6 +110,7 @@ export interface Event {
   max_attendees: number;
   payment_instructions: string | null;
   image_url: string | null;
+  ticket_tiers: EventTicketTier[];
   is_active: boolean;
   created_at: string | Date;
   updated_at: string | Date;
@@ -123,6 +130,8 @@ export interface EventRegistration {
   phone: string | null;
   company: string | null;
   notes: string | null;
+  ticket_slug: string | null;
+  ticket_name: string | null;
   promo_code_used: string | null;
   subtotal: number;
   discount_amount: number;
@@ -144,6 +153,7 @@ export type EventRegistrationInsert = {
   phone?: string | null;
   company?: string | null;
   notes?: string | null;
+  ticket_slug?: string | null;
   promo_code_used?: string | null;
 };
 

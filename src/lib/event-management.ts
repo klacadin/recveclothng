@@ -77,3 +77,46 @@ export function toDatetimeLocalValue(value?: string | Date | null) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+export interface EventTicketTier {
+  slug: string;
+  name: string;
+  price: number;
+}
+
+export function parseTicketTiers(value: unknown): EventTicketTier[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const name = String((item as { name?: string })?.name || "").trim();
+    if (!name) return [];
+    const slug = slugifyEvent(String((item as { slug?: string })?.slug || name)) || slugifyEvent(name);
+    return [{
+      slug,
+      name,
+      price: Number((item as { price?: number })?.price || 0),
+    }];
+  });
+}
+
+export function resolveEventTicket(tiers: EventTicketTier[], slug?: string | null) {
+  if (!tiers.length || !slug) return null;
+  const normalized = slugifyEvent(slug);
+  return tiers.find((tier) => tier.slug === normalized) ?? null;
+}
+
+export function eventStartingPrice(price: number, tiers?: EventTicketTier[] | null) {
+  if (tiers?.length) return Math.min(...tiers.map((tier) => Number(tier.price) || 0));
+  return Number(price) || 0;
+}
+
+export function formatEventPriceLabel(price: number, tiers?: EventTicketTier[] | null) {
+  if (tiers?.length) {
+    const amounts = tiers.map((tier) => Number(tier.price) || 0);
+    const min = Math.min(...amounts);
+    const max = Math.max(...amounts);
+    if (min <= 0 && max <= 0) return "Free";
+    if (min === max) return `₱${min.toLocaleString("en-PH")}`;
+    return `From ₱${min.toLocaleString("en-PH")}`;
+  }
+  return Number(price) > 0 ? `₱${Number(price).toLocaleString("en-PH")}` : "Free";
+}

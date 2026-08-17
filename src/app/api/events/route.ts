@@ -4,7 +4,7 @@ import { getDb } from "@/db/client";
 import { events } from "@/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { mapEvent } from "@/lib/event-records";
-import { slugifyEvent } from "@/lib/event-management";
+import { parseTicketTiers, slugifyEvent } from "@/lib/event-management";
 
 function parseDate(value: unknown) {
   if (!value) return null;
@@ -59,6 +59,8 @@ export async function POST(req: Request) {
     }
 
     const slug = slugifyEvent(String(body.slug || title) || "event") || "event";
+    const ticketTiers = parseTicketTiers(body.ticket_tiers);
+    const price = ticketTiers.length ? ticketTiers[0].price : Number(body.price || 0);
     const db = getDb();
     const [row] = await db
       .insert(events)
@@ -69,12 +71,13 @@ export async function POST(req: Request) {
         location: body.location?.trim() || null,
         startsAt,
         endsAt: parseDate(body.ends_at),
-        price: String(Number(body.price || 0)),
+        price: String(price),
         promoCode: body.promo_code?.trim() || null,
         promoDiscountPercent: Math.max(0, Math.min(Number(body.promo_discount_percent || 0), 100)),
         maxAttendees: Math.max(0, Number(body.max_attendees || 0)),
         paymentInstructions: body.payment_instructions?.trim() || null,
         imageUrl: body.image_url?.trim() || null,
+        ticketTiers,
         isActive: body.is_active !== false && body.is_active !== "false",
       })
       .returning();
@@ -95,6 +98,7 @@ export async function PATCH(req: Request) {
     const id = String(body.id || "");
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
+    const ticketTiers = body.ticket_tiers !== undefined ? parseTicketTiers(body.ticket_tiers) : undefined;
     const db = getDb();
     const [row] = await db
       .update(events)
@@ -105,7 +109,12 @@ export async function PATCH(req: Request) {
         location: body.location !== undefined ? String(body.location || "").trim() || null : undefined,
         startsAt: body.starts_at !== undefined ? parseDate(body.starts_at) || undefined : undefined,
         endsAt: body.ends_at !== undefined ? parseDate(body.ends_at) : undefined,
-        price: body.price !== undefined ? String(Number(body.price || 0)) : undefined,
+        price:
+          ticketTiers !== undefined
+            ? String(ticketTiers.length ? ticketTiers[0].price : Number(body.price || 0))
+            : body.price !== undefined
+              ? String(Number(body.price || 0))
+              : undefined,
         promoCode: body.promo_code !== undefined ? String(body.promo_code || "").trim() || null : undefined,
         promoDiscountPercent:
           body.promo_discount_percent !== undefined
@@ -117,6 +126,7 @@ export async function PATCH(req: Request) {
             ? String(body.payment_instructions || "").trim() || null
             : undefined,
         imageUrl: body.image_url !== undefined ? String(body.image_url || "").trim() || null : undefined,
+        ticketTiers,
         isActive:
           body.is_active !== undefined ? body.is_active !== false && body.is_active !== "false" : undefined,
         updatedAt: new Date(),

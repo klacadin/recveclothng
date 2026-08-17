@@ -1,4 +1,5 @@
 import { eventRegistrations, events } from "@/db/schema";
+import { parseTicketTiers } from "@/lib/event-management";
 import type { Event, EventPaymentStatus, EventRegistration } from "@/types/app-database";
 
 const PAYMENT_STATUSES = new Set<EventPaymentStatus>(["pending", "paid", "cancelled", "refunded"]);
@@ -21,6 +22,7 @@ export function mapEvent(
     max_attendees: row.maxAttendees ?? 0,
     payment_instructions: row.paymentInstructions,
     image_url: row.imageUrl,
+    ticket_tiers: parseTicketTiers(row.ticketTiers),
     is_active: row.isActive,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
@@ -41,6 +43,8 @@ export function mapRegistration(row: typeof eventRegistrations.$inferSelect): Ev
     phone: row.phone,
     company: row.company,
     notes: row.notes,
+    ticket_slug: row.ticketSlug,
+    ticket_name: row.ticketName,
     promo_code_used: row.promoCodeUsed,
     subtotal: Number(row.subtotal ?? 0),
     discount_amount: Number(row.discountAmount ?? 0),

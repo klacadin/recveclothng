@@ -96,7 +96,7 @@ const EventCheckIn = () => {
                     <p className="font-semibold text-foreground">{reg.full_name}</p>
                     <p className="text-xs text-muted-foreground">{reg.email} · {reg.phone || "No phone"}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {eventTitle.get(reg.event_id) || "Event"} · Code <span className="font-mono font-semibold text-foreground">{reg.check_in_code}</span> · {reg.payment_status}
+                      {eventTitle.get(reg.event_id) || "Event"}{reg.ticket_name ? ` · ${reg.ticket_name}` : ""} · Code <span className="font-mono font-semibold text-foreground">{reg.check_in_code}</span> · {reg.payment_status}
                     </p>
                   </div>
                   <Button

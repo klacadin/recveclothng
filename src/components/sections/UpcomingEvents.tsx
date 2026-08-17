@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, CalendarRange, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useEvents } from "@/hooks/useEvents";
+import { formatEventPriceLabel } from "@/lib/event-management";
 
 const UpcomingEvents = () => {
   const { data: events = [], isLoading } = useEvents({ activeOnly: true });
@@ -31,7 +31,7 @@ const UpcomingEvents = () => {
               className="group rounded-sm border border-border bg-card overflow-hidden hover:border-foreground/20 transition-colors"
             >
               {event.image_url ? (
-                <img src={event.image_url} alt={event.title} className="h-44 w-full object-cover" />
+                <img src={event.image_url} alt={event.title} className="h-64 w-full object-cover object-top" />
               ) : (
                 <div className="h-44 w-full bg-secondary" />
               )}
@@ -47,7 +47,7 @@ const UpcomingEvents = () => {
                   )}
                 </div>
                 <p className="text-sm font-medium text-foreground">
-                  {Number(event.price) > 0 ? `₱${Number(event.price).toLocaleString()}` : "Free"} · Register
+                  {formatEventPriceLabel(Number(event.price), event.ticket_tiers)} · Register
                 </p>
               </div>
             </Link>

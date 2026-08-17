@@ -7,6 +7,8 @@ import {
   calculateRegistrationTotals,
   eventPaymentReference,
   generateCheckInCode,
+  parseTicketTiers,
+  resolveEventTicket,
 } from "@/lib/event-management";
 import { sendEventConfirmationEmail } from "@/lib/event-email";
 import { holdsEventSeat, mapRegistration } from "@/lib/event-records";
@@ -42,8 +44,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Event is not available" }, { status: 404 });
     }
 
+    const ticketTiers = parseTicketTiers(event.ticketTiers);
+    let ticketName: string | null = null;
+    let ticketSlug: string | null = null;
+    let basePrice = Number(event.price || 0);
+    if (ticketTiers.length) {
+      const ticket = resolveEventTicket(ticketTiers, body.ticket_slug);
+      if (!ticket) {
+        return NextResponse.json({ error: "Select a distance" }, { status: 400 });
+      }
+      ticketName = ticket.name;
+      ticketSlug = ticket.slug;
+      basePrice = ticket.price;
+    }
+
     const totals = calculateRegistrationTotals({
-      basePrice: Number(event.price || 0),
+      basePrice,
       eventPromoCode: event.promoCode,
       providedPromoCode: body.promo_code_used ?? body.promo_code,
       discountPercent: event.promoDiscountPercent,
@@ -88,6 +104,8 @@ export async function POST(req: Request) {
           phone,
           company,
           notes,
+          ticketSlug,
+          ticketName,
           promoCodeUsed,
           subtotal: String(totals.basePrice),
           discountAmount: String(totals.discountAmount),
@@ -108,6 +126,8 @@ export async function POST(req: Request) {
           phone,
           company,
           notes,
+          ticketSlug,
+          ticketName,
           promoCodeUsed,
           subtotal: String(totals.basePrice),
           discountAmount: String(totals.discountAmount),
@@ -131,7 +151,7 @@ export async function POST(req: Request) {
           amount: totals.finalAmount,
           email,
           name: fullName,
-          purpose: `REVE event: ${event.title}`,
+          purpose: `REVE event: ${event.title}${ticketName ? ` (${ticketName})` : ""}`,
           referenceNumber: eventPaymentReference(registration.id),
           redirectUrl: `${appUrl}/events/registered?id=${registration.id}`,
         });

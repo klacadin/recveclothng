@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateRegistrationTotals,
   eventPaymentReference,
+  formatEventPriceLabel,
   generateCheckInCode,
   parseEventPaymentReference,
+  parseTicketTiers,
+  resolveEventTicket,
 } from './event-management';
 
 describe('event pricing logic', () => {
@@ -58,5 +61,19 @@ describe('event check-in and payment references', () => {
     expect(ref).toBe('evt_abc-123');
     expect(parseEventPaymentReference(ref)).toBe('abc-123');
     expect(parseEventPaymentReference('order-uuid')).toBeNull();
+  });
+});
+
+describe('event ticket tiers', () => {
+  it('resolves a trail-run distance and starting price', () => {
+    const tiers = parseTicketTiers([
+      { name: '5km', price: 1000 },
+      { name: '10km', price: 2000 },
+      { name: '35km', price: 3000 },
+    ]);
+
+    expect(tiers.map((tier) => tier.slug)).toEqual(['5km', '10km', '35km']);
+    expect(resolveEventTicket(tiers, '10km')?.price).toBe(2000);
+    expect(formatEventPriceLabel(1000, tiers)).toBe('From ₱1,000');
   });
 });

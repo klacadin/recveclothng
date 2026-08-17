@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useEvents, useCreateRegistration } from "@/hooks/useEvents";
 import { useToast } from "@/hooks/use-toast";
-import { calculateRegistrationTotals } from "@/lib/event-management";
+import { calculateRegistrationTotals, formatEventPriceLabel } from "@/lib/event-management";
 
 const defaultForm = {
   full_name: "",
@@ -19,6 +19,7 @@ const defaultForm = {
   company: "",
   notes: "",
   promo_code: "",
+  ticket_slug: "",
 };
 
 const Events = () => {
@@ -37,7 +38,12 @@ const Events = () => {
     return activeEvents[0];
   }, [activeEvents, slug]);
 
-  const selectedEventPrice = Number(selectedEvent?.price ?? 0);
+  const selectedEventPrice = Number(
+    selectedEvent?.ticket_tiers?.find((tier) => tier.slug === form.ticket_slug)?.price
+    ?? selectedEvent?.ticket_tiers?.[0]?.price
+    ?? selectedEvent?.price
+    ?? 0
+  );
   const totals = calculateRegistrationTotals({
     basePrice: selectedEventPrice,
     eventPromoCode: selectedEvent?.promo_code ?? null,
@@ -58,6 +64,10 @@ const Events = () => {
       toast({ title: "Full name and email are required", variant: "destructive" });
       return;
     }
+    if (selectedEvent.ticket_tiers?.length && !form.ticket_slug) {
+      toast({ title: "Select a distance", variant: "destructive" });
+      return;
+    }
 
     try {
       const result = await createRegistration.mutateAsync({
@@ -67,6 +77,7 @@ const Events = () => {
         phone: form.phone.trim() || null,
         company: form.company.trim() || null,
         notes: form.notes.trim() || null,
+        ticket_slug: form.ticket_slug || selectedEvent.ticket_tiers?.[0]?.slug || null,
         promo_code_used: form.promo_code.trim() || null,
       });
       setForm(defaultForm);
@@ -142,7 +153,7 @@ const Events = () => {
                       <img
                         src={selectedEvent.image_url}
                         alt={selectedEvent.title}
-                        className="w-full h-56 object-cover"
+                        className="w-full max-h-[32rem] object-contain bg-black"
                       />
                     )}
                     <div className="p-6 space-y-4">
@@ -152,7 +163,7 @@ const Events = () => {
                           <h2 className="font-display text-2xl font-bold text-foreground mt-1">{selectedEvent.title}</h2>
                         </div>
                         <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-                          {selectedEventPrice > 0 ? `₱${selectedEventPrice.toLocaleString()}` : "Free"}
+                          {formatEventPriceLabel(selectedEventPrice, selectedEvent.ticket_tiers)}
                         </div>
                       </div>
 
@@ -168,6 +179,26 @@ const Events = () => {
                       </div>
 
                       {selectedEvent.description && <p className="text-foreground/80 leading-7">{selectedEvent.description}</p>}
+
+                      {selectedEvent.ticket_tiers?.length > 0 && (
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          {selectedEvent.ticket_tiers.map((tier) => (
+                            <button
+                              key={tier.slug}
+                              type="button"
+                              onClick={() => setForm((f) => ({ ...f, ticket_slug: tier.slug }))}
+                              className={`rounded-sm border p-3 text-left transition-colors ${
+                                (form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug) === tier.slug
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border hover:border-foreground/30"
+                              }`}
+                            >
+                              <p className="font-semibold text-foreground">{tier.name}</p>
+                              <p className="text-sm text-muted-foreground">₱{Number(tier.price).toLocaleString()}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
 
                       {selectedEvent.payment_instructions && selectedEventPrice > 0 && (
                         <div className="rounded-sm border border-dashed border-border bg-secondary/40 p-4">
@@ -212,6 +243,23 @@ const Events = () => {
                 <Label htmlFor="company">Company / Team</Label>
                 <Input id="company" value={form.company} onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
               </div>
+              {selectedEvent?.ticket_tiers?.length ? (
+                <div>
+                  <Label>Distance</Label>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {selectedEvent.ticket_tiers.map((tier) => (
+                      <Button
+                        key={tier.slug}
+                        type="button"
+                        variant={(form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug) === tier.slug ? "default" : "outline"}
+                        onClick={() => setForm((f) => ({ ...f, ticket_slug: tier.slug }))}
+                      >
+                        {tier.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {selectedEvent?.promo_code && (
                 <div>
                   <Label htmlFor="promo_code">Promo code</Label>

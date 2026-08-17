@@ -70,6 +70,7 @@ const EventRegistered = () => {
                 )}
                 <p className="text-muted-foreground">{registration.full_name} · {registration.email}</p>
                 <p className="font-medium text-foreground">
+                  {registration.ticket_name ? `${registration.ticket_name} · ` : ""}
                   {Number(registration.final_amount) > 0 ? `₱${Number(registration.final_amount).toLocaleString()}` : "Free"} · {paid ? "Paid" : "Payment pending"}
                 </p>
               </div>

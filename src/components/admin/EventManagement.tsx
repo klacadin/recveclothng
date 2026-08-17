@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useCreateEvent, useDeleteEvent, useEventRegistrations, useEvents, useUpdateEvent, useUpdateRegistration, type Event } from "@/hooks/useEvents";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { useToast } from "@/hooks/use-toast";
-import { slugifyEvent, toDatetimeLocalValue } from "@/lib/event-management";
+import { slugifyEvent, toDatetimeLocalValue, formatEventPriceLabel } from "@/lib/event-management";
 
 const emptyForm = {
   slug: "",
@@ -26,6 +26,7 @@ const emptyForm = {
   payment_instructions: "",
   image_url: "",
   is_active: "true",
+  ticket_tiers: [{ name: "", price: "" }],
 };
 
 const EventManagement = () => {
@@ -66,7 +67,14 @@ const EventManagement = () => {
     e.preventDefault();
     const title = form.title.trim();
     const slug = slugifyEvent(form.slug || title) || "event";
-    const price = Number(form.price || 0);
+    const ticketTiers = form.ticket_tiers
+      .map((tier) => ({
+        slug: slugifyEvent(tier.name),
+        name: tier.name.trim(),
+        price: Number(tier.price || 0),
+      }))
+      .filter((tier) => tier.name);
+    const price = ticketTiers.length ? ticketTiers[0].price : Number(form.price || 0);
     const promoDiscountPercent = Math.max(0, Math.min(Number(form.promo_discount_percent || 0), 100));
     const maxAttendees = Math.max(0, Number(form.max_attendees || 0));
 
@@ -89,6 +97,7 @@ const EventManagement = () => {
         max_attendees: maxAttendees,
         payment_instructions: form.payment_instructions.trim() || null,
         image_url: form.image_url.trim() || null,
+        ticket_tiers: ticketTiers,
         is_active: form.is_active === "true",
       };
 
@@ -215,7 +224,7 @@ const EventManagement = () => {
                       <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted-foreground">
                         <span className="inline-flex items-center gap-1"><CalendarRange className="h-4 w-4" />{new Date(event.starts_at).toLocaleString()}</span>
                         {event.location && <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" />{event.location}</span>}
-                        <span className="inline-flex items-center gap-1"><Clock3 className="h-4 w-4" />₱{Number(event.price).toLocaleString()}</span>
+                        <span className="inline-flex items-center gap-1"><Clock3 className="h-4 w-4" />{formatEventPriceLabel(Number(event.price), event.ticket_tiers)}</span>
                       </div>
                     </div>
                   </div>
@@ -239,6 +248,9 @@ const EventManagement = () => {
                         payment_instructions: event.payment_instructions ?? "",
                         image_url: event.image_url ?? "",
                         is_active: String(event.is_active),
+                        ticket_tiers: event.ticket_tiers?.length
+                          ? event.ticket_tiers.map((tier) => ({ name: tier.name, price: String(tier.price) }))
+                          : [{ name: "", price: "" }],
                       });
                       setShowForm(true);
                     }}>
@@ -284,7 +296,7 @@ const EventManagement = () => {
                             <p className="font-medium text-foreground">{reg.full_name}</p>
                             <p className="text-xs text-muted-foreground">{reg.email} • {reg.phone || "No phone"}</p>
                             <p className="text-xs text-muted-foreground">
-                              Due: ₱{Number(reg.final_amount).toLocaleString()} • Promo: {reg.promo_code_used || "—"} • Code: <span className="font-mono font-semibold">{reg.check_in_code}</span>
+                              Due: ₱{Number(reg.final_amount).toLocaleString()} • {reg.ticket_name || "Open"} • Promo: {reg.promo_code_used || "—"} • Code: <span className="font-mono font-semibold">{reg.check_in_code}</span>
                             </p>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
@@ -368,6 +380,7 @@ const EventManagement = () => {
               <div>
                 <Label htmlFor="price">Registration price</Label>
                 <Input id="price" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
+                <p className="text-xs text-muted-foreground mt-1">Used when there are no distances below.</p>
               </div>
               <div>
                 <Label htmlFor="starts_at">Starts at</Label>
@@ -400,6 +413,58 @@ const EventManagement = () => {
                     <SelectItem value="false">Draft</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Distances / tickets</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setForm((f) => ({ ...f, ticket_tiers: [...f.ticket_tiers, { name: "", price: "" }] }))}
+                >
+                  Add distance
+                </Button>
+              </div>
+              <div className="mt-2 space-y-2">
+                {form.ticket_tiers.map((tier, index) => (
+                  <div key={index} className="grid grid-cols-[1fr_120px_auto] gap-2">
+                    <Input
+                      placeholder="5km"
+                      value={tier.name}
+                      onChange={(e) => setForm((f) => ({
+                        ...f,
+                        ticket_tiers: f.ticket_tiers.map((item, i) => i === index ? { ...item, name: e.target.value } : item),
+                      }))}
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="1000"
+                      value={tier.price}
+                      onChange={(e) => setForm((f) => ({
+                        ...f,
+                        ticket_tiers: f.ticket_tiers.map((item, i) => i === index ? { ...item, price: e.target.value } : item),
+                      }))}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setForm((f) => ({
+                        ...f,
+                        ticket_tiers: f.ticket_tiers.length > 1
+                          ? f.ticket_tiers.filter((_, i) => i !== index)
+                          : [{ name: "", price: "" }],
+                      }))}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
 
