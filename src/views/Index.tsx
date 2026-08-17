@@ -4,6 +4,7 @@ import SEO from "@/components/SEO";
 import HeroSection from "@/components/sections/HeroSection";
 import TrustBar from "@/components/sections/TrustBar";
 import FeaturedProducts from "@/components/sections/FeaturedProducts";
+import UpcomingEvents from "@/components/sections/UpcomingEvents";
 import CollectionsGrid from "@/components/sections/CollectionsGrid";
 import NobodySection from "@/components/sections/NobodySection";
 import SocialProof from "@/components/sections/SocialProof";
@@ -18,6 +19,7 @@ const Index = () => {
         <HeroSection />
         <TrustBar />
         <FeaturedProducts />
+        <UpcomingEvents />
         <CollectionsGrid />
         <NobodySection />
         <SocialProof />

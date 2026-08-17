@@ -281,6 +281,57 @@ export const eventCarousel = pgTable("event_carousel", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const events = pgTable("events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description"),
+  location: text("location"),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }),
+  price: numeric("price", { precision: 12, scale: 2 }).notNull().default("0"),
+  promoCode: text("promo_code"),
+  promoDiscountPercent: integer("promo_discount_percent").notNull().default(0),
+  maxAttendees: integer("max_attendees").notNull().default(0),
+  paymentInstructions: text("payment_instructions"),
+  imageUrl: text("image_url"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const eventRegistrations = pgTable(
+  "event_registrations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    fullName: text("full_name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone"),
+    company: text("company"),
+    notes: text("notes"),
+    promoCodeUsed: text("promo_code_used"),
+    subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
+    discountAmount: numeric("discount_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+    finalAmount: numeric("final_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+    paymentStatus: text("payment_status").notNull().default("pending"),
+    paymentReference: text("payment_reference"),
+    hitpayPaymentId: text("hitpay_payment_id"),
+    checkInCode: text("check_in_code").notNull(),
+    checkedIn: boolean("checked_in").notNull().default(false),
+    checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("event_registrations_event_id_idx").on(t.eventId),
+    uniqueIndex("event_registrations_check_in_code_uidx").on(t.checkInCode),
+    index("event_registrations_event_email_idx").on(t.eventId, t.email),
+  ]
+);
+
 export const orderRateLimits = pgTable("order_rate_limits", {
   id: uuid("id").defaultRandom().primaryKey(),
   ipAddress: text("ip_address").notNull(),

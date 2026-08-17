@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import athleteSummit from "@/assets/athlete-summit.jpg";
 import storeInterior from "@/assets/store-interior.jpg";
 import athleteEvent from "@/assets/athlete-event.jpg";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import { useEventCarousel } from "@/hooks/useEventCarousel";
+import { useEvents } from "@/hooks/useEvents";
 import { assetUrl } from "@/lib/assetUrl";
 
 const FALLBACK_IMAGES = [
@@ -16,6 +18,7 @@ const FALLBACK_IMAGES = [
 
 const SocialProof = () => {
   const { data, isLoading } = useEventCarousel();
+  const { data: liveEvents = [] } = useEvents({ activeOnly: true });
   // React Query can surface null; default `= []` only covers undefined
   const carouselItems = data ?? [];
   const [api, setApi] = useState<CarouselApi>();
@@ -67,6 +70,13 @@ const SocialProof = () => {
             Stay connected with our community and upcoming events
           </p>
           <div className="flex flex-wrap justify-center gap-4">
+            {liveEvents.map((event) => (
+              <Button key={event.id} variant="default" size="lg" asChild className="gap-2">
+                <Link to={`/events/${event.slug}`}>
+                  {event.title}
+                </Link>
+              </Button>
+            ))}
             {FACEBOOK_EVENTS.map((event, index) =>
               event.url !== "#" ? (
                 <Button key={index} variant="default" size="lg" asChild className="gap-2">

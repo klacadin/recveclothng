@@ -35,6 +35,7 @@ import {
   Menu,
   Ticket,
   Handshake,
+  CalendarRange,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -61,6 +62,7 @@ import UserApprovals from "@/components/admin/UserApprovals";
 import CategoryManagement from "@/components/admin/CategoryManagement";
 import ArticleManagement from "@/components/admin/ArticleManagement";
 import EventCarouselManagement from "@/components/admin/EventCarouselManagement";
+import EventManagement from "@/components/admin/EventManagement";
 import EmailManagement from "@/components/admin/EmailManagement";
 import VoucherManagement from "@/components/admin/VoucherManagement";
 import AdminAffiliateManagement from "@/components/admin/AdminAffiliateManagement";
@@ -318,6 +320,7 @@ const Admin = () => {
     { id: "inventory", label: "Inventory", icon: Package },
     { id: "emails", label: "Emails", icon: Mail },
     { id: "news", label: "News & Blog", icon: Newspaper },
+    { id: "events", label: "Events", icon: CalendarRange },
     { id: "event-carousel", label: "Event Carousel", icon: ImageIcon },
     { id: "categories", label: "Categories", icon: Tag },
     { id: "users", label: "User Approvals", icon: Users },
@@ -1751,6 +1754,13 @@ const Admin = () => {
                 openFormImmediately={openArticleFormImmediately}
                 onFormOpened={() => setOpenArticleFormImmediately(false)}
               />
+            </div>
+          )}
+
+          {/* Events Tab */}
+          {activeTab === "events" && (
+            <div className="bg-card rounded-sm border border-border p-6">
+              <EventManagement />
             </div>
           )}
 

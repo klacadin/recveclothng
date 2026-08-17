@@ -98,8 +98,24 @@
     <priority>0.5</priority>
   </url>
   
+  <!-- News -->
+  <url>
+    <loc>https://reveclothingxnobody.com/news</loc>
+    <lastmod>2026-08-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Events -->
+  <url>
+    <loc>https://reveclothingxnobody.com/events</loc>
+    <lastmod>2026-08-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
   <!-- Note: Product pages (/product/:id) are dynamic and should be generated programmatically -->
-  <!-- Consider implementing a dynamic sitemap generation script that fetches products from Supabase -->
+  <!-- Consider implementing a dynamic sitemap generation script that fetches products from the app database -->
   
 </urlset>
 

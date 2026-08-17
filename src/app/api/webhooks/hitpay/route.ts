@@ -1,7 +1,9 @@
 import { getAppBaseUrl } from "@/config/constants";
 import { recordAffiliateCommissionForOrder } from "@/db/affiliates";
 import { getDb } from "@/db/client";
-import { orderItems, orders } from "@/db/schema";
+import { eventRegistrations, events, orderItems, orders } from "@/db/schema";
+import { sendEventConfirmationEmail } from "@/lib/event-email";
+import { parseEventPaymentReference } from "@/lib/event-management";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
@@ -79,14 +81,55 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: "Webhook received" });
     }
 
-    const orderId = payload.reference_number || payload.reference_id;
-    if (!orderId) {
+    const rawRef = payload.reference_number || payload.reference_id;
+    if (!rawRef) {
       return NextResponse.json({ error: "Missing order reference" }, { status: 400 });
     }
 
     const db = getDb();
     const paymentRef = payload.payments?.[0]?.id || payload.id || null;
+    const eventRegistrationId = parseEventPaymentReference(rawRef);
 
+    if (eventRegistrationId) {
+      const [registration] = await db
+        .update(eventRegistrations)
+        .set({
+          paymentStatus: "paid",
+          paymentReference: paymentRef,
+          hitpayPaymentId: payload.id || undefined,
+          updatedAt: new Date(),
+        })
+        .where(eq(eventRegistrations.id, eventRegistrationId))
+        .returning();
+
+      if (!registration) {
+        console.error("hitpay webhook: event registration not found", eventRegistrationId);
+        return NextResponse.json({ error: "Registration not found" }, { status: 404 });
+      }
+
+      const [event] = await db.select().from(events).where(eq(events.id, registration.eventId)).limit(1);
+      if (event) {
+        await sendEventConfirmationEmail({
+          email: registration.email,
+          fullName: registration.fullName,
+          eventTitle: event.title,
+          startsAt: event.startsAt,
+          location: event.location,
+          checkInCode: registration.checkInCode,
+          finalAmount: Number(registration.finalAmount),
+          paymentStatus: "paid",
+          registrationId: registration.id,
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        registration_id: registration.id,
+        status: "paid",
+      });
+    }
+
+    const orderId = rawRef;
     const [order] = await db
       .update(orders)
       .set({

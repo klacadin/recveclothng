@@ -38,6 +38,9 @@ import Privacy from "./views/Privacy";
 import Returns from "./views/Returns";
 import News from "./views/News";
 import ArticleDetail from "./views/ArticleDetail";
+import Events from "./views/Events";
+import EventRegistered from "./views/EventRegistered";
+import EventCheckIn from "./views/EventCheckIn";
 import NotFound from "./views/NotFound";
 
 // Lazy load heavy admin component
@@ -82,7 +85,18 @@ const AppRoutes = () => {
       <Route path="/returns" element={<Returns />} />
       <Route path="/news" element={<News />} />
       <Route path="/news/:slug" element={<ArticleDetail />} />
+      <Route path="/events" element={<Events />} />
+      <Route path="/events/registered" element={<EventRegistered />} />
+      <Route path="/events/:slug" element={<Events />} />
       <Route path="/admin/login" element={<AdminLogin />} />
+      <Route
+        path="/admin/events/check-in"
+        element={
+          <ProtectedRoute requireAdmin>
+            <EventCheckIn />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/admin"
         element={
