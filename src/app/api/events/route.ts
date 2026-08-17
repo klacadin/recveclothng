@@ -4,7 +4,7 @@ import { getDb } from "@/db/client";
 import { events } from "@/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { mapEvent } from "@/lib/event-records";
-import { parseTicketTiers, slugifyEvent } from "@/lib/event-management";
+import { parseTicketTiers, resolvePublicEventSlug, slugifyEvent } from "@/lib/event-management";
 
 function parseDate(value: unknown) {
   if (!value) return null;
@@ -30,7 +30,11 @@ export async function GET(req: Request) {
     }
 
     if (slug) {
-      const [row] = await db.select().from(events).where(eq(events.slug, slug)).limit(1);
+      const lookupSlug = resolvePublicEventSlug(slug);
+      let [row] = await db.select().from(events).where(eq(events.slug, lookupSlug)).limit(1);
+      if (!row && lookupSlug !== slug) {
+        [row] = await db.select().from(events).where(eq(events.slug, slug)).limit(1);
+      }
       if (!row || (!row.isActive && !isAdmin)) {
         return NextResponse.json(null);
       }

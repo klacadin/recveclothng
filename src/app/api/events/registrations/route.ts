@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { eventRegistrations, events } from "@/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
-import { mapEvent, mapRegistration } from "@/lib/event-records";
+import { isPaidEventStatus, mapEvent, mapRegistration } from "@/lib/event-records";
+import { runnerBibSearchSql } from "@/lib/assign-runner-number";
+import { finalizeEventPayment, revokeSouvenirShirt } from "@/lib/finalize-event-payment";
 
 const PAYMENT_STATUSES = ["pending", "paid", "cancelled", "refunded"] as const;
 
@@ -39,7 +41,9 @@ export async function GET(req: Request) {
           ilike(eventRegistrations.fullName, like),
           ilike(eventRegistrations.email, like),
           ilike(eventRegistrations.checkInCode, like),
-          ilike(eventRegistrations.phone, like)
+          ilike(eventRegistrations.phone, like),
+          sql`lpad(${eventRegistrations.runnerNumber}::text, 3, '0') ilike ${like}`,
+          runnerBibSearchSql(like)
         )
       );
     }
@@ -84,21 +88,43 @@ export async function PATCH(req: Request) {
     }
 
     const db = getDb();
+    const [current] = await db.select().from(eventRegistrations).where(eq(eventRegistrations.id, id)).limit(1);
+    if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const resultingStatus = nextStatus ?? current.paymentStatus;
+    let nextCheckedIn = checkedIn;
+    let nextCheckedInAt = checkedInAt;
+
+    if (nextCheckedIn === true && !isPaidEventStatus(resultingStatus)) {
+      return NextResponse.json({ error: "Only paid runners can check in" }, { status: 400 });
+    }
+
+    if (!isPaidEventStatus(resultingStatus) && (nextCheckedIn === true || (nextCheckedIn === undefined && current.checkedIn))) {
+      nextCheckedIn = false;
+      nextCheckedInAt = null;
+    }
+
     const [row] = await db
       .update(eventRegistrations)
       .set({
         paymentStatus: nextStatus,
         paymentReference:
           body.payment_reference !== undefined ? String(body.payment_reference || "").trim() || null : undefined,
-        checkedIn,
-        checkedInAt,
+        checkedIn: nextCheckedIn,
+        checkedInAt: nextCheckedInAt,
         updatedAt: new Date(),
       })
       .where(eq(eventRegistrations.id, id))
       .returning();
 
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json(mapRegistration(row));
+    const voided = row.paymentStatus === "cancelled" || row.paymentStatus === "refunded";
+    if (voided) {
+      const revoked = (await revokeSouvenirShirt(row.id)) ?? row;
+      return NextResponse.json(mapRegistration(revoked));
+    }
+    const numbered = isPaidEventStatus(row.paymentStatus) ? (await finalizeEventPayment(row.id)) ?? row : row;
+    return NextResponse.json(mapRegistration(numbered));
   } catch (e) {
     console.error("event registrations PATCH", e);
     return NextResponse.json({ error: "Update failed" }, { status: 500 });

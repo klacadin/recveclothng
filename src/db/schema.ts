@@ -295,7 +295,16 @@ export const events = pgTable("events", {
   maxAttendees: integer("max_attendees").notNull().default(0),
   paymentInstructions: text("payment_instructions"),
   imageUrl: text("image_url"),
-  ticketTiers: jsonb("ticket_tiers").$type<{ slug: string; name: string; price: number }[]>().notNull().default(sql`'[]'::jsonb`),
+  ticketTiers: jsonb("ticket_tiers").$type<{
+    slug: string;
+    name: string;
+    price: number;
+    image_url?: string | null;
+    bib_prefix?: string | null;
+    has_singlet?: boolean;
+    has_finisher_shirt?: boolean;
+    has_crop_top?: boolean;
+  }[]>().notNull().default(sql`'[]'::jsonb`),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -312,12 +321,19 @@ export const eventRegistrations = pgTable(
     email: text("email").notNull(),
     phone: text("phone"),
     company: text("company"),
+    shirtSize: text("shirt_size"),
+    singletSize: text("singlet_size"),
+    finisherShirtSize: text("finisher_shirt_size"),
+    cropTopSize: text("crop_top_size"),
+    gender: text("gender"),
+    age: integer("age"),
     notes: text("notes"),
     ticketSlug: text("ticket_slug"),
     ticketName: text("ticket_name"),
     promoCodeUsed: text("promo_code_used"),
     subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
     discountAmount: numeric("discount_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+    convenienceFee: numeric("convenience_fee", { precision: 12, scale: 2 }).notNull().default("0"),
     finalAmount: numeric("final_amount", { precision: 12, scale: 2 }).notNull().default("0"),
     paymentStatus: text("payment_status").notNull().default("pending"),
     paymentReference: text("payment_reference"),
@@ -325,15 +341,30 @@ export const eventRegistrations = pgTable(
     checkInCode: text("check_in_code").notNull(),
     checkedIn: boolean("checked_in").notNull().default(false),
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
+    runnerNumber: integer("runner_number"),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    promoEligible: boolean("promo_eligible").notNull().default(false),
+    promoRank: integer("promo_rank"),
+    promoQualifiedAt: timestamp("promo_qualified_at", { withTimezone: true }),
+    freeSouvenirShirt: boolean("free_souvenir_shirt").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     index("event_registrations_event_id_idx").on(t.eventId),
     uniqueIndex("event_registrations_check_in_code_uidx").on(t.checkInCode),
+    uniqueIndex("event_registrations_event_ticket_runner_number_uidx").on(t.eventId, t.ticketSlug, t.runnerNumber),
     index("event_registrations_event_email_idx").on(t.eventId, t.email),
   ]
 );
+
+export const eventSouvenirPromoCounters = pgTable("event_souvenir_promo_counters", {
+  eventId: uuid("event_id")
+    .primaryKey()
+    .references(() => events.id, { onDelete: "cascade" }),
+  awarded: integer("awarded").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const orderRateLimits = pgTable("order_rate_limits", {
   id: uuid("id").defaultRandom().primaryKey(),

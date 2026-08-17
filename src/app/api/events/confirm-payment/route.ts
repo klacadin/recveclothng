@@ -4,6 +4,8 @@ import { getDb } from "@/db/client";
 import { eventRegistrations, events } from "@/db/schema";
 import { sendEventConfirmationEmail } from "@/lib/event-email";
 import { mapRegistration } from "@/lib/event-records";
+import { finalizeEventPayment } from "@/lib/finalize-event-payment";
+import { formatRunnerNumber } from "@/lib/event-management";
 import { fetchHitPayPaymentRequest, isHitPayPaid } from "@/lib/hitpay";
 
 export async function POST(req: Request) {
@@ -25,10 +27,11 @@ export async function POST(req: Request) {
     }
 
     if (registration.paymentStatus === "paid") {
+      const numbered = (await finalizeEventPayment(registration.id)) ?? registration;
       return NextResponse.json({
         success: true,
         already_paid: true,
-        registration: mapRegistration(registration),
+        registration: mapRegistration(numbered),
       });
     }
 
@@ -60,25 +63,36 @@ export async function POST(req: Request) {
       .where(eq(eventRegistrations.id, registration.id))
       .returning();
 
-    const [event] = await db.select().from(events).where(eq(events.id, updated.eventId)).limit(1);
+    const numbered = (await finalizeEventPayment(updated.id)) ?? updated;
+
+    const [event] = await db.select().from(events).where(eq(events.id, numbered.eventId)).limit(1);
     if (event) {
       await sendEventConfirmationEmail({
-        email: updated.email,
-        fullName: updated.fullName,
+        email: numbered.email,
+        fullName: numbered.fullName,
         eventTitle: event.title,
         startsAt: event.startsAt,
         location: event.location,
-        checkInCode: updated.checkInCode,
-        finalAmount: Number(updated.finalAmount),
+        checkInCode: numbered.checkInCode,
+        runnerNumber: formatRunnerNumber(numbered.runnerNumber, {
+          slug: numbered.ticketSlug,
+          name: numbered.ticketName,
+        }),
+        registrationFee: Number(numbered.subtotal) - Number(numbered.discountAmount || 0),
+        convenienceFee: Number(numbered.convenienceFee || 0),
+        finalAmount: Number(numbered.finalAmount),
         paymentStatus: "paid",
-        registrationId: updated.id,
+        registrationId: numbered.id,
+        ticketName: numbered.ticketName,
+        promoRank: numbered.promoRank,
+        freeSouvenirShirt: numbered.freeSouvenirShirt,
       });
     }
 
     return NextResponse.json({
       success: true,
       reconciled: true,
-      registration: mapRegistration(updated),
+      registration: mapRegistration(numbered),
     });
   } catch (e) {
     console.error("event confirm-payment", e);

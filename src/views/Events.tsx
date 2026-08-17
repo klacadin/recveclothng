@@ -8,24 +8,69 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEvents, useCreateRegistration } from "@/hooks/useEvents";
 import { useToast } from "@/hooks/use-toast";
-import { calculateRegistrationTotals, formatEventPriceLabel } from "@/lib/event-management";
+import {
+  calculateRegistrationTotals,
+  EVENT_AGE_MAX,
+  EVENT_AGE_MIN,
+  EVENT_GENDERS,
+  EVENT_SHIRT_SIZES,
+  formatEventPriceLabel,
+  isSouvenirPromoCategory,
+  resolvePublicEventSlug,
+  SOUVENIR_SHIRT_PROMO_NOTE,
+  ticketApparel,
+} from "@/lib/event-management";
 
 const defaultForm = {
   full_name: "",
   email: "",
   phone: "",
   company: "",
+  singlet_size: "",
+  finisher_shirt_size: "",
+  crop_top_enabled: false,
+  crop_top_size: "",
+  gender: "",
+  age: "",
   notes: "",
   promo_code: "",
   ticket_slug: "",
 };
 
+function ApparelSizeButtons({
+  value,
+  onChange,
+  sizes = EVENT_SHIRT_SIZES,
+}: {
+  value: string;
+  onChange: (size: string) => void;
+  sizes?: readonly string[];
+}) {
+  return (
+    <div className="mt-2 grid grid-cols-4 sm:grid-cols-6 gap-2">
+      {sizes.map((size) => (
+        <Button
+          key={size}
+          type="button"
+          variant={value === size ? "default" : "outline"}
+          onClick={() => onChange(size)}
+        >
+          {size}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 const Events = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { data: events = [], isLoading } = useEvents({ activeOnly: true });
+  const { data, isLoading } = useEvents({ activeOnly: true });
+  const events = Array.isArray(data) ? data : [];
   const createRegistration = useCreateRegistration();
   const { toast } = useToast();
   const [form, setForm] = useState(defaultForm);
@@ -34,13 +79,33 @@ const Events = () => {
 
   const selectedEvent = useMemo(() => {
     if (!activeEvents.length) return null;
-    if (slug) return activeEvents.find((event) => event.slug === slug) ?? activeEvents[0];
+    const requested = resolvePublicEventSlug(slug);
+    if (requested) {
+      return activeEvents.find((event) => event.slug === requested || event.slug === slug) ?? activeEvents[0];
+    }
     return activeEvents[0];
   }, [activeEvents, slug]);
 
+  const selectedTier = selectedEvent?.ticket_tiers?.find(
+    (tier) => tier.slug === (form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug)
+  ) ?? selectedEvent?.ticket_tiers?.[0] ?? null;
+  const apparel = ticketApparel(selectedTier);
+
+  const selectTicket = (tierSlug: string) => {
+    const tier = selectedEvent?.ticket_tiers?.find((item) => item.slug === tierSlug);
+    const nextApparel = ticketApparel(tier);
+    setForm((f) => ({
+      ...f,
+      ticket_slug: tierSlug,
+      singlet_size: nextApparel.has_singlet ? f.singlet_size : "",
+      finisher_shirt_size: nextApparel.has_finisher_shirt ? f.finisher_shirt_size : "",
+      crop_top_enabled: nextApparel.has_crop_top ? f.crop_top_enabled : false,
+      crop_top_size: nextApparel.has_crop_top ? f.crop_top_size : "",
+    }));
+  };
+
   const selectedEventPrice = Number(
-    selectedEvent?.ticket_tiers?.find((tier) => tier.slug === form.ticket_slug)?.price
-    ?? selectedEvent?.ticket_tiers?.[0]?.price
+    selectedTier?.price
     ?? selectedEvent?.price
     ?? 0
   );
@@ -60,8 +125,21 @@ const Events = () => {
 
     const fullName = form.full_name.trim();
     const email = form.email.trim();
+    const age = Number(form.age);
     if (!fullName || !email) {
       toast({ title: "Full name and email are required", variant: "destructive" });
+      return;
+    }
+    if (!form.gender || !Number.isInteger(age)) {
+      toast({ title: "Gender and age are required", variant: "destructive" });
+      return;
+    }
+    if (apparel.has_singlet && !form.singlet_size) {
+      toast({ title: "Event singlet size is required", variant: "destructive" });
+      return;
+    }
+    if (apparel.has_finisher_shirt && !form.finisher_shirt_size) {
+      toast({ title: "Finisher t-shirt size is required", variant: "destructive" });
       return;
     }
     if (selectedEvent.ticket_tiers?.length && !form.ticket_slug) {
@@ -76,6 +154,15 @@ const Events = () => {
         email,
         phone: form.phone.trim() || null,
         company: form.company.trim() || null,
+        shirt_size: form.singlet_size || form.finisher_shirt_size || null,
+        singlet_size: apparel.has_singlet ? form.singlet_size : null,
+        finisher_shirt_size: apparel.has_finisher_shirt ? form.finisher_shirt_size : null,
+        crop_top: apparel.has_crop_top && form.crop_top_enabled,
+        crop_top_size: apparel.has_crop_top && form.crop_top_enabled
+          ? form.finisher_shirt_size || form.singlet_size || null
+          : null,
+        gender: form.gender,
+        age,
         notes: form.notes.trim() || null,
         ticket_slug: form.ticket_slug || selectedEvent.ticket_tiers?.[0]?.slug || null,
         promo_code_used: form.promo_code.trim() || null,
@@ -181,22 +268,52 @@ const Events = () => {
                       {selectedEvent.description && <p className="text-foreground/80 leading-7">{selectedEvent.description}</p>}
 
                       {selectedEvent.ticket_tiers?.length > 0 && (
-                        <div className="grid gap-2 sm:grid-cols-3">
-                          {selectedEvent.ticket_tiers.map((tier) => (
-                            <button
-                              key={tier.slug}
-                              type="button"
-                              onClick={() => setForm((f) => ({ ...f, ticket_slug: tier.slug }))}
-                              className={`rounded-sm border p-3 text-left transition-colors ${
-                                (form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug) === tier.slug
-                                  ? "border-primary bg-primary/5"
-                                  : "border-border hover:border-foreground/30"
-                              }`}
-                            >
-                              <p className="font-semibold text-foreground">{tier.name}</p>
-                              <p className="text-sm text-muted-foreground">₱{Number(tier.price).toLocaleString()}</p>
-                            </button>
-                          ))}
+                        <div className="space-y-3">
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            {selectedEvent.ticket_tiers.map((tier) => {
+                              const selected = (form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug) === tier.slug;
+                              return (
+                                <button
+                                  key={tier.slug}
+                                  type="button"
+                                  onClick={() => selectTicket(tier.slug)}
+                                  className={`rounded-sm border overflow-hidden text-left transition-colors ${selected
+                                    ? "border-primary bg-primary/5"
+                                    : "border-border hover:border-foreground/30"
+                                    }`}
+                                >
+                                  {tier.image_url && (
+                                    <img src={tier.image_url} alt={tier.name} className="h-40 w-full object-cover object-top bg-black" />
+                                  )}
+                                  <div className="p-3">
+                                    <p className="font-semibold text-foreground">{tier.name}</p>
+                                    <p className="text-sm text-muted-foreground">₱{Number(tier.price).toLocaleString()}</p>
+                                    {isSouvenirPromoCategory(tier.slug, tier.name) && (
+                                      <p className="text-[11px] text-muted-foreground mt-1">First 150 qualified 12KM + 25KM get a free souvenir shirt.</p>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {(() => {
+                            const selectedTier = selectedEvent.ticket_tiers.find(
+                              (tier) => tier.slug === (form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug)
+                            );
+                            if (!selectedTier?.image_url) return null;
+                            return (
+                              <div className="rounded-sm border border-border overflow-hidden bg-black">
+                                <p className="px-4 py-2 text-xs uppercase tracking-[0.2em] text-primary-foreground/80 bg-primary">
+                                  {selectedTier.name} entitlements
+                                </p>
+                                <img
+                                  src={selectedTier.image_url}
+                                  alt={`${selectedTier.name} entitlements`}
+                                  className="w-full max-h-[40rem] object-contain"
+                                />
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 
@@ -243,6 +360,71 @@ const Events = () => {
                 <Label htmlFor="company">Company / Team</Label>
                 <Input id="company" value={form.company} onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select value={form.gender} onValueChange={(value) => setForm((f) => ({ ...f, gender: value }))}>
+                    <SelectTrigger id="gender">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EVENT_GENDERS.map((gender) => (
+                        <SelectItem key={gender} value={gender}>{gender}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="age">Age</Label>
+                  <Input
+                    id="age"
+                    type="number"
+                    min={EVENT_AGE_MIN}
+                    max={EVENT_AGE_MAX}
+                    value={form.age}
+                    onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+              {apparel.has_singlet && (
+                <div>
+                  <Label>Event singlet size</Label>
+                  <ApparelSizeButtons
+                    value={form.singlet_size}
+                    onChange={(size) => setForm((f) => ({ ...f, singlet_size: size }))}
+                  />
+                </div>
+              )}
+              {apparel.has_finisher_shirt && (
+                <div>
+                  <Label>Finisher t-shirt size</Label>
+                  <ApparelSizeButtons
+                    value={form.finisher_shirt_size}
+                    onChange={(size) => setForm((f) => ({ ...f, finisher_shirt_size: size }))}
+                  />
+                </div>
+              )}
+              {apparel.has_crop_top && (
+                <div>
+                  <label className="flex items-start gap-3 rounded-sm border border-border p-3 cursor-pointer">
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={form.crop_top_enabled}
+                      onCheckedChange={(checked) => setForm((f) => ({
+                        ...f,
+                        crop_top_enabled: checked === true,
+                      }))}
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-foreground">Make this a cropped top</span>
+                      <span className="block text-xs text-muted-foreground mt-1">
+                        Optional. Uses the singlet / finisher size you picked above. Check this only if you want your shirt cropped.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              )}
               {selectedEvent?.ticket_tiers?.length ? (
                 <div>
                   <Label>Distance</Label>
@@ -252,7 +434,7 @@ const Events = () => {
                         key={tier.slug}
                         type="button"
                         variant={(form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug) === tier.slug ? "default" : "outline"}
-                        onClick={() => setForm((f) => ({ ...f, ticket_slug: tier.slug }))}
+                        onClick={() => selectTicket(tier.slug)}
                       >
                         {tier.name}
                       </Button>
@@ -276,11 +458,20 @@ const Events = () => {
                 <Textarea id="notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Anything we should know?" />
               </div>
 
+              {selectedEvent && isSouvenirPromoCategory(selectedTier?.slug, selectedTier?.name) && (
+                <p className="text-xs text-muted-foreground">{SOUVENIR_SHIRT_PROMO_NOTE}</p>
+              )}
+              {selectedEvent && (
+                <p className="text-xs text-muted-foreground">A ₱{totals.convenienceFee.toLocaleString()} convenience fee is added to every registration.</p>
+              )}
               {selectedEvent && (
                 <div className="rounded-sm border border-border bg-secondary/50 p-4 space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Base fee</span><span>₱{totals.basePrice.toLocaleString()}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-₱{totals.discountAmount.toLocaleString()}</span></div>
-                  <div className="flex justify-between font-semibold text-foreground border-t border-border pt-2"><span>Total</span><span>₱{totals.finalAmount.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Registration fee</span><span>₱{totals.basePrice.toLocaleString()}</span></div>
+                  {totals.discountAmount > 0 && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-₱{totals.discountAmount.toLocaleString()}</span></div>
+                  )}
+                  <div className="flex justify-between"><span className="text-muted-foreground">Convenience fee</span><span>₱{totals.convenienceFee.toLocaleString()}</span></div>
+                  <div className="flex justify-between font-semibold text-foreground border-t border-border pt-2"><span>Total amount due</span><span>₱{totals.finalAmount.toLocaleString()}</span></div>
                   {selectedEvent.promo_code && form.promo_code && !totals.isPromoValid && (
                     <p className="text-xs text-red-600">That promo code is not valid for this event.</p>
                   )}

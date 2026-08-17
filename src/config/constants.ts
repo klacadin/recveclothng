@@ -20,6 +20,13 @@ export function getAppBaseUrl(): string {
 // Checkout fees (from REVE CLOTHING spreadsheet)
 export const CONVENIENCE_FEE = 38;
 
+/** Added to every event registration total. Change here — do not hardcode in UI. */
+export const EVENT_CONVENIENCE_FEE = 50;
+
+/** Event test promo: 100% off registration + convenience fee (no HitPay). */
+export const EVENT_TEST_PROMO_CODE = "TESTEVENT";
+export const EVENT_TEST_PROMO_DISCOUNT_PERCENT = 100;
+
 /** Max total units (pieces) per order — enforced in cart, checkout UI, and create-order. */
 export const MAX_ORDER_PIECES = 10;
 
@@ -41,8 +48,7 @@ export const TEST_VOUCHER_CODE = 'TEST99';
 export const TEST_VOUCHER_DISCOUNT_PERCENT = 99;
 
 // J&T Express Philippines - Shipping
-// For tracking: integrate via AfterShip (aftership.com) or TrackingMore
-// Set in Supabase Edge Function secrets: JNT_API_KEY, JNT_WEBHOOK_SECRET
+// For tracking: integrate via AfterShip (aftership.com) or TrackingMore.
 export const JNT_CARRIER_SLUG = 'jtexpress-ph';
 
 // J&T Express Philippines VIP merchant portal (COD approved)

@@ -1,5 +1,5 @@
 import { eventRegistrations, events } from "@/db/schema";
-import { parseTicketTiers } from "@/lib/event-management";
+import { parseTicketTiers, formatRunnerNumber } from "@/lib/event-management";
 import type { Event, EventPaymentStatus, EventRegistration } from "@/types/app-database";
 
 const PAYMENT_STATUSES = new Set<EventPaymentStatus>(["pending", "paid", "cancelled", "refunded"]);
@@ -45,16 +45,29 @@ export function mapRegistration(row: typeof eventRegistrations.$inferSelect): Ev
     notes: row.notes,
     ticket_slug: row.ticketSlug,
     ticket_name: row.ticketName,
+    shirt_size: row.shirtSize,
+    singlet_size: row.singletSize,
+    finisher_shirt_size: row.finisherShirtSize,
+    crop_top_size: row.cropTopSize,
+    gender: row.gender,
+    age: row.age,
     promo_code_used: row.promoCodeUsed,
     subtotal: Number(row.subtotal ?? 0),
     discount_amount: Number(row.discountAmount ?? 0),
+    convenience_fee: Number(row.convenienceFee ?? 0),
     final_amount: Number(row.finalAmount ?? 0),
     payment_status: status,
     payment_reference: row.paymentReference,
     hitpay_payment_id: row.hitpayPaymentId,
     check_in_code: row.checkInCode,
+    runner_number: formatRunnerNumber(row.runnerNumber, { slug: row.ticketSlug, name: row.ticketName }),
     checked_in: row.checkedIn,
     checked_in_at: row.checkedInAt,
+    paid_at: row.paidAt,
+    promo_eligible: Boolean(row.promoEligible),
+    promo_rank: row.promoRank ?? null,
+    promo_qualified_at: row.promoQualifiedAt,
+    free_souvenir_shirt: Boolean(row.freeSouvenirShirt),
     created_at: row.createdAt,
     updated_at: row.updatedAt,
   };

@@ -70,7 +70,7 @@ const SocialProof = () => {
             Stay connected with our community and upcoming events
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            {liveEvents.map((event) => (
+            {Array.isArray(liveEvents) && liveEvents.map((event) => (
               <Button key={event.id} variant="default" size="lg" asChild className="gap-2">
                 <Link to={`/events/${event.slug}`}>
                   {event.title}

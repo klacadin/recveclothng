@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEventRegistrations, useEvents, useUpdateRegistration } from "@/hooks/useEvents";
 import { useToast } from "@/hooks/use-toast";
+import { formatRunnerApparel } from "@/lib/event-management";
 
 const EventCheckIn = () => {
   const { data: events = [] } = useEvents({ activeOnly: false });
@@ -25,7 +26,11 @@ const EventCheckIn = () => {
     [events]
   );
 
-  const handleCheckIn = async (id: string, next: boolean) => {
+  const handleCheckIn = async (id: string, next: boolean, paymentStatus: string) => {
+    if (next && paymentStatus !== "paid") {
+      toast({ title: "Mark as paid before check-in", variant: "destructive" });
+      return;
+    }
     try {
       await updateRegistration.mutateAsync({
         id,
@@ -46,7 +51,7 @@ const EventCheckIn = () => {
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Event day</p>
               <h1 className="font-display text-3xl font-bold">Check-in</h1>
-              <p className="text-sm text-muted-foreground mt-1">Search by name, email, phone, or the 6-character code.</p>
+              <p className="text-sm text-muted-foreground mt-1">Search by name, email, phone, runner number, or the 6-character code.</p>
             </div>
             <Button asChild variant="outline" size="sm">
               <Link to="/admin">Admin</Link>
@@ -65,7 +70,7 @@ const EventCheckIn = () => {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Name, email, or check-in code"
+                placeholder="Name, email, runner number, or check-in code"
                 className="pl-9"
                 autoFocus
               />
@@ -95,15 +100,21 @@ const EventCheckIn = () => {
                   <div>
                     <p className="font-semibold text-foreground">{reg.full_name}</p>
                     <p className="text-xs text-muted-foreground">{reg.email} · {reg.phone || "No phone"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[reg.gender, reg.age != null ? `${reg.age} yrs` : null, ...formatRunnerApparel(reg)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {eventTitle.get(reg.event_id) || "Event"}{reg.ticket_name ? ` · ${reg.ticket_name}` : ""} · Code <span className="font-mono font-semibold text-foreground">{reg.check_in_code}</span> · {reg.payment_status}
+                      {eventTitle.get(reg.event_id) || "Event"}{reg.ticket_name ? ` · ${reg.ticket_name}` : ""}{reg.runner_number ? ` · No. ${reg.runner_number}` : ""} · Code <span className="font-mono font-semibold text-foreground">{reg.check_in_code}</span> · {reg.payment_status}
                     </p>
                   </div>
                   <Button
                     size="lg"
                     variant={reg.checked_in ? "default" : "outline"}
-                    onClick={() => handleCheckIn(reg.id, !reg.checked_in)}
-                    disabled={updateRegistration.isPending}
+                    onClick={() => handleCheckIn(reg.id, !reg.checked_in, reg.payment_status)}
+                    disabled={updateRegistration.isPending || (!reg.checked_in && reg.payment_status !== "paid")}
+                    title={reg.payment_status !== "paid" && !reg.checked_in ? "Mark as paid before check-in" : undefined}
                   >
                     {reg.checked_in ? <Check className="h-4 w-4 mr-2" /> : <UserRoundCheck className="h-4 w-4 mr-2" />}
                     {reg.checked_in ? "Checked in" : "Check in"}

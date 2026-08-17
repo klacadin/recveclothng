@@ -6,12 +6,18 @@ import { getAppBaseUrl } from "@/config/constants";
 import {
   calculateRegistrationTotals,
   eventPaymentReference,
+  formatRunnerNumber,
   generateCheckInCode,
+  parseEventAge,
+  parseEventGender,
+  parseEventShirtSize,
   parseTicketTiers,
   resolveEventTicket,
+  ticketApparel,
 } from "@/lib/event-management";
 import { sendEventConfirmationEmail } from "@/lib/event-email";
 import { holdsEventSeat, mapRegistration } from "@/lib/event-records";
+import { finalizeEventPayment } from "@/lib/finalize-event-payment";
 import { createHitPayPaymentRequest, getHitPayApiKey } from "@/lib/hitpay";
 
 async function uniqueCheckInCode() {
@@ -48,8 +54,9 @@ export async function POST(req: Request) {
     let ticketName: string | null = null;
     let ticketSlug: string | null = null;
     let basePrice = Number(event.price || 0);
+    let ticket = ticketTiers.length ? null : undefined;
     if (ticketTiers.length) {
-      const ticket = resolveEventTicket(ticketTiers, body.ticket_slug);
+      ticket = resolveEventTicket(ticketTiers, body.ticket_slug);
       if (!ticket) {
         return NextResponse.json({ error: "Select a distance" }, { status: 400 });
       }
@@ -57,6 +64,7 @@ export async function POST(req: Request) {
       ticketSlug = ticket.slug;
       basePrice = ticket.price;
     }
+    const apparel = ticketApparel(ticket ?? null);
 
     const totals = calculateRegistrationTotals({
       basePrice,
@@ -91,7 +99,24 @@ export async function POST(req: Request) {
     const phone = String(body.phone || "").trim() || null;
     const company = String(body.company || "").trim() || null;
     const notes = String(body.notes || "").trim() || null;
-    const promoCodeUsed = totals.isPromoValid ? event.promoCode : null;
+    const shirtSize = apparel.has_singlet ? parseEventShirtSize(body.singlet_size ?? body.shirt_size) : null;
+    const finisherShirtSize = apparel.has_finisher_shirt ? parseEventShirtSize(body.finisher_shirt_size) : null;
+    const cropTopRequested = apparel.has_crop_top && Boolean(body.crop_top || body.crop_top_size);
+    const cropTopSize = cropTopRequested
+      ? parseEventShirtSize(body.crop_top_size) || finisherShirtSize || shirtSize || "YES"
+      : null;
+    const gender = parseEventGender(body.gender);
+    const age = parseEventAge(body.age);
+    const missing: string[] = [];
+    if (apparel.has_singlet && !shirtSize) missing.push("event singlet size");
+    if (apparel.has_finisher_shirt && !finisherShirtSize) missing.push("finisher t-shirt size");
+    if (!gender) missing.push("gender");
+    if (age == null) missing.push("age");
+    if (missing.length) {
+      return NextResponse.json({ error: `${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} required` }, { status: 400 });
+    }
+    const providedPromo = String(body.promo_code_used ?? body.promo_code ?? "").trim();
+    const promoCodeUsed = totals.isPromoValid ? event.promoCode || providedPromo || null : null;
     const isFree = totals.finalAmount <= 0;
     const now = new Date();
 
@@ -103,12 +128,19 @@ export async function POST(req: Request) {
           fullName,
           phone,
           company,
+          shirtSize: shirtSize ?? finisherShirtSize,
+          singletSize: shirtSize,
+          finisherShirtSize,
+          cropTopSize,
+          gender,
+          age,
           notes,
           ticketSlug,
           ticketName,
           promoCodeUsed,
           subtotal: String(totals.basePrice),
           discountAmount: String(totals.discountAmount),
+          convenienceFee: String(totals.convenienceFee),
           finalAmount: String(totals.finalAmount),
           paymentStatus: isFree ? "paid" : "pending",
           updatedAt: now,
@@ -125,12 +157,19 @@ export async function POST(req: Request) {
           email,
           phone,
           company,
+          shirtSize: shirtSize ?? finisherShirtSize,
+          singletSize: shirtSize,
+          finisherShirtSize,
+          cropTopSize,
+          gender,
+          age,
           notes,
           ticketSlug,
           ticketName,
           promoCodeUsed,
           subtotal: String(totals.basePrice),
           discountAmount: String(totals.discountAmount),
+          convenienceFee: String(totals.convenienceFee),
           finalAmount: String(totals.finalAmount),
           paymentStatus: isFree ? "paid" : "pending",
           checkInCode: await uniqueCheckInCode(),
@@ -151,7 +190,7 @@ export async function POST(req: Request) {
           amount: totals.finalAmount,
           email,
           name: fullName,
-          purpose: `REVE event: ${event.title}${ticketName ? ` (${ticketName})` : ""}`,
+          purpose: `REVE event: ${event.title}${ticketName ? ` (${ticketName})` : ""} + ₱${totals.convenienceFee} convenience fee`,
           referenceNumber: eventPaymentReference(registration.id),
           redirectUrl: `${appUrl}/events/registered?id=${registration.id}`,
         });
@@ -170,6 +209,8 @@ export async function POST(req: Request) {
     }
 
     if (isFree) {
+      const numbered = await finalizeEventPayment(registration.id);
+      if (numbered) registration = numbered;
       await sendEventConfirmationEmail({
         email,
         fullName,
@@ -177,9 +218,19 @@ export async function POST(req: Request) {
         startsAt: event.startsAt,
         location: event.location,
         checkInCode: registration.checkInCode,
+        runnerNumber: formatRunnerNumber(registration.runnerNumber, {
+          slug: registration.ticketSlug,
+          name: registration.ticketName,
+          prefix: ticket?.bib_prefix,
+        }),
+        registrationFee: totals.registrationFee,
+        convenienceFee: totals.convenienceFee,
         finalAmount: totals.finalAmount,
         paymentStatus: "paid",
         registrationId: registration.id,
+        ticketName: registration.ticketName,
+        promoRank: registration.promoRank,
+        freeSouvenirShirt: registration.freeSouvenirShirt,
       });
     }
 

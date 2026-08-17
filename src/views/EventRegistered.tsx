@@ -6,6 +6,7 @@ import Footer from "@/components/layout/Footer";
 import SEO from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { useConfirmEventPayment, useEventRegistration } from "@/hooks/useEvents";
+import { formatRunnerApparel, souvenirPromoSummary } from "@/lib/event-management";
 
 const EventRegistered = () => {
   const [searchParams] = useSearchParams();
@@ -47,10 +48,17 @@ const EventRegistered = () => {
                 <h1 className="font-display text-2xl font-bold">{paid ? "You're registered" : "Registration received"}</h1>
                 <p className="text-sm text-muted-foreground">
                   {paid
-                    ? "Show this check-in code at the door."
-                    : "Complete payment, then bring this code on the event day. Staff can also mark you paid on site."}
+                    ? "Show this runner number and check-in code at the door."
+                    : "Complete payment to get your runner number. Staff can also mark you paid on site."}
                 </p>
               </div>
+
+              {paid && registration.runner_number && (
+                <div className="rounded-sm bg-primary text-primary-foreground p-6 text-center">
+                  <p className="text-xs uppercase tracking-[0.2em] opacity-80">Runner number</p>
+                  <p className="mt-2 font-display text-5xl font-bold tracking-[0.2em]">{registration.runner_number}</p>
+                </div>
+              )}
 
               <div className="rounded-sm bg-secondary p-6 text-center">
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Check-in code</p>
@@ -69,10 +77,30 @@ const EventRegistered = () => {
                   <p className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" />{event.location}</p>
                 )}
                 <p className="text-muted-foreground">{registration.full_name} · {registration.email}</p>
+                <p className="text-muted-foreground">
+                  {[registration.gender, registration.age != null ? `${registration.age} yrs` : null, ...formatRunnerApparel(registration)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
                 <p className="font-medium text-foreground">
                   {registration.ticket_name ? `${registration.ticket_name} · ` : ""}
-                  {Number(registration.final_amount) > 0 ? `₱${Number(registration.final_amount).toLocaleString()}` : "Free"} · {paid ? "Paid" : "Payment pending"}
+                  {paid ? "Paid" : "Payment pending"}
                 </p>
+                <div className="rounded-sm border border-border bg-secondary/40 p-3 space-y-1">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Registration fee</span><span>₱{Number(registration.subtotal - registration.discount_amount).toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Convenience fee</span><span>₱{Number(registration.convenience_fee ?? 0).toLocaleString()}</span></div>
+                  <div className="flex justify-between font-semibold text-foreground border-t border-border pt-1"><span>Total</span><span>₱{Number(registration.final_amount).toLocaleString()}</span></div>
+                </div>
+                {(() => {
+                  const promo = souvenirPromoSummary(registration);
+                  return (
+                    <p className="text-muted-foreground">
+                      {promo.applicable
+                        ? `Promo rank: ${promo.rankLabel} · Free souvenir shirt: ${promo.shirtLabel}`
+                        : "Promo eligibility: Not applicable"}
+                    </p>
+                  );
+                })()}
               </div>
 
               {!paid && event?.payment_instructions && (

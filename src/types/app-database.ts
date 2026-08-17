@@ -94,6 +94,11 @@ export interface EventTicketTier {
   slug: string;
   name: string;
   price: number;
+  image_url?: string | null;
+  bib_prefix?: string | null;
+  has_singlet?: boolean;
+  has_finisher_shirt?: boolean;
+  has_crop_top?: boolean;
 }
 
 export interface Event {
@@ -132,16 +137,29 @@ export interface EventRegistration {
   notes: string | null;
   ticket_slug: string | null;
   ticket_name: string | null;
+  shirt_size: string | null;
+  singlet_size: string | null;
+  finisher_shirt_size: string | null;
+  crop_top_size: string | null;
+  gender: string | null;
+  age: number | null;
   promo_code_used: string | null;
   subtotal: number;
   discount_amount: number;
+  convenience_fee: number;
   final_amount: number;
   payment_status: EventPaymentStatus;
   payment_reference: string | null;
   hitpay_payment_id?: string | null;
   check_in_code: string;
+  runner_number: string | null;
   checked_in: boolean;
   checked_in_at: string | Date | null;
+  paid_at: string | Date | null;
+  promo_eligible: boolean;
+  promo_rank: number | null;
+  promo_qualified_at: string | Date | null;
+  free_souvenir_shirt: boolean;
   created_at: string | Date;
   updated_at: string | Date;
 }
@@ -154,6 +172,13 @@ export type EventRegistrationInsert = {
   company?: string | null;
   notes?: string | null;
   ticket_slug?: string | null;
+  shirt_size?: string | null;
+  singlet_size?: string | null;
+  finisher_shirt_size?: string | null;
+  crop_top?: boolean;
+  crop_top_size?: string | null;
+  gender?: string | null;
+  age?: number | null;
   promo_code_used?: string | null;
 };
 

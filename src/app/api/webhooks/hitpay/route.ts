@@ -3,7 +3,8 @@ import { recordAffiliateCommissionForOrder } from "@/db/affiliates";
 import { getDb } from "@/db/client";
 import { eventRegistrations, events, orderItems, orders } from "@/db/schema";
 import { sendEventConfirmationEmail } from "@/lib/event-email";
-import { parseEventPaymentReference } from "@/lib/event-management";
+import { parseEventPaymentReference, formatRunnerNumber } from "@/lib/event-management";
+import { finalizeEventPayment } from "@/lib/finalize-event-payment";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
     const eventRegistrationId = parseEventPaymentReference(rawRef);
 
     if (eventRegistrationId) {
-      const [registration] = await db
+      const [updated] = await db
         .update(eventRegistrations)
         .set({
           paymentStatus: "paid",
@@ -102,10 +103,12 @@ export async function POST(req: Request) {
         .where(eq(eventRegistrations.id, eventRegistrationId))
         .returning();
 
-      if (!registration) {
+      if (!updated) {
         console.error("hitpay webhook: event registration not found", eventRegistrationId);
         return NextResponse.json({ error: "Registration not found" }, { status: 404 });
       }
+
+      const registration = (await finalizeEventPayment(updated.id)) ?? updated;
 
       const [event] = await db.select().from(events).where(eq(events.id, registration.eventId)).limit(1);
       if (event) {
@@ -116,9 +119,18 @@ export async function POST(req: Request) {
           startsAt: event.startsAt,
           location: event.location,
           checkInCode: registration.checkInCode,
+          runnerNumber: formatRunnerNumber(registration.runnerNumber, {
+            slug: registration.ticketSlug,
+            name: registration.ticketName,
+          }),
+          registrationFee: Number(registration.subtotal) - Number(registration.discountAmount || 0),
+          convenienceFee: Number(registration.convenienceFee || 0),
           finalAmount: Number(registration.finalAmount),
           paymentStatus: "paid",
           registrationId: registration.id,
+          ticketName: registration.ticketName,
+          promoRank: registration.promoRank,
+          freeSouvenirShirt: registration.freeSouvenirShirt,
         });
       }
 

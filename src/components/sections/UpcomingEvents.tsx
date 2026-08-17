@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, CalendarRange, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEvents } from "@/hooks/useEvents";
 import { formatEventPriceLabel } from "@/lib/event-management";
 
 const UpcomingEvents = () => {
-  const { data: events = [], isLoading } = useEvents({ activeOnly: true });
+  const { data, isLoading } = useEvents({ activeOnly: true });
+  const events = Array.isArray(data) ? data : [];
   if (isLoading || events.length === 0) return null;
 
   return (
