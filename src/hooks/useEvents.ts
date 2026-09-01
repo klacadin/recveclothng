@@ -131,7 +131,7 @@ export const useUpdateRegistration = () => {
 export const useConfirmEventPayment = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: string | { registration_id?: string; hitpay_payment_id?: string }) {
+    mutationFn: async (input: string | { registration_id?: string; hitpay_payment_id?: string }) => {
       const body =
         typeof input === "string"
           ? { registration_id: input }
