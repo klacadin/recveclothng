@@ -32,7 +32,7 @@ function formatWhen(value?: string | Date) {
 }
 
 function confirmationHtml(data: EventEmailRequest) {
-  const ticketUrl = `${process.env.APP_URL || SERVER_BASE_URL}/events/registered?id=${data.registration_id}`;
+  const ticketUrl = `${process.env.APP_URL || SERVER_BASE_URL}/events/registered/${data.registration_id}`;
   const registrationFee = data.registration_fee != null ? Number(data.registration_fee) : null;
   const convenienceFee = data.convenience_fee != null ? Number(data.convenience_fee) : null;
   const amountLines = [

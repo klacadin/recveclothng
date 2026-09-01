@@ -21,7 +21,7 @@ export function getAppBaseUrl(): string {
 export const CONVENIENCE_FEE = 38;
 
 /** Added to every event registration total. Change here — do not hardcode in UI. */
-export const EVENT_CONVENIENCE_FEE = 50;
+export const EVENT_CONVENIENCE_FEE = 80;
 
 /** Event test promo: 100% off registration + convenience fee (no HitPay). */
 export const EVENT_TEST_PROMO_CODE = "TESTEVENT";

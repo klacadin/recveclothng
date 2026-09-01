@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarRange, Check, Clock3, Copy, Download, Loader2, MapPin, Plus, Search, Trash2, Upload, UserRoundCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useCreateEvent, useDeleteEvent, useEventRegistrations, useEvents, useUpdateEvent, useUpdateRegistration, type Event, type EventRegistration } from "@/hooks/useEvents";
+import { useCreateEvent, useDeleteEvent, useEventRegistrations, useEvents, useReconcileEventPayments, useUpdateEvent, useUpdateRegistration, type Event, type EventRegistration } from "@/hooks/useEvents";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { useToast } from "@/hooks/use-toast";
 import { formatEventPriceLabel, formatRunnerApparel, isSouvenirPromoCategory, MAX_EVENT_CATEGORIES, slugifyEvent, souvenirPromoSummary, SOUVENIR_SHIRT_PROMO_LIMIT, toDatetimeLocalValue } from "@/lib/event-management";
@@ -54,6 +54,7 @@ const EventManagement = () => {
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
   const updateRegistration = useUpdateRegistration();
+  const reconcilePayments = useReconcileEventPayments();
   const { uploadImage, isUploading } = useImageUpload();
   const { toast } = useToast();
   const posterInputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +68,12 @@ const EventManagement = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [promoFilter, setPromoFilter] = useState("all");
+
+  useEffect(() => {
+    void reconcilePayments.mutateAsync().catch(() => undefined);
+    // Sync HitPay-paid rows that the webhook missed. Run once when admin opens Events.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openCreateForm = () => {
     setEditing(null);

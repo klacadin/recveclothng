@@ -179,7 +179,7 @@ const Events = () => {
             ? "Pay using the event instructions, then show your check-in code on the day."
             : "Bring your check-in code on the event day.",
       });
-      navigate(`/events/registered?id=${result.id}`);
+      navigate(`/events/registered/${result.id}`);
     } catch (error) {
       toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     }

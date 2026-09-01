@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { EVENT_CONVENIENCE_FEE } from '@/config/constants';
 import {
   calculateRegistrationTotals,
   eventPaymentReference,
@@ -33,9 +34,9 @@ describe('event pricing logic', () => {
     expect(totals.isPromoValid).toBe(true);
     expect(totals.discountPercent).toBe(20);
     expect(totals.discountAmount).toBe(300);
-    expect(totals.convenienceFee).toBe(50);
+    expect(totals.convenienceFee).toBe(EVENT_CONVENIENCE_FEE);
     expect(totals.registrationFee).toBe(1200);
-    expect(totals.finalAmount).toBe(1250);
+    expect(totals.finalAmount).toBe(1200 + EVENT_CONVENIENCE_FEE);
   });
 
   it('ignores an invalid promo code instead of discounting', () => {
@@ -48,8 +49,8 @@ describe('event pricing logic', () => {
 
     expect(totals.isPromoValid).toBe(false);
     expect(totals.discountAmount).toBe(0);
-    expect(totals.convenienceFee).toBe(50);
-    expect(totals.finalAmount).toBe(1550);
+    expect(totals.convenienceFee).toBe(EVENT_CONVENIENCE_FEE);
+    expect(totals.finalAmount).toBe(1500 + EVENT_CONVENIENCE_FEE);
   });
 
   it('never computes a negative final fee', () => {
@@ -67,8 +68,8 @@ describe('event pricing logic', () => {
 
   it('always adds the configured convenience fee to every registration', () => {
     const totals = calculateRegistrationTotals({ basePrice: 1000 });
-    expect(totals.convenienceFee).toBe(50);
-    expect(totals.finalAmount).toBe(1050);
+    expect(totals.convenienceFee).toBe(EVENT_CONVENIENCE_FEE);
+    expect(totals.finalAmount).toBe(1000 + EVENT_CONVENIENCE_FEE);
   });
 
   it('applies TESTEVENT as 100% off including the convenience fee', () => {

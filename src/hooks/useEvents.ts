@@ -131,13 +131,39 @@ export const useUpdateRegistration = () => {
 export const useConfirmEventPayment = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (registrationId: string) => {
+    mutationFn: async (input: string | { registration_id?: string; hitpay_payment_id?: string }) {
+      const body =
+        typeof input === "string"
+          ? { registration_id: input }
+          : {
+              registration_id: input.registration_id,
+              hitpay_payment_id: input.hitpay_payment_id,
+            };
       const result = await apiSend<{ success: boolean; registration: EventRegistration }>(
         "/api/events/confirm-payment",
         "POST",
-        { registration_id: registrationId }
+        body
       );
       if (!result.ok || !result.data) throw new Error(result.error || "Failed to confirm payment");
+      return result.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["event-registrations"] });
+      qc.invalidateQueries({ queryKey: ["event-registration"] });
+    },
+  });
+};
+
+export const useReconcileEventPayments = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const result = await apiSend<{ success: boolean; reconciled: number }>(
+        "/api/events/confirm-payment",
+        "POST",
+        { reconcile_pending: true }
+      );
+      if (!result.ok || !result.data) throw new Error(result.error || "Failed to sync payments");
       return result.data;
     },
     onSuccess: () => {

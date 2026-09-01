@@ -87,6 +87,7 @@ const AppRoutes = () => {
       <Route path="/news/:slug" element={<ArticleDetail />} />
       <Route path="/events" element={<Events />} />
       <Route path="/events/registered" element={<EventRegistered />} />
+      <Route path="/events/registered/:id" element={<EventRegistered />} />
       <Route path="/events/:slug" element={<Events />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route

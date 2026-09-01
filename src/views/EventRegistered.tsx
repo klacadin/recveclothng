@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CalendarRange, CheckCircle2, Loader2, MapPin, Ticket } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -9,19 +9,58 @@ import { useConfirmEventPayment, useEventRegistration } from "@/hooks/useEvents"
 import { formatRunnerApparel, souvenirPromoSummary } from "@/lib/event-management";
 
 const EventRegistered = () => {
+  const { id: idParam } = useParams();
   const [searchParams] = useSearchParams();
-  const id = searchParams.get("id");
-  const { data: registration, isLoading } = useEventRegistration(id);
+  const idFromUrl = idParam || searchParams.get("id");
+  const hitpayReference = searchParams.get("reference");
+  const [resolvedId, setResolvedId] = useState(idFromUrl);
+  const id = resolvedId || idFromUrl;
+  const { data: registration, isLoading, refetch } = useEventRegistration(id);
   const confirmPayment = useConfirmEventPayment();
-  const [reconciled, setReconciled] = useState(false);
-  const confirmOnce = useRef(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    if (!id || !registration || registration.payment_status === "paid" || reconciled || confirmOnce.current) return;
-    if (!registration.hitpay_payment_id) return;
-    confirmOnce.current = true;
-    confirmPayment.mutate(id, { onSettled: () => setReconciled(true) });
-  }, [id, registration, reconciled, confirmPayment]);
+    if (!id && !hitpayReference) return;
+    if (registration?.payment_status === "paid") return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 8;
+    setConfirming(true);
+
+    const checkPayment = async () => {
+      while (!cancelled && attempts < maxAttempts) {
+        attempts += 1;
+        try {
+          const data = await confirmPayment.mutateAsync({
+            registration_id: id || undefined,
+            hitpay_payment_id: hitpayReference || undefined,
+          });
+          if (data.registration?.id && data.registration.id !== id) {
+            setResolvedId(data.registration.id);
+          }
+          if (data.registration?.payment_status === "paid" || data.success) {
+            await refetch();
+            break;
+          }
+        } catch {
+          // HitPay can still be settling; retry like shop payment-success.
+        }
+        if (attempts < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      }
+      if (!cancelled) {
+        await refetch();
+        setConfirming(false);
+      }
+    };
+
+    void checkPayment();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, hitpayReference, registration?.payment_status]);
 
   const event = registration?.event;
   const paid = registration?.payment_status === "paid";
@@ -32,9 +71,10 @@ const EventRegistered = () => {
       <Header />
       <main className="pt-24 pb-16">
         <div className="container max-w-xl">
-          {isLoading ? (
-            <div className="flex justify-center py-20">
+          {isLoading || (confirming && !paid && registration) ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">{confirming ? "Confirming your payment..." : "Loading ticket..."}</p>
             </div>
           ) : !registration ? (
             <div className="rounded-sm border border-border bg-card p-8 text-center">

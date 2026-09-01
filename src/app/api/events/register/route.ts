@@ -192,7 +192,7 @@ export async function POST(req: Request) {
           name: fullName,
           purpose: `REVE event: ${event.title}${ticketName ? ` (${ticketName})` : ""} + ₱${totals.convenienceFee} convenience fee`,
           referenceNumber: eventPaymentReference(registration.id),
-          redirectUrl: `${appUrl}/events/registered?id=${registration.id}`,
+          redirectUrl: `${appUrl}/events/registered/${registration.id}`,
         });
         redirectUrl = hit.url || null;
         if (hit.id) {

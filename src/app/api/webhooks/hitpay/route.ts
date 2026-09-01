@@ -1,30 +1,19 @@
 import { getAppBaseUrl } from "@/config/constants";
 import { recordAffiliateCommissionForOrder } from "@/db/affiliates";
 import { getDb } from "@/db/client";
-import { eventRegistrations, events, orderItems, orders } from "@/db/schema";
-import { sendEventConfirmationEmail } from "@/lib/event-email";
-import { parseEventPaymentReference, formatRunnerNumber } from "@/lib/event-management";
-import { finalizeEventPayment } from "@/lib/finalize-event-payment";
+import { orderItems, orders } from "@/db/schema";
+import { parseEventPaymentReference } from "@/lib/event-management";
+import { markEventRegistrationPaidFromWebhook } from "@/lib/event-payment";
+import {
+  hitPayPaymentReference,
+  hitPayPaymentRequestId,
+  hitPayReferenceNumber,
+  isHitPayWebhookSuccess,
+  parseHitPayWebhookBody,
+  verifyHitPayWebhookSignature,
+} from "@/lib/hitpay";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-
-async function verifyHitpaySignature(rawBody: string, signature: string | null) {
-  const salt =
-    process.env.HITPAY_WEBHOOK_SALT || process.env.VITE_HITPAY_WEBHOOK_SALT;
-  if (!salt || !signature) return false;
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(salt),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sigBuffer = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-  const computed = Array.from(new Uint8Array(sigBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return computed === signature;
-}
 
 async function sendConfirmationEmail(order: typeof orders.$inferSelect) {
   try {
@@ -61,100 +50,70 @@ async function sendConfirmationEmail(order: typeof orders.$inferSelect) {
 export async function POST(req: Request) {
   try {
     const signature = req.headers.get("hitpay-signature");
+    const eventType = req.headers.get("hitpay-event-type");
     const rawBody = await req.text();
+    const payload = parseHitPayWebhookBody(rawBody, req.headers.get("content-type"));
 
-    if (!(await verifyHitpaySignature(rawBody, signature))) {
+    if (!verifyHitPayWebhookSignature({ rawBody, signatureHeader: signature, payload })) {
       console.error("hitpay webhook: invalid signature");
       return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
     }
 
-    const payload = JSON.parse(rawBody) as {
-      status?: string;
-      reference_number?: string;
-      reference_id?: string;
-      id?: string;
-      payments?: Array<{ id?: string }>;
-    };
-
-    const status = payload.status;
-    const isSuccess = status === "completed" || status === "succeeded";
-    if (!isSuccess) {
+    if (!isHitPayWebhookSuccess(payload, eventType)) {
       return NextResponse.json({ success: true, message: "Webhook received" });
     }
 
-    const rawRef = payload.reference_number || payload.reference_id;
-    if (!rawRef) {
+    const db = getDb();
+    const paymentRef = hitPayPaymentReference(payload);
+    const paymentRequestId = hitPayPaymentRequestId(payload);
+    const rawRef = hitPayReferenceNumber(payload);
+
+    try {
+      const registration = await markEventRegistrationPaidFromWebhook(payload);
+      if (registration) {
+        return NextResponse.json({
+          success: true,
+          registration_id: registration.id,
+          status: "paid",
+        });
+      }
+    } catch (error) {
+      console.error("hitpay webhook: event registration", error);
+      const registrationId = parseEventPaymentReference(rawRef);
+      if (registrationId || paymentRequestId) {
+        return NextResponse.json({ success: true, message: "Event payment recorded" });
+      }
+    }
+
+    if (!rawRef && !paymentRequestId) {
       return NextResponse.json({ error: "Missing order reference" }, { status: 400 });
     }
 
-    const db = getDb();
-    const paymentRef = payload.payments?.[0]?.id || payload.id || null;
-    const eventRegistrationId = parseEventPaymentReference(rawRef);
-
-    if (eventRegistrationId) {
-      const [updated] = await db
-        .update(eventRegistrations)
-        .set({
-          paymentStatus: "paid",
-          paymentReference: paymentRef,
-          hitpayPaymentId: payload.id || undefined,
-          updatedAt: new Date(),
-        })
-        .where(eq(eventRegistrations.id, eventRegistrationId))
-        .returning();
-
-      if (!updated) {
-        console.error("hitpay webhook: event registration not found", eventRegistrationId);
-        return NextResponse.json({ error: "Registration not found" }, { status: 404 });
-      }
-
-      const registration = (await finalizeEventPayment(updated.id)) ?? updated;
-
-      const [event] = await db.select().from(events).where(eq(events.id, registration.eventId)).limit(1);
-      if (event) {
-        await sendEventConfirmationEmail({
-          email: registration.email,
-          fullName: registration.fullName,
-          eventTitle: event.title,
-          startsAt: event.startsAt,
-          location: event.location,
-          checkInCode: registration.checkInCode,
-          runnerNumber: formatRunnerNumber(registration.runnerNumber, {
-            slug: registration.ticketSlug,
-            name: registration.ticketName,
-          }),
-          registrationFee: Number(registration.subtotal) - Number(registration.discountAmount || 0),
-          convenienceFee: Number(registration.convenienceFee || 0),
-          finalAmount: Number(registration.finalAmount),
-          paymentStatus: "paid",
-          registrationId: registration.id,
-          ticketName: registration.ticketName,
-          promoRank: registration.promoRank,
-          freeSouvenirShirt: registration.freeSouvenirShirt,
-        });
-      }
-
-      return NextResponse.json({
-        success: true,
-        registration_id: registration.id,
-        status: "paid",
-      });
-    }
-
-    const orderId = rawRef;
-    const [order] = await db
-      .update(orders)
-      .set({
+    let order: typeof orders.$inferSelect | undefined;
+    if (rawRef && !parseEventPaymentReference(rawRef)) {
+      [order] = await db.update(orders).set({
         status: "paid",
         paymentReferenceNumber: paymentRef,
-        hitpayPaymentId: payload.id || null,
+        hitpayPaymentId: paymentRequestId || undefined,
         updatedAt: new Date(),
-      })
-      .where(eq(orders.id, orderId))
-      .returning();
+      }).where(eq(orders.id, rawRef)).returning();
+    }
+
+    if (!order && paymentRequestId) {
+      [order] = await db
+        .update(orders)
+        .set({
+          status: "paid",
+          paymentReferenceNumber: paymentRef,
+          hitpayPaymentId: paymentRequestId,
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.hitpayPaymentId, paymentRequestId))
+        .returning();
+    }
 
     if (!order) {
-      console.error("hitpay webhook: order not found", orderId);
+      console.error("hitpay webhook: order not found", rawRef, paymentRequestId);
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 

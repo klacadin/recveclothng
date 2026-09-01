@@ -1,33 +1,71 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull, ne } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { eventRegistrations, events } from "@/db/schema";
-import { sendEventConfirmationEmail } from "@/lib/event-email";
+import { eventRegistrations } from "@/db/schema";
 import { mapRegistration } from "@/lib/event-records";
-import { finalizeEventPayment } from "@/lib/finalize-event-payment";
-import { formatRunnerNumber } from "@/lib/event-management";
-import { fetchHitPayPaymentRequest, isHitPayPaid } from "@/lib/hitpay";
+import { reconcileEventRegistrationFromHitPay } from "@/lib/event-payment";
+import { requireAdmin } from "@/lib/require-admin";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
+    const reconcilePending = Boolean(body.reconcile_pending);
     const registrationId = String(body.registration_id || body.id || "").trim();
-    if (!registrationId) {
-      return NextResponse.json({ error: "registration_id required" }, { status: 400 });
+    const hitpayPaymentId = String(body.hitpay_payment_id || body.reference || "").trim();
+
+    if (reconcilePending) {
+      if (!(await requireAdmin())) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const db = getDb();
+      const pending = await db
+        .select()
+        .from(eventRegistrations)
+        .where(
+          and(
+            ne(eventRegistrations.paymentStatus, "paid"),
+            isNotNull(eventRegistrations.hitpayPaymentId)
+          )
+        )
+        .limit(50);
+
+      const paid = [];
+      for (const row of pending) {
+        if (row.paymentStatus === "cancelled" || row.paymentStatus === "refunded") continue;
+        try {
+          const next = await reconcileEventRegistrationFromHitPay(row);
+          if (next?.paymentStatus === "paid") paid.push(mapRegistration(next));
+        } catch (error) {
+          console.error("event confirm-payment reconcile", row.id, error);
+        }
+      }
+      return NextResponse.json({ success: true, reconciled: paid.length, registrations: paid });
     }
 
     const db = getDb();
-    const [registration] = await db
-      .select()
-      .from(eventRegistrations)
-      .where(eq(eventRegistrations.id, registrationId))
-      .limit(1);
+    let registration = null as typeof eventRegistrations.$inferSelect | null;
+    if (registrationId) {
+      const [row] = await db
+        .select()
+        .from(eventRegistrations)
+        .where(eq(eventRegistrations.id, registrationId))
+        .limit(1);
+      registration = row ?? null;
+    } else if (hitpayPaymentId) {
+      const [row] = await db
+        .select()
+        .from(eventRegistrations)
+        .where(eq(eventRegistrations.hitpayPaymentId, hitpayPaymentId))
+        .limit(1);
+      registration = row ?? null;
+    }
+
     if (!registration) {
       return NextResponse.json({ error: "Registration not found" }, { status: 404 });
     }
 
     if (registration.paymentStatus === "paid") {
-      const numbered = (await finalizeEventPayment(registration.id)) ?? registration;
+      const numbered = (await reconcileEventRegistrationFromHitPay(registration)) ?? registration;
       return NextResponse.json({
         success: true,
         already_paid: true,
@@ -43,56 +81,13 @@ export async function POST(req: Request) {
       });
     }
 
-    const hitData = await fetchHitPayPaymentRequest(registration.hitpayPaymentId);
-    if (!isHitPayPaid(hitData)) {
-      return NextResponse.json({
-        success: false,
-        hitpay_status: hitData.status,
-        registration: mapRegistration(registration),
-      });
-    }
-
-    const paymentRef = hitData.payments?.[0]?.id || hitData.id || registration.hitpayPaymentId;
-    const [updated] = await db
-      .update(eventRegistrations)
-      .set({
-        paymentStatus: "paid",
-        paymentReference: paymentRef,
-        updatedAt: new Date(),
-      })
-      .where(eq(eventRegistrations.id, registration.id))
-      .returning();
-
-    const numbered = (await finalizeEventPayment(updated.id)) ?? updated;
-
-    const [event] = await db.select().from(events).where(eq(events.id, numbered.eventId)).limit(1);
-    if (event) {
-      await sendEventConfirmationEmail({
-        email: numbered.email,
-        fullName: numbered.fullName,
-        eventTitle: event.title,
-        startsAt: event.startsAt,
-        location: event.location,
-        checkInCode: numbered.checkInCode,
-        runnerNumber: formatRunnerNumber(numbered.runnerNumber, {
-          slug: numbered.ticketSlug,
-          name: numbered.ticketName,
-        }),
-        registrationFee: Number(numbered.subtotal) - Number(numbered.discountAmount || 0),
-        convenienceFee: Number(numbered.convenienceFee || 0),
-        finalAmount: Number(numbered.finalAmount),
-        paymentStatus: "paid",
-        registrationId: numbered.id,
-        ticketName: numbered.ticketName,
-        promoRank: numbered.promoRank,
-        freeSouvenirShirt: numbered.freeSouvenirShirt,
-      });
-    }
-
+    const numbered = await reconcileEventRegistrationFromHitPay(registration);
+    const paid = numbered?.paymentStatus === "paid";
     return NextResponse.json({
-      success: true,
-      reconciled: true,
-      registration: mapRegistration(numbered),
+      success: paid,
+      reconciled: paid,
+      registration: mapRegistration(numbered ?? registration),
+      ...(!paid ? { hitpay_status: "pending" } : {}),
     });
   } catch (e) {
     console.error("event confirm-payment", e);
