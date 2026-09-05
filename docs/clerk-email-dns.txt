@@ -1,0 +1,4 @@
+;; Add these in Cloudflare DNS (DNS only / grey cloud) ? required for Clerk emails + Vercel check
+clkmail.reveclothingxnobody.com.          CNAME  mail.7fwrdhvi9ud5.clerk.services.
+clk._domainkey.reveclothingxnobody.com.   CNAME  dkim1.7fwrdhvi9ud5.clerk.services.
+clk2._domainkey.reveclothingxnobody.com.  CNAME  dkim2.7fwrdhvi9ud5.clerk.services.

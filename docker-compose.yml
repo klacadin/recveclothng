@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: reve
+      POSTGRES_PASSWORD: reve
+      POSTGRES_DB: reve
+    volumes:
+      - reve_pg_data:/var/lib/postgresql/data
+      # Postgres runs every *.sql file here in filename order on first init, so a
+      # fresh container gets the full schema (0000-0012) plus the catalog seed —
+      # not just the base tables from 0000_init.sql.
+      - ./drizzle:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reve -d reve"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  reve_pg_data:

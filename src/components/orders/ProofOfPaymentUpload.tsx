@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,18 +39,18 @@ const ProofOfPaymentUpload = ({
 
     // Validate file type - support common image and document formats
     const allowedTypes = [
-      'image/jpeg', 
-      'image/jpg', 
-      'image/png', 
-      'image/webp', 
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
       'application/pdf',
       'image/gif'
     ];
-    
+
     // Also check file extension as fallback
     const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.gif'];
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-    
+
     if (!allowedTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
       toast({
         title: 'Invalid file type',
@@ -61,12 +60,11 @@ const ProofOfPaymentUpload = ({
       return;
     }
 
-    // Validate file size (max 10MB for better quality)
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
+    // Max 2MB after compression (project rule) — allow large sources, compress first
+    if (file.type.includes('pdf') && file.size > MAX_UPLOAD_SIZE_BYTES) {
       toast({
         title: 'File too large',
-        description: 'Please upload a file smaller than 10MB.',
+        description: `Please upload a PDF smaller than ${MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)}MB.`,
         variant: 'destructive',
       });
       return;
@@ -82,58 +80,45 @@ const ProofOfPaymentUpload = ({
     setIsUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}/${orderId}-${Date.now()}.${fileExt}`;
+      let toUpload: File | Blob = file;
+      if (file.type.startsWith('image/')) {
+        try {
+          toUpload = await compressImageForUpload(file, { maxSizeBytes: MAX_UPLOAD_SIZE_BYTES });
+        } catch {
+          if (file.size > MAX_UPLOAD_SIZE_BYTES) throw new Error('Image too large after compression');
+        }
+        if (toUpload.size > MAX_UPLOAD_SIZE_BYTES) {
+          throw new Error('Image too large after compression');
+        }
+      }
+      const payload =
+        toUpload instanceof File
+          ? toUpload
+          : new File([toUpload], file.name, { type: toUpload.type || file.type });
 
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from('payment-proofs')
-        .upload(fileName, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('payment-proofs')
-        .getPublicUrl(fileName);
-
-      const proofUrl = urlData.publicUrl;
-
-      // Update order with proof URL and set status to for_verification so store manager can verify
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({
-          proof_of_payment_url: proofUrl,
-          proof_uploaded_at: new Date().toISOString(),
-          status: 'for_verification',
-        })
-        .eq('id', orderId);
-
-      if (updateError) throw updateError;
-
-      // Notify admin (non-blocking)
-      supabase.functions.invoke('notify-payment-proof', {
-        body: {
-          order_id: orderId,
-          order_number: orderNumber,
-          customer_name: customerName,
-          customer_email: customerEmail,
-          total,
-          proof_url: proofUrl,
-        },
-      }).catch(console.error);
-
+      const form = new FormData();
+      form.append('file', payload);
+      form.append('order_id', orderId);
+      const apiRes = await fetch('/api/orders/proof', { method: 'POST', body: form });
+      if (!apiRes.ok) {
+        const json = await apiRes.json().catch(() => ({}));
+        throw new Error(
+          (json as { error?: string }).error || `Upload failed (${apiRes.status})`
+        );
+      }
+      const json = await apiRes.json();
+      const proofUrl = json.proof_of_payment_url as string;
       toast({
         title: 'Proof uploaded successfully',
         description: 'The store has been notified of your payment.',
       });
-
       onUploadComplete(proofUrl);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading proof:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload proof of payment.';
       toast({
         title: 'Upload failed',
-        description: error.message || 'Failed to upload proof of payment.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

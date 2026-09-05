@@ -1,26 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+import { apiSend } from '@/lib/api';
 
-export type ProductReview = Tables<'product_reviews'>;
+export type ProductReview = {
+  id: string;
+  product_id: string;
+  order_id: string | null;
+  user_id: string | null;
+  reviewer_name: string;
+  reviewer_email: string;
+  rating: number;
+  comment: string | null;
+  is_approved: boolean;
+  created_at: string;
+};
 
 export function useProductReviews(productId: string | undefined) {
   const { data: reviews = [], ...rest } = useQuery({
     queryKey: ['productReviews', productId],
     queryFn: async (): Promise<ProductReview[]> => {
       if (!productId) return [];
-      try {
-        const { data, error } = await supabase
-          .from('product_reviews')
-          .select('*')
-          .eq('product_id', productId)
-          .eq('is_approved', true)
-          .order('created_at', { ascending: false });
-        if (error) return [];
-        return (data ?? []) as ProductReview[];
-      } catch {
-        return [];
-      }
+      const res = await fetch(
+        `/api/products/reviews?product_id=${encodeURIComponent(productId)}`
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []) as ProductReview[];
     },
     enabled: !!productId,
     retry: false,
@@ -37,7 +41,7 @@ export function useProductReviews(productId: string | undefined) {
       order_id?: string | null;
       user_id?: string | null;
     }) => {
-      const row: TablesInsert<'product_reviews'> = {
+      const via = await apiSend<ProductReview>('/api/products/reviews', 'POST', {
         product_id: input.product_id,
         reviewer_name: input.reviewer_name.trim(),
         reviewer_email: input.reviewer_email.trim(),
@@ -45,11 +49,9 @@ export function useProductReviews(productId: string | undefined) {
         comment: input.comment?.trim() || null,
         order_id: input.order_id ?? null,
         user_id: input.user_id ?? null,
-        is_approved: true,
-      };
-      const { data, error } = await supabase.from('product_reviews').insert(row).select().single();
-      if (error) throw error;
-      return data as ProductReview;
+      });
+      if (via.ok && via.data) return via.data;
+      throw new Error(via.error || 'Failed to submit review');
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['productReviews', variables.product_id] });

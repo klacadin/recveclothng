@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { apiSend } from '@/lib/api';
 
 export type ProductSize = 'XS' | 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 
@@ -44,36 +44,26 @@ export const useProductVariants = (productId?: string) => {
   return useQuery({
     queryKey: ['product-variants', productId],
     queryFn: async () => {
-      const query = supabase
-        .from('product_variants')
-        .select('*')
-        .order('size', { ascending: true });
-      
-      if (productId) {
-        query.eq('product_id', productId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data as ProductVariant[];
+      if (!productId) return [] as ProductVariant[];
+      const res = await fetch(`/api/variants?product_id=${encodeURIComponent(productId)}`);
+      if (!res.ok) throw new Error('Failed to load variants');
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []) as ProductVariant[];
     },
     enabled: !!productId,
   });
 };
 
-export const useAllProductVariants = () => {
+export const useAllProductVariants = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['product-variants', 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('product_variants')
-        .select('*')
-        .order('product_id', { ascending: true });
-
-      if (error) throw error;
-      return data as ProductVariant[];
+      const res = await fetch('/api/variants');
+      if (!res.ok) throw new Error('Failed to load variants');
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []) as ProductVariant[];
     },
+    enabled: options?.enabled ?? true,
   });
 };
 
@@ -81,21 +71,18 @@ export const useUpdateVariantStock = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ productId, size, stockQuantity }: { 
-      productId: string; 
-      size: ProductSize; 
+    mutationFn: async ({ productId, size, stockQuantity }: {
+      productId: string;
+      size: ProductSize;
       stockQuantity: number;
     }) => {
-      const { data, error } = await supabase
-        .from('product_variants')
-        .update({ stock_quantity: stockQuantity })
-        .eq('product_id', productId)
-        .eq('size', size)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as ProductVariant;
+      const viaApi = await apiSend<ProductVariant>('/api/variants/mutate', 'PATCH', {
+        product_id: productId,
+        size,
+        stock_quantity: stockQuantity,
+      });
+      if (viaApi.ok && viaApi.data) return viaApi.data;
+      throw new Error(viaApi.error || 'Failed to update variant stock');
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['product-variants', variables.productId] });
@@ -109,27 +96,17 @@ export const useBulkUpdateVariants = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ productId, variants }: { 
-      productId: string; 
+    mutationFn: async ({ productId, variants }: {
+      productId: string;
       variants: { size: ProductSize; stock_quantity: number; low_stock_threshold?: number }[];
     }) => {
-      const updates = variants.map(v => 
-        supabase
-          .from('product_variants')
-          .upsert({
-            product_id: productId,
-            size: v.size,
-            stock_quantity: v.stock_quantity,
-            low_stock_threshold: v.low_stock_threshold ?? 5,
-          }, { onConflict: 'product_id,size' })
-          .select()
+      const viaApi = await apiSend<{ variants: ProductVariant[]; stock_quantity: number }>(
+        '/api/variants/mutate',
+        'PUT',
+        { product_id: productId, variants }
       );
-
-      const results = await Promise.all(updates);
-      const errors = results.filter(r => r.error);
-      if (errors.length > 0) throw errors[0].error;
-
-      return results.flatMap(r => r.data || []) as ProductVariant[];
+      if (viaApi.ok && viaApi.data?.variants) return viaApi.data.variants;
+      throw new Error(viaApi.error || 'Failed to save inventory');
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['product-variants', variables.productId] });
@@ -143,24 +120,22 @@ export const useCreateVariantsForProduct = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ productId, sizeStocks }: { 
-      productId: string; 
+    mutationFn: async ({ productId, sizeStocks }: {
+      productId: string;
       sizeStocks: SizeStock;
     }) => {
-      const variants: ProductVariantInsert[] = SIZES.map(size => ({
-        product_id: productId,
+      const variants = SIZES.map(size => ({
         size,
         stock_quantity: sizeStocks[size],
         low_stock_threshold: 5,
       }));
-
-      const { data, error } = await supabase
-        .from('product_variants')
-        .upsert(variants, { onConflict: 'product_id,size' })
-        .select();
-
-      if (error) throw error;
-      return data as ProductVariant[];
+      const viaApi = await apiSend<{ variants: ProductVariant[]; stock_quantity: number }>(
+        '/api/variants/mutate',
+        'PUT',
+        { product_id: productId, variants }
+      );
+      if (viaApi.ok && viaApi.data?.variants) return viaApi.data.variants;
+      throw new Error(viaApi.error || 'Failed to create variants');
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['product-variants', variables.productId] });

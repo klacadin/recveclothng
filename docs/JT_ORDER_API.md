@@ -94,37 +94,27 @@ From similar J&T integrations:
 
 ---
 
-## Waybill Automation (Implemented)
+## Waybill Automation Status
 
-### Edge Function: `create-jt-waybill`
+Automatic waybill creation is not connected in the current Next.js app. The admin order detail screen supports manual waybill entry, then marks the order as `for_pickup`.
 
-Invoked by:
-1. **Database Webhook** – On `orders` UPDATE when status becomes `preparing` or `packed` and `waybill_number` is null
-2. **Admin** – "Create waybill" button sends `{ order_id }` directly
-
-### Environment Variables (Supabase Edge Function Secrets)
+### Future Environment Variables
 
 | Secret | Required | Description |
 |--------|----------|-------------|
 | `JNT_API_ENABLED` | No | Set to `true` to enable J&T API calls (default: disabled) |
 | `JNT_API_ACCOUNT` | Yes (when enabled) | Merchant code (CDO-V2534) |
 | `JNT_PRIVATE_KEY` | Yes (when enabled) | API key for signature |
-| `JNT_API_URL` | Yes (when enabled) | Base URL (e.g. `https://demoopenapi.jtjms-mx.com/webopenplatformapi`) |
+| `JNT_API_URL` | Yes (when enabled) | Base URL from J&T PH |
 | `JNT_SENDER_NAME` | No | Default: REVE CLOTHING SHOP |
 | `JNT_SENDER_PHONE` | No | Default: 09554465207 |
 | `JNT_SENDER_ADDRESS` | No | Default: p5 north pob. Maramag, Bukidnon |
-
-### Webhook Setup
-
-See [DATABASE_WEBHOOK_SETUP.md](DATABASE_WEBHOOK_SETUP.md) for creating the Database Webhook in Supabase Dashboard.
-
----
 
 ## Next Steps for API Integration
 
 1. **Obtain PH-specific API docs** – Request from J&T PH (support, account manager).
 2. **Get PH endpoints** – Confirm base URL and Order API path for Philippines.
-3. **Enable automation** – Set `JNT_API_ENABLED=true` and credentials when PH API is confirmed. (Edge Function already implemented.)
+3. **Build a Next.js route** – Add an authenticated admin API route that creates a waybill and stores `waybill_number`.
 4. **Address mapping** – When marking order as “For pickup”, optionally create waybill via API or use manual Quick Order.
 
 ---

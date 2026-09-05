@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import nobodyMission from "@/assets/nobody-mission.png";
+import { assetUrl } from "@/lib/assetUrl";
 
 const NobodySection = () => {
   return (
@@ -15,15 +16,15 @@ const NobodySection = () => {
                 Performance Sub-Brand
               </p>
             </div>
-            
+
             <blockquote className="text-lg md:text-xl text-primary-foreground/90 leading-relaxed">
-              We believe that greatness isn't about recognition—it's about the 
+              We believe that greatness isn't about recognition—it's about the
               relentless pursuit of personal bests.
             </blockquote>
 
             <p className="text-primary-foreground/70 leading-relaxed">
-              Our apparel is a tribute to the unsung heroes of the track and trail—those 
-              who run not for applause, but for the love of the journey. The 5AM starters. 
+              Our apparel is a tribute to the unsung heroes of the track and trail—those
+              who run not for applause, but for the love of the journey. The 5AM starters.
               The back-of-the-pack finishers who show up anyway.
             </p>
 
@@ -38,9 +39,9 @@ const NobodySection = () => {
           {/* Visual - NOBODY Mission Card */}
           <div className="relative">
             <div className="bg-background rounded-sm overflow-hidden shadow-lg">
-              <img 
-                src={nobodyMission} 
-                alt="NOBODY - For the unsung heroes of the track and trail" 
+              <img
+                src={assetUrl(nobodyMission)}
+                alt="NOBODY - For the unsung heroes of the track and trail"
                 className="w-full h-auto"
               />
             </div>

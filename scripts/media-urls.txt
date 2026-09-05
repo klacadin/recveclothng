@@ -1,6 +1,0 @@
-# Put one media URL per line, then run:
-# npm run media:validate
-#
-# Example:
-# https://reveclothingxnobody.com/media/products/sample.webp
-
