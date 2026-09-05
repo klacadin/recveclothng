@@ -37,6 +37,7 @@ cpanel-deploy.zip
 
 .vercel
 .env*
+env.functions
 
 # local restore artifacts
 tmp-storage-backup/
