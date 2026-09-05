@@ -100,13 +100,30 @@ export async function GET(req: Request) {
     let rows;
     if (admin && !email) {
       rows = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(300);
-    } else {
+    } else if (email) {
+      if (!admin) {
+        // Non-admins may only list their own orders: ignore the query param and
+        // resolve the email from the authenticated Clerk session instead.
+        const { userId } = await auth();
+        if (!userId) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        const user = await currentUser();
+        const verifiedEmails = (user?.emailAddresses ?? []).map((e) =>
+          e.emailAddress.toLowerCase()
+        );
+        if (!verifiedEmails.includes(String(email).toLowerCase())) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+      }
       rows = await db
         .select()
         .from(orders)
         .where(eq(orders.customerEmail, String(email).toLowerCase()))
         .orderBy(desc(orders.createdAt))
         .limit(100);
+    } else {
+      rows = [];
     }
 
     const affMap = await affiliateMapForOrders(db, rows);
