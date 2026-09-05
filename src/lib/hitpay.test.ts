@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import { describe, expect, it } from "vitest";
 import {
+  hitPayPaymentReference,
   isHitPayPaid,
   isHitPayWebhookSuccess,
   parseHitPayWebhookBody,
@@ -42,6 +43,14 @@ describe("HitPay webhook parsing", () => {
     expect(isHitPayWebhookSuccess({ status: "pending", payments: [{ status: "succeeded" }] })).toBe(true);
     expect(isHitPayWebhookSuccess({ status: "pending" }, "payment_request.completed")).toBe(true);
     expect(isHitPayWebhookSuccess({ status: "failed" }, "payment_request.completed")).toBe(false);
+  });
+
+  it("reads the payment_id field from real form-encoded payment-request webhooks", () => {
+    const payload = parseHitPayWebhookBody(
+      "payment_id=charge_1&payment_request_id=pr_1&status=completed&reference_number=evt_abc&hmac=abc",
+      "application/x-www-form-urlencoded"
+    );
+    expect(hitPayPaymentReference(payload)).toBe("charge_1");
   });
 
   it("verifies both JSON header signatures and legacy hmac fields", () => {

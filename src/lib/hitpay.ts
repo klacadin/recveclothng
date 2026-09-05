@@ -111,6 +111,7 @@ export function isHitPayPaid(hitData: {
 
 export type HitPayWebhookPayload = {
   id?: string;
+  payment_id?: string;
   status?: string;
   event?: string;
   hmac?: string;
@@ -197,5 +198,5 @@ export function hitPayReferenceNumber(payload: HitPayWebhookPayload) {
 }
 
 export function hitPayPaymentReference(payload: HitPayWebhookPayload) {
-  return payload.payments?.[0]?.id || payload.id || null;
+  return payload.payment_id || payload.payments?.[0]?.id || payload.id || null;
 }
