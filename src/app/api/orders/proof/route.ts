@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { orders } from "@/db/schema";
 import { MAX_UPLOAD_SIZE_BYTES } from "@/config/constants";
+
+/** Statuses where a customer can still (re)submit proof of payment. */
+const PROOF_ELIGIBLE_STATUSES = ["new", "pending_payment", "for_verification"] as const;
 
 /**
  * Upload payment proof (Blob when configured; otherwise stores a data URL is not allowed).
@@ -46,11 +49,16 @@ export async function POST(req: Request) {
         status: "for_verification",
         updatedAt: new Date(),
       })
-      .where(eq(orders.id, orderId))
+      .where(and(eq(orders.id, orderId), inArray(orders.status, [...PROOF_ELIGIBLE_STATUSES])))
       .returning();
 
     if (!updated) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      // Either the order doesn't exist, or it has already moved past the
+      // proof-of-payment stage (paid/shipped/cancelled) — never regress it.
+      return NextResponse.json(
+        { error: "Order not found or no longer accepting proof of payment" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({
