@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
   affiliates,
@@ -72,10 +72,44 @@ async function computeVoucherDiscount(
   if (eligible <= 0) return 0;
 
   const val = Number(voucher.discountValue);
-  if (voucher.discountType === "percent") {
-    return Math.floor(eligible * (Math.min(100, val) / 100));
-  }
-  return Math.min(eligible, val);
+  const discountAmount =
+    voucher.discountType === "percent"
+      ? Math.floor(eligible * (Math.min(100, val) / 100))
+      : Math.min(eligible, val);
+  if (discountAmount <= 0) return 0;
+
+  // Atomically claim a redemption slot so concurrent checkouts can't both
+  // succeed past a voucher's max-use limit.
+  const redeemed =
+    voucher.maxUses != null
+      ? await db
+          .update(vouchers)
+          .set({ usedCount: sql`${vouchers.usedCount} + 1`, updatedAt: new Date() })
+          .where(and(eq(vouchers.id, voucher.id), lt(vouchers.usedCount, voucher.maxUses)))
+          .returning({ id: vouchers.id })
+      : await db
+          .update(vouchers)
+          .set({ usedCount: sql`${vouchers.usedCount} + 1`, updatedAt: new Date() })
+          .where(eq(vouchers.id, voucher.id))
+          .returning({ id: vouchers.id });
+
+  if (!redeemed.length) return 0; // usage limit reached by a concurrent order
+
+  return discountAmount;
+}
+
+/** Undo a voucher redemption claimed by computeVoucherDiscount (rollback on order failure). */
+async function releaseVoucherRedemption(
+  db: ReturnType<typeof getDb>,
+  codeRaw: string | null | undefined,
+  discount: number
+) {
+  const cleanCode = String(codeRaw || "").trim().toUpperCase();
+  if (!cleanCode || cleanCode === TEST_VOUCHER_CODE.toUpperCase() || discount <= 0) return;
+  await db
+    .update(vouchers)
+    .set({ usedCount: sql`greatest(${vouchers.usedCount} - 1, 0)`, updatedAt: new Date() })
+    .where(sql`upper(${vouchers.code}) = ${cleanCode}`);
 }
 
 export async function POST(req: Request) {
@@ -112,6 +146,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
     }
 
+    // Fail fast on a misconfigured payment method, before reserving any stock.
+    const needsProof = ["gcash", "maya", "bank_transfer"].includes(payment_method);
+    if (needsProof && !(process.env.HITPAY_API_KEY || process.env.VITE_HITPAY_API_KEY)) {
+      return NextResponse.json(
+        { error: "Payment service is not configured", code: "payment_not_configured" },
+        { status: 500 }
+      );
+    }
+
     const totalPieces = items.reduce((s, i) => s + Number(i.quantity || 0), 0);
     if (totalPieces > MAX_ORDER_PIECES || totalPieces > MAX_ORDER_PIECES_SAFE) {
       return NextResponse.json(
@@ -124,6 +167,18 @@ export async function POST(req: Request) {
       const qty = Number(item.quantity);
       if (!item.product_id || !item.size || qty < 1) {
         return NextResponse.json({ error: "Invalid cart item" }, { status: 400 });
+      }
+    }
+
+    // Merge duplicate product+size lines so each variant is only checked/reserved once.
+    const mergedItems = new Map<string, CartItem>();
+    for (const item of items) {
+      const key = `${item.product_id}:${item.size}`;
+      const existing = mergedItems.get(key);
+      if (existing) {
+        existing.quantity += Number(item.quantity);
+      } else {
+        mergedItems.set(key, { ...item, quantity: Number(item.quantity) });
       }
     }
 
@@ -155,7 +210,7 @@ export async function POST(req: Request) {
       variant_id: string;
     }> = [];
 
-    for (const item of items) {
+    for (const item of mergedItems.values()) {
       const qty = Number(item.quantity);
       const product = productMap.get(item.product_id);
       if (!product) {
@@ -182,17 +237,41 @@ export async function POST(req: Request) {
       });
     }
 
-    // Reserve stock in parallel (same net effect, much faster than serial awaits)
-    await Promise.all(
-      reserved.map((item) =>
-        db
-          .update(productVariants)
-          .set({
-            stockQuantity: sql`${productVariants.stockQuantity} - ${item.quantity}`,
-          })
-          .where(eq(productVariants.id, item.variant_id))
-      )
-    );
+    // Reserve stock one variant at a time with a conditional decrement (guards against
+    // concurrent checkouts oversubscribing the same variant) so we can roll back cleanly
+    // if a later item runs out or order/payment creation fails afterwards.
+    const decremented: Array<{ variant_id: string; quantity: number }> = [];
+    const restoreStock = () =>
+      Promise.all(
+        decremented.map((d) =>
+          db
+            .update(productVariants)
+            .set({ stockQuantity: sql`${productVariants.stockQuantity} + ${d.quantity}` })
+            .where(eq(productVariants.id, d.variant_id))
+        )
+      );
+
+    for (const item of reserved) {
+      const [row] = await db
+        .update(productVariants)
+        .set({ stockQuantity: sql`${productVariants.stockQuantity} - ${item.quantity}` })
+        .where(
+          and(
+            eq(productVariants.id, item.variant_id),
+            gte(productVariants.stockQuantity, item.quantity)
+          )
+        )
+        .returning({ id: productVariants.id });
+
+      if (!row) {
+        await restoreStock();
+        return NextResponse.json(
+          { error: `Insufficient stock for ${item.product_name} (${item.size})` },
+          { status: 409 }
+        );
+      }
+      decremented.push({ variant_id: item.variant_id, quantity: item.quantity });
+    }
 
     // Keep products.stock_quantity in sync with size totals (shop reads this field)
     const touchedProductIds = [...new Set(reserved.map((i) => i.product_id))];
@@ -245,54 +324,85 @@ export async function POST(req: Request) {
       affiliateId = aff?.id ?? null;
     }
 
+    // If anything from here on fails, undo the stock reservation and voucher
+    // claim above so a failed checkout doesn't strand inventory or a redemption slot.
+    const rollbackReservation = async () => {
+      await restoreStock();
+      await Promise.all(
+        touchedProductIds.map(async (productId) => {
+          const [sumRow] = await db
+            .select({
+              total: sql<number>`coalesce(sum(${productVariants.stockQuantity}), 0)`,
+            })
+            .from(productVariants)
+            .where(eq(productVariants.productId, productId));
+          await db
+            .update(products)
+            .set({ stockQuantity: Number(sumRow?.total ?? 0), updatedAt: new Date() })
+            .where(eq(products.id, productId));
+        })
+      );
+      await releaseVoucherRedemption(db, bodyVoucherCode, discount);
+    };
+
     const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(
       1000 + Math.random() * 9000
     )}`;
-    const needsProof = ["gcash", "maya", "bank_transfer"].includes(payment_method);
     const initialStatus = needsProof ? "pending_payment" : "new";
 
-    const [order] = await db
-      .insert(orders)
-      .values({
-        orderNumber,
-        customerName: customer_name.slice(0, 255),
-        customerEmail: customer_email.slice(0, 320),
-        customerPhone: customer_phone?.slice(0, 50) || null,
-        shippingAddress: shipping_address.slice(0, 1000),
-        notes: notes?.slice(0, 500) || null,
-        paymentMethod: payment_method,
-        subtotal: String(serverSubtotal),
-        shippingFee: String(shippingFee),
-        total: String(serverTotal),
-        status: initialStatus,
-        userId: user_id || null,
-        affiliateId,
-      })
-      .returning();
+    let order: typeof orders.$inferSelect | undefined;
+    try {
+      [order] = await db
+        .insert(orders)
+        .values({
+          orderNumber,
+          customerName: customer_name.slice(0, 255),
+          customerEmail: customer_email.slice(0, 320),
+          customerPhone: customer_phone?.slice(0, 50) || null,
+          shippingAddress: shipping_address.slice(0, 1000),
+          notes: notes?.slice(0, 500) || null,
+          paymentMethod: payment_method,
+          subtotal: String(serverSubtotal),
+          shippingFee: String(shippingFee),
+          total: String(serverTotal),
+          status: initialStatus,
+          userId: user_id || null,
+          affiliateId,
+        })
+        .returning();
 
-    await db.insert(orderItems).values(
-      reserved.map((item) => ({
-        orderId: order.id,
-        productId: item.product_id,
-        productName: item.product_name,
-        productSku: item.product_sku,
-        quantity: item.quantity,
-        size: item.size,
-        unitPrice: String(item.unit_price),
-        totalPrice: String(item.total_price),
-      }))
-    );
+      await db.insert(orderItems).values(
+        reserved.map((item) => ({
+          orderId: order!.id,
+          productId: item.product_id,
+          productName: item.product_name,
+          productSku: item.product_sku,
+          quantity: item.quantity,
+          size: item.size,
+          unitPrice: String(item.unit_price),
+          totalPrice: String(item.total_price),
+        }))
+      );
+    } catch (e) {
+      console.error("create-order: failed to persist order", e);
+      if (order) {
+        await db.delete(orderItems).where(eq(orderItems.orderId, order.id)).catch(() => {});
+        await db.delete(orders).where(eq(orders.id, order.id)).catch(() => {});
+      }
+      await rollbackReservation().catch((rollbackErr) =>
+        console.error("create-order: reservation rollback failed", rollbackErr)
+      );
+      return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
+    }
+
+    if (!order) {
+      return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
+    }
 
     let redirectUrl: string | null = null;
     if (needsProof) {
-      const hitpayApiKey =
-        process.env.HITPAY_API_KEY || process.env.VITE_HITPAY_API_KEY;
-      if (!hitpayApiKey) {
-        return NextResponse.json(
-          { error: "Payment service is not configured", code: "payment_not_configured" },
-          { status: 500 }
-        );
-      }
+      // Already validated at the top of the request, before stock was reserved.
+      const hitpayApiKey = (process.env.HITPAY_API_KEY || process.env.VITE_HITPAY_API_KEY)!;
 
       const appUrl = getAppBaseUrl();
       const isSandbox = process.env.HITPAY_SANDBOX === "true";
@@ -333,6 +443,9 @@ export async function POST(req: Request) {
       if (!hitRes.ok) {
         const errText = await hitRes.text();
         console.error("HitPay error", errText);
+        await db.delete(orderItems).where(eq(orderItems.orderId, order.id));
+        await db.delete(orders).where(eq(orders.id, order.id));
+        await rollbackReservation();
         return NextResponse.json({ error: "Failed to create payment" }, { status: 502 });
       }
 
