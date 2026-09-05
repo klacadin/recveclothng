@@ -91,9 +91,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const seatCount = existingRows.filter((row) => holdsEventSeat(row.paymentStatus)).length;
-    if (event.maxAttendees > 0 && !activeExisting && seatCount >= event.maxAttendees) {
-      return NextResponse.json({ error: "This event is full" }, { status: 409 });
+    if (event.maxAttendees > 0 && !activeExisting) {
+      const [{ n: seatCount }] = await db
+        .select({ n: sql<number>`count(*)` })
+        .from(eventRegistrations)
+        .where(
+          and(
+            eq(eventRegistrations.eventId, event.id),
+            sql`${eventRegistrations.paymentStatus} in ('pending', 'paid')`
+          )
+        );
+      if (Number(seatCount) >= event.maxAttendees) {
+        return NextResponse.json({ error: "This event is full" }, { status: 409 });
+      }
     }
 
     const phone = String(body.phone || "").trim() || null;
