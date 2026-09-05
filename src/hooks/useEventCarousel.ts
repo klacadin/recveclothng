@@ -1,11 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import type { EventCarouselInsert, EventCarouselItem, EventCarouselUpdate } from "@/types/app-database";
 import { MAX_EVENT_CAROUSEL_ITEMS } from "@/config/constants";
 import { apiSend } from "@/lib/api";
 
-export type EventCarouselItem = Tables<"event_carousel">;
-export type EventCarouselInsert = TablesInsert<"event_carousel">;
-export type EventCarouselUpdate = TablesUpdate<"event_carousel">;
+export type { EventCarouselInsert, EventCarouselItem, EventCarouselUpdate };
 
 async function fetchEventCarousel(): Promise<EventCarouselItem[]> {
   const res = await fetch("/api/event-carousel");

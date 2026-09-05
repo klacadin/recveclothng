@@ -92,13 +92,13 @@ const UploadProof = () => {
       const uploadMimeType = toSend.type || (file.type.startsWith('image/') ? 'image/webp' : file.type);
       const uploadFileName = file.type.startsWith('image/')
         ? file.name.replace(
-            /\.[^.]+$/,
-            uploadMimeType.includes('webp')
-              ? '.webp'
-              : uploadMimeType.includes('png')
-                ? '.png'
-                : '.jpg'
-          )
+          /\.[^.]+$/,
+          uploadMimeType.includes('webp')
+            ? '.webp'
+            : uploadMimeType.includes('png')
+              ? '.png'
+              : '.jpg'
+        )
         : file.name;
 
       const fd = new FormData();

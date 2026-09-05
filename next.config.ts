@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   typescript: {
-    // Legacy Supabase generated types lag schema; keep shipping during migration
+    // Keep deployment unblocked while legacy screens are being typed.
     ignoreBuildErrors: true,
   },
   eslint: {
@@ -13,7 +13,6 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.public.blob.vercel-storage.com" },
-      { protocol: "https", hostname: "**.supabase.co" },
       { protocol: "https", hostname: "storage.googleapis.com" },
     ],
   },

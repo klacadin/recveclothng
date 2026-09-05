@@ -15,10 +15,6 @@ cpanel-deploy
 *-build.zip
 cpanel-deploy.zip
 
-# Supabase CLI cache
-supabase/.temp
-supabase/.temp/**
-
 # Environment variables
 .env
 .env.local
@@ -54,3 +50,4 @@ src/txiwvjfdlxgwjtaibbpb*
 _local_backups/
 scripts/.tmp-pdf-assets/
 
+tsconfig.tsbuildinfo

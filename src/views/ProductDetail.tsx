@@ -13,14 +13,13 @@ import { useProduct } from "@/hooks/useProducts";
 import { useProductVariants } from "@/hooks/useProductVariants";
 import { useProductSoldCount } from "@/hooks/useProductSoldCount";
 import { useProductReviews } from "@/hooks/useProductReviews";
+import type { ProductSize } from "@/types/app-database";
 import { productCodeToImageFilename } from "@/data/productImageMap";
 import { getProductImageUrl, resolveProductImageUrl } from "@/data/productImages";
 import { getProductById } from "@/data/products";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
-import type { Database } from "@/integrations/supabase/types";
 
-type ProductSize = Database['public']['Enums']['product_size'];
 const SIZES: ProductSize[] = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
 
 const ProductDetail = () => {
@@ -106,7 +105,7 @@ const ProductDetail = () => {
     });
   };
 
-  // Fallback: if Supabase has no product, show from spreadsheet (e.g. before migration is run)
+  // Fallback: if the app database has no product, show from spreadsheet data.
   const fallbackProduct = !product && !isLoading && id ? getProductById(id) : null;
 
   if (isLoading || (product && variantsLoading)) {
@@ -137,7 +136,7 @@ const ProductDetail = () => {
     );
   }
 
-  // Use Supabase product when available, otherwise spreadsheet fallback (no add-to-cart)
+  // Use database product when available, otherwise spreadsheet fallback (no add-to-cart)
   const displayProduct = product ?? fallbackProduct;
   const isFromSpreadsheet = !product && !!fallbackProduct;
   const sku = product?.sku ?? (fallbackProduct && "code" in fallbackProduct ? fallbackProduct.code : null);
@@ -276,7 +275,7 @@ const ProductDetail = () => {
                   </p>
                 )}
 
-                {/* Stock indicator (Supabase only); spreadsheet fallback shows CTA below) */}
+                {/* Stock indicator for database products; spreadsheet fallback shows CTA below */}
                 {!isFromSpreadsheet && (
                   <p className={`text-sm mt-2 ${inStock ? 'text-green-600' : 'text-destructive'}`}>
                     {inStock ? `${totalStock} total in stock` : 'Out of stock'}
@@ -307,7 +306,7 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* Size Selector (Supabase product only) */}
+              {/* Size selector for database products */}
               {!isFromSpreadsheet && inStock && (
                 <div>
                   <h3 className="text-sm font-semibold text-foreground mb-3">
@@ -345,7 +344,7 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* Quantity (Supabase product only) */}
+              {/* Quantity for database products */}
               {!isFromSpreadsheet && inStock && selectedSize && (
                 <div>
                   <h3 className="text-sm font-semibold text-foreground mb-3">Quantity</h3>
@@ -368,7 +367,7 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* Add to Cart & Wishlist (Supabase product only) */}
+              {/* Add to cart and wishlist for database products */}
               {!isFromSpreadsheet && (
                 <div className="flex gap-3">
                   <Button variant="red" size="xl" className="flex-1" onClick={handleAddToCart} disabled={!inStock || !selectedSize}>
@@ -428,8 +427,8 @@ const ProductDetail = () => {
                           <Star
                             key={star}
                             className={`h-4 w-4 ${averageRating != null && star <= Math.round(averageRating)
-                                ? "fill-amber-400 text-amber-400"
-                                : "text-muted-foreground/40"
+                              ? "fill-amber-400 text-amber-400"
+                              : "text-muted-foreground/40"
                               }`}
                           />
                         ))}

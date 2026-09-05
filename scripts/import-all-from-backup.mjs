@@ -434,7 +434,7 @@ async function main() {
     track("order_items", result);
   }
 
-  // ---- user_approvals (map supabase user_id → clerk_user_id text) ----
+  // ---- user_approvals (map legacy user_id -> clerk_user_id text) ----
   for (const r of tables.user_approvals?.rows || []) {
     const clerkUserId = r.clerk_user_id || r.user_id;
     if (!clerkUserId || !r.email) {

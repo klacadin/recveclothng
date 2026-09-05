@@ -29,10 +29,10 @@ export async function GET(req: Request) {
     const db = getDb();
     const rows = status
       ? await db
-          .select()
-          .from(userApprovals)
-          .where(eq(userApprovals.status, status))
-          .orderBy(desc(userApprovals.createdAt))
+        .select()
+        .from(userApprovals)
+        .where(eq(userApprovals.status, status))
+        .orderBy(desc(userApprovals.createdAt))
       : await db.select().from(userApprovals).orderBy(desc(userApprovals.createdAt));
     return NextResponse.json(rows.map(mapApproval));
   } catch (e) {

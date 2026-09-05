@@ -27,20 +27,20 @@ export async function POST(req: Request) {
     const subtotal = Math.max(0, Number(body?.subtotal) || 0);
     const items: CartItemInput[] = Array.isArray(body?.items)
       ? body.items
-          .map(
-            (i: {
-              product_id?: string;
-              quantity?: number;
-              unit_price?: number;
-              category?: string | null;
-            }) => ({
-              product_id: String(i.product_id ?? ""),
-              quantity: Math.max(0, Number(i.quantity) || 0),
-              unit_price: Math.max(0, Number(i.unit_price) || 0),
-              category: i.category ?? null,
-            })
-          )
-          .filter((i: CartItemInput) => i.product_id)
+        .map(
+          (i: {
+            product_id?: string;
+            quantity?: number;
+            unit_price?: number;
+            category?: string | null;
+          }) => ({
+            product_id: String(i.product_id ?? ""),
+            quantity: Math.max(0, Number(i.quantity) || 0),
+            unit_price: Math.max(0, Number(i.unit_price) || 0),
+            category: i.category ?? null,
+          })
+        )
+        .filter((i: CartItemInput) => i.product_id)
       : [];
 
     if (!cleanCode) {

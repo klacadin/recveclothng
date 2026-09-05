@@ -1,4 +1,4 @@
--- Vercel Postgres schema for REVE Clothing (migrated off Supabase)
+-- Postgres schema for REVE Clothing
 -- Run via: npm run db:push   OR   psql $DATABASE_URL -f drizzle/0000_init.sql
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 DO $$ BEGIN CREATE TYPE order_status AS ENUM (

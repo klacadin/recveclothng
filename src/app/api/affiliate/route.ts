@@ -359,15 +359,15 @@ export async function POST(req: Request) {
         message: statusMessage(created.status),
       });
     } catch (e) {
-        if (isUniqueViolation(e)) {
-          return NextResponse.json(
-            {
-              error:
-                "An affiliate with this email, code, or Clerk user already exists",
-            },
-            { status: 409 }
-          );
-        }
+      if (isUniqueViolation(e)) {
+        return NextResponse.json(
+          {
+            error:
+              "An affiliate with this email, code, or Clerk user already exists",
+          },
+          { status: 409 }
+        );
+      }
       throw e;
     }
   } catch (e) {

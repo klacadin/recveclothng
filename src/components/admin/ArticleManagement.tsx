@@ -95,7 +95,7 @@ const ArticleManagement = ({ openFormImmediately, onFormOpened }: ArticleManagem
       toast({
         title: 'Facebook sync unavailable',
         description:
-          'Facebook import ran on the old Supabase function. Add posts manually for now.',
+          'Facebook import is not connected in the current app. Add posts manually for now.',
         variant: 'destructive',
       });
     } finally {

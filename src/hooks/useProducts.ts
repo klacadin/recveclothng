@@ -1,11 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import type { Product, ProductInsert, ProductUpdate } from '@/types/app-database';
 import { MAX_PRODUCTS } from '@/config/constants';
 import { apiSend } from '@/lib/api';
 
-export type Product = Tables<'products'>;
-export type ProductInsert = TablesInsert<'products'>;
-export type ProductUpdate = TablesUpdate<'products'>;
+export type { Product, ProductInsert, ProductUpdate };
 
 async function fetchProductsFromApi(): Promise<Product[]> {
   const res = await fetch('/api/products');

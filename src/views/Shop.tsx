@@ -214,8 +214,8 @@ const Shop = () => {
                     key={cat.slug}
                     onClick={() => handleCategoryChange(cat.slug)}
                     className={`group relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all duration-300 text-left ${isSelected
-                        ? "border-foreground ring-2 ring-foreground/20"
-                        : "border-border hover:border-foreground/50 hover:shadow-lg"
+                      ? "border-foreground ring-2 ring-foreground/20"
+                      : "border-border hover:border-foreground/50 hover:shadow-lg"
                       }`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-secondary to-secondary" />

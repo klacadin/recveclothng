@@ -36,7 +36,7 @@ export function resolveProductImageUrl(imageUrl: string): string {
   const trimmed = imageUrl?.trim();
   if (!trimmed) return "";
 
-  // Dead Supabase storage (project removed) — treat as missing
+  // Old external storage URL from the pre-Blob catalog; treat as missing.
   if (trimmed.includes("supabase.co")) return "";
 
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;

@@ -1,12 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import type { Order, OrderInsert, OrderItem, OrderItemInsert, OrderUpdate } from "@/types/app-database";
 import { apiGet, apiSend } from "@/lib/api";
 
-export type Order = Tables<"orders">;
-export type OrderInsert = TablesInsert<"orders">;
-export type OrderUpdate = TablesUpdate<"orders">;
-export type OrderItem = Tables<"order_items">;
-export type OrderItemInsert = TablesInsert<"order_items">;
+export type { Order, OrderInsert, OrderItem, OrderItemInsert, OrderUpdate };
 
 export type OrderWithItems = Order & {
   order_items: OrderItem[];

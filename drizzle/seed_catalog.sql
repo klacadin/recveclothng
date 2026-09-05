@@ -1,4 +1,4 @@
--- Auto-exported catalog seed from Supabase
+-- Catalog seed for REVE Clothing
 BEGIN;
 INSERT INTO categories (id, name, slug, description, code, image_url, sort_order, is_active, created_at, updated_at) VALUES ('54125b35-f191-4d52-9e35-d639f97e174e', 'Running Shorts', 'running-shorts', 'Performance running shorts', 'SHORT', NULL, 3, TRUE, '2026-01-30T21:33:02.34498+00:00', '2026-01-30T22:24:50.858973+00:00') ON CONFLICT (id) DO NOTHING;
 INSERT INTO categories (id, name, slug, description, code, image_url, sort_order, is_active, created_at, updated_at) VALUES ('688802f3-df60-444e-aa0a-a9d1e2f9a5d5', 'Running Singlets', 'running-singlets', 'Lightweight running singlets', 'SING', NULL, 4, TRUE, '2026-01-30T21:33:02.34498+00:00', '2026-01-30T22:24:50.858973+00:00') ON CONFLICT (id) DO NOTHING;
