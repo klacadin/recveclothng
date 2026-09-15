@@ -176,7 +176,7 @@ const Events = () => {
         title: totals.finalAmount > 0 ? "Registration saved" : "You're registered",
         description:
           totals.finalAmount > 0
-            ? "Pay using the event instructions, then show your check-in code on the day."
+            ? "You have 30 minutes to complete payment, or your seat is released."
             : "Bring your check-in code on the event day.",
       });
       navigate(`/events/registered/${result.id}`);

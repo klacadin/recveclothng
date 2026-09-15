@@ -1,12 +1,82 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { CalendarRange, CheckCircle2, Loader2, MapPin, Ticket } from "lucide-react";
+import { AlertTriangle, CalendarRange, CheckCircle2, Loader2, MapPin, Ticket, Timer } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import SEO from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { useConfirmEventPayment, useEventRegistration } from "@/hooks/useEvents";
 import { formatRunnerApparel, souvenirPromoSummary } from "@/lib/event-management";
+
+function usePaymentCountdown(expiresAt: string | Date | null | undefined, active: boolean) {
+  const [remainingMs, setRemainingMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!active || !expiresAt) {
+      setRemainingMs(null);
+      return;
+    }
+    const target = new Date(expiresAt).getTime();
+    if (!Number.isFinite(target)) {
+      setRemainingMs(null);
+      return;
+    }
+
+    const tick = () => setRemainingMs(Math.max(0, target - Date.now()));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt, active]);
+
+  return remainingMs;
+}
+
+function PaymentCountdown({ expiresAt }: { expiresAt: string | Date | null | undefined }) {
+  const remainingMs = usePaymentCountdown(expiresAt, true);
+  // Legacy / grandfathered registrations resolve to a huge (effectively infinite)
+  // remainder -- don't show an alarming countdown for those.
+  if (remainingMs == null || remainingMs > 24 * 60 * 60 * 1000) return null;
+
+  const expired = remainingMs <= 0;
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const urgent = !expired && minutes < 5;
+
+  return (
+    <div
+      className={`rounded-sm border-2 p-4 text-center ${
+        expired
+          ? "border-destructive bg-destructive/10"
+          : urgent
+            ? "border-destructive bg-destructive/10 animate-pulse"
+            : "border-amber-400 bg-amber-50"
+      }`}
+    >
+      {expired ? (
+        <p className="inline-flex items-center gap-2 text-base font-bold text-destructive">
+          <AlertTriangle className="h-5 w-5" />
+          Registration expired — please register again
+        </p>
+      ) : (
+        <>
+          <p
+            className={`inline-flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] ${
+              urgent ? "text-destructive" : "text-amber-700"
+            }`}
+          >
+            <Timer className="h-4 w-4" />
+            Complete payment before this expires
+          </p>
+          <p className={`mt-1 font-display text-4xl font-bold tabular-nums ${urgent ? "text-destructive" : "text-amber-700"}`}>
+            {minutes}:{seconds.toString().padStart(2, "0")}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">Your seat is released if payment isn't completed in time.</p>
+        </>
+      )}
+    </div>
+  );
+}
 
 const EventRegistered = () => {
   const { id: idParam } = useParams();
@@ -92,6 +162,8 @@ const EventRegistered = () => {
                     : "Complete payment to get your runner number. Staff can also mark you paid on site."}
                 </p>
               </div>
+
+              {!paid && !confirming && <PaymentCountdown expiresAt={registration.expires_at} />}
 
               {paid && registration.runner_number && (
                 <div className="rounded-sm bg-primary text-primary-foreground p-6 text-center">
