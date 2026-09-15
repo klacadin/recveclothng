@@ -347,6 +347,13 @@ export const eventRegistrations = pgTable(
     promoRank: integer("promo_rank"),
     promoQualifiedAt: timestamp("promo_qualified_at", { withTimezone: true }),
     freeSouvenirShirt: boolean("free_souvenir_shirt").notNull().default(false),
+    registrationStatus: text("registration_status")
+      .notNull()
+      .default("pending")
+      .$type<"pending" | "confirmed" | "expired">(),
+    registeredAt: timestamp("registered_at", { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    paymentConfirmedAt: timestamp("payment_confirmed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -355,6 +362,8 @@ export const eventRegistrations = pgTable(
     uniqueIndex("event_registrations_check_in_code_uidx").on(t.checkInCode),
     uniqueIndex("event_registrations_event_ticket_runner_number_uidx").on(t.eventId, t.ticketSlug, t.runnerNumber),
     index("event_registrations_event_email_idx").on(t.eventId, t.email),
+    index("event_registrations_expires_at_idx").on(t.expiresAt),
+    index("event_registrations_registration_status_idx").on(t.registrationStatus),
   ]
 );
 

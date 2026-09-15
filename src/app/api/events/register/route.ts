@@ -34,6 +34,12 @@ async function uniqueCheckInCode() {
   return generateCheckInCode(8);
 }
 
+function calculateExpiresAt(now: Date = new Date()): Date {
+  const expiresAt = new Date(now);
+  expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+  return expiresAt;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -98,7 +104,7 @@ export async function POST(req: Request) {
         .where(
           and(
             eq(eventRegistrations.eventId, event.id),
-            sql`${eventRegistrations.paymentStatus} in ('pending', 'paid')`
+            sql`(${eventRegistrations.paymentStatus} = 'paid' OR (${eventRegistrations.paymentStatus} = 'pending' AND ${eventRegistrations.expiresAt} > now()))`
           )
         );
       if (Number(seatCount) >= event.maxAttendees) {
@@ -129,6 +135,7 @@ export async function POST(req: Request) {
     const promoCodeUsed = totals.isPromoValid ? event.promoCode || providedPromo || null : null;
     const isFree = totals.finalAmount <= 0;
     const now = new Date();
+    const expiresAt = calculateExpiresAt(now);
 
     let registration = activeExisting;
     if (registration) {
@@ -153,6 +160,10 @@ export async function POST(req: Request) {
           convenienceFee: String(totals.convenienceFee),
           finalAmount: String(totals.finalAmount),
           paymentStatus: isFree ? "paid" : "pending",
+          registrationStatus: isFree ? "confirmed" : "pending",
+          paymentConfirmedAt: isFree ? now : registration.paymentConfirmedAt,
+          // Refresh the expiration window when a still-pending registration re-registers.
+          ...(!isFree ? { expiresAt } : {}),
           updatedAt: now,
         })
         .where(eq(eventRegistrations.id, registration.id))
@@ -183,6 +194,10 @@ export async function POST(req: Request) {
           finalAmount: String(totals.finalAmount),
           paymentStatus: isFree ? "paid" : "pending",
           checkInCode: await uniqueCheckInCode(),
+          registrationStatus: isFree ? "confirmed" : "pending",
+          registeredAt: now,
+          expiresAt,
+          paymentConfirmedAt: isFree ? now : null,
         })
         .returning();
       registration = created;
@@ -247,6 +262,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ...mapRegistration(registration),
       redirect_url: redirectUrl,
+      expires_in_minutes: !isFree ? 30 : null,
     });
   } catch (e) {
     console.error("events register", e);

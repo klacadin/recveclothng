@@ -126,6 +126,7 @@ export type EventInsert = Omit<Event, "id" | "created_at" | "updated_at" | "regi
 export type EventUpdate = Partial<EventInsert>;
 
 export type EventPaymentStatus = "pending" | "paid" | "cancelled" | "refunded";
+export type EventRegistrationStatus = "pending" | "confirmed" | "expired";
 
 export interface EventRegistration {
   id: string;
@@ -160,6 +161,10 @@ export interface EventRegistration {
   promo_rank: number | null;
   promo_qualified_at: string | Date | null;
   free_souvenir_shirt: boolean;
+  registration_status: EventRegistrationStatus;
+  registered_at: string | Date;
+  expires_at: string | Date | null;
+  payment_confirmed_at: string | Date | null;
   created_at: string | Date;
   updated_at: string | Date;
 }

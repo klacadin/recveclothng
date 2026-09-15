@@ -32,9 +32,20 @@ export async function POST(req: Request) {
       const paid = [];
       for (const row of pending) {
         if (row.paymentStatus === "cancelled" || row.paymentStatus === "refunded") continue;
+        if (row.expiresAt && new Date() > row.expiresAt) {
+          console.warn(`Registration ${row.id} has expired, skipping reconciliation`);
+          continue;
+        }
         try {
           const next = await reconcileEventRegistrationFromHitPay(row);
-          if (next?.paymentStatus === "paid") paid.push(mapRegistration(next));
+          if (next?.paymentStatus === "paid") {
+            const [confirmed] = await db
+              .update(eventRegistrations)
+              .set({ paymentConfirmedAt: new Date(), registrationStatus: "confirmed" })
+              .where(eq(eventRegistrations.id, next.id))
+              .returning();
+            paid.push(mapRegistration(confirmed || next));
+          }
         } catch (error) {
           console.error("event confirm-payment reconcile", row.id, error);
         }
@@ -64,6 +75,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Registration not found" }, { status: 404 });
     }
 
+    if (registration.expiresAt && new Date() > registration.expiresAt && registration.paymentStatus !== "paid") {
+      return NextResponse.json(
+        {
+          success: false,
+          registration: mapRegistration(registration),
+          error: "This registration has expired. Please register again.",
+          expired: true,
+        },
+        { status: 410 }
+      );
+    }
+
     if (registration.paymentStatus === "paid") {
       const numbered = (await reconcileEventRegistrationFromHitPay(registration)) ?? registration;
       return NextResponse.json({
@@ -83,10 +106,21 @@ export async function POST(req: Request) {
 
     const numbered = await reconcileEventRegistrationFromHitPay(registration);
     const paid = numbered?.paymentStatus === "paid";
+
+    let finalRegistration = numbered ?? registration;
+    if (paid) {
+      const [confirmed] = await db
+        .update(eventRegistrations)
+        .set({ paymentConfirmedAt: new Date(), registrationStatus: "confirmed" })
+        .where(eq(eventRegistrations.id, finalRegistration.id))
+        .returning();
+      finalRegistration = confirmed || finalRegistration;
+    }
+
     return NextResponse.json({
       success: paid,
       reconciled: paid,
-      registration: mapRegistration(numbered ?? registration),
+      registration: mapRegistration(finalRegistration),
       ...(!paid ? { hitpay_status: "pending" } : {}),
     });
   } catch (e) {

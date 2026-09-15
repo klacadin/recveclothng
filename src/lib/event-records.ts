@@ -1,6 +1,6 @@
 import { eventRegistrations, events } from "@/db/schema";
 import { parseTicketTiers, formatRunnerNumber } from "@/lib/event-management";
-import type { Event, EventPaymentStatus, EventRegistration } from "@/types/app-database";
+import type { Event, EventPaymentStatus, EventRegistration, EventRegistrationStatus } from "@/types/app-database";
 
 const PAYMENT_STATUSES = new Set<EventPaymentStatus>(["pending", "paid", "cancelled", "refunded"]);
 
@@ -68,6 +68,10 @@ export function mapRegistration(row: typeof eventRegistrations.$inferSelect): Ev
     promo_rank: row.promoRank ?? null,
     promo_qualified_at: row.promoQualifiedAt,
     free_souvenir_shirt: Boolean(row.freeSouvenirShirt),
+    registration_status: row.registrationStatus as EventRegistrationStatus,
+    registered_at: row.registeredAt,
+    expires_at: row.expiresAt,
+    payment_confirmed_at: row.paymentConfirmedAt,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
   };
