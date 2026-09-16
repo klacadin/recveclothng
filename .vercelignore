@@ -1,0 +1,20 @@
+# Never ship local dumps / media backups to Vercel
+tmp-storage-backup/
+*.storage.zip
+*.backup.gz
+*.backup
+src/*.backup.gz
+src/*.storage.zip
+src/db_cluster*
+src/txiwvjfdlxgwjtaibbpb*
+docs/**/*.pdf
+docs/assets/fonts/
+.env*
+!.env.example
+scripts/_tmp*
+scripts/_add-*
+scripts/_check-*
+scripts/_enable-*
+scripts/_probe*
+scripts/_tmp*
+scripts/_verify*

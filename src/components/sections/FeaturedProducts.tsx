@@ -35,8 +35,8 @@ const FeaturedProducts = () => {
         {/* Products Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {featuredProducts.map((product, index) => (
-            <div 
-              key={product.id} 
+            <div
+              key={product.id}
               className="animate-fade-up"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
@@ -47,7 +47,7 @@ const FeaturedProducts = () => {
                 image={getProductDisplayImage(product)}
                 category={product.category || undefined}
                 isNew={isProductNew(product.created_at)}
-                inStock={(product.stock_quantity ?? 0) > 0}
+                inStock={Number(product.stock_quantity ?? 0) > 0}
                 product={product}
               />
             </div>

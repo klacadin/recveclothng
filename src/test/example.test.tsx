@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from './utils';
-import Index from '@/pages/Index';
+import Index from '@/views/Index';
 
 describe('Index Page', () => {
   it('renders without crashing', () => {

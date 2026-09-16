@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import type { Product } from '@/hooks/useProducts';
-import type { Database } from '@/integrations/supabase/types';
+import type { ProductSize } from '@/types/app-database';
 import { MAX_ORDER_PIECES } from '@/config/constants';
 import { toast } from '@/hooks/use-toast';
 
@@ -16,8 +16,6 @@ function notifyCartPieceCapExceeded() {
     });
   }, 0);
 }
-
-type ProductSize = Database['public']['Enums']['product_size'];
 
 export type CartItem = {
   product: Product;

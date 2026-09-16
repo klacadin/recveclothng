@@ -15,10 +15,6 @@ cpanel-deploy
 *-build.zip
 cpanel-deploy.zip
 
-# Supabase CLI cache
-supabase/.temp
-supabase/.temp/**
-
 # Environment variables
 .env
 .env.local
@@ -35,3 +31,24 @@ supabase/.temp/**
 *.njsproj
 *.sln
 *.sw?
+
+# Next.js
+.next/
+
+.vercel
+.env*
+env.functions
+
+# local restore artifacts
+tmp-storage-backup/
+*.storage.zip
+*.backup.gz
+src/db_cluster*
+src/txiwvjfdlxgwjtaibbpb*
+.env.vercel.prod
+
+
+_local_backups/
+scripts/.tmp-pdf-assets/
+
+tsconfig.tsbuildinfo

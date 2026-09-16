@@ -30,7 +30,8 @@ const EventCarouselManagement = () => {
   const [form, setForm] = useState({ image_url: "", title: "", caption: "" });
   const imageInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { data: items = [], isLoading } = useEventCarousel();
+  const { data, isLoading } = useEventCarousel();
+  const items = data ?? [];
   const createItem = useCreateEventCarouselItem();
   const updateItem = useUpdateEventCarouselItem();
   const deleteItem = useDeleteEventCarouselItem();
@@ -45,7 +46,10 @@ const EventCarouselManagement = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = await uploadImage(file);
+    const url = await uploadImage(file, {
+      name: form.title || "event",
+      folder: "event-carousel",
+    });
     if (url) setForm((f) => ({ ...f, image_url: url }));
     if (imageInputRef.current) imageInputRef.current.value = "";
   };

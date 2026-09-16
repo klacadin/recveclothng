@@ -23,13 +23,7 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to error reporting service in production
-    if (import.meta.env.PROD) {
-      // TODO: Integrate with error reporting service (e.g., Sentry)
-      console.error('Error caught by boundary:', error, errorInfo);
-    } else {
-      console.error('Error caught by boundary:', error, errorInfo);
-    }
+    console.error("Error caught by boundary:", error, errorInfo);
   }
 
   private handleReset = () => {
@@ -47,13 +41,13 @@ class ErrorBoundary extends Component<Props, State> {
         try {
           const qs = new URLSearchParams(window.location.search);
           return (
-            import.meta.env.DEV ||
-            qs.has('debug') ||
-            qs.get('debug') === '1' ||
-            window.localStorage?.getItem('debug_errors') === '1'
+            process.env.NODE_ENV === "development" ||
+            qs.has("debug") ||
+            qs.get("debug") === "1" ||
+            window.localStorage?.getItem("debug_errors") === "1"
           );
         } catch {
-          return import.meta.env.DEV;
+          return process.env.NODE_ENV === "development";
         }
       })();
 
