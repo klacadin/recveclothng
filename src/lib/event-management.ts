@@ -254,7 +254,7 @@ export function formatEventPriceLabel(price: number, tiers?: EventTicketTier[] |
   return Number(price) > 0 ? `₱${Number(price).toLocaleString("en-PH")}` : "Free";
 }
 
-export const EVENT_SHIRT_SIZES = ["16", "18", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "6XL", "7XL"] as const;
+export const EVENT_SHIRT_SIZES = ["16", "18", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "6XL", "7XL"] as const;
 export const EVENT_GENDERS = ["Male", "Female"] as const;
 export const EVENT_AGE_MIN = 5;
 export const EVENT_AGE_MAX = 99;
