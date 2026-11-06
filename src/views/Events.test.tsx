@@ -37,6 +37,8 @@ const liveEvent: Event = {
   ticket_tiers: [],
   is_active: true,
   registration_open: true,
+  souvenir_promo: true,
+  auto_runner_numbers: true,
   created_at: '2026-11-01T00:00:00.000Z',
   updated_at: '2026-11-01T00:00:00.000Z',
 };
@@ -59,5 +61,19 @@ describe('Events page registration', () => {
     expect(screen.getByText('Online registration for this event is closed.')).toBeTruthy();
     expect(screen.queryByLabelText('Full name')).toBeNull();
     expect(screen.queryByRole('button', { name: /register and pay|submit registration/i })).toBeNull();
+  });
+
+  it('shows the first-150 souvenir shirt notes only when the promo is on', () => {
+    const tiers = [{ slug: '12km', name: '12KM', price: 1800 }];
+    const promoNote = /first 150 qualified/i;
+
+    mockEvents.data = [{ ...liveEvent, ticket_tiers: tiers }];
+    const { unmount } = render(<Events />);
+    expect(screen.getAllByText(promoNote).length).toBeGreaterThan(0);
+    unmount();
+
+    mockEvents.data = [{ ...liveEvent, ticket_tiers: tiers, souvenir_promo: false }];
+    render(<Events />);
+    expect(screen.queryAllByText(promoNote)).toHaveLength(0);
   });
 });

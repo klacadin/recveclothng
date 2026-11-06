@@ -15,8 +15,9 @@ import {
   runnerBibPrefix,
   parseTicketTiers,
   canCheckInWithPaymentStatus,
-  closedRegistrationEventIds,
-  eventRegistrationClosedKey,
+  defaultEventFlags,
+  eventFlagKey,
+  eventFlagsFromSettings,
   resolveEventTicket,
   ticketApparel,
   isSouvenirPromoCategory,
@@ -205,26 +206,59 @@ describe('souvenir shirt promo', () => {
   });
 });
 
-describe('event registration open / closed flag', () => {
-  it('stores one store_settings key per event', () => {
-    expect(eventRegistrationClosedKey('913d2d76-7ae2-4bd3-8d54-6376f3975b77')).toBe(
+describe('per-event flags', () => {
+  it('keeps the existing store_settings key for closed registration', () => {
+    expect(eventFlagKey('registration_closed', '913d2d76-7ae2-4bd3-8d54-6376f3975b77')).toBe(
       'event_registration_closed:913d2d76-7ae2-4bd3-8d54-6376f3975b77'
     );
+    expect(eventFlagKey('souvenir_promo_off', 'evt-1')).toBe('event_souvenir_promo_off:evt-1');
+    expect(eventFlagKey('runner_numbers_off', 'evt-1')).toBe('event_runner_numbers_off:evt-1');
   });
 
-  it('treats only events flagged "true" as closed', () => {
-    const closed = closedRegistrationEventIds([
-      { key: eventRegistrationClosedKey('evt-closed'), value: 'true' },
-      { key: eventRegistrationClosedKey('evt-reopened'), value: 'false' },
+  it('reads each event\'s flags from store_settings rows', () => {
+    const flags = eventFlagsFromSettings([
+      { key: eventFlagKey('registration_closed', 'evt-closed'), value: 'true' },
+      { key: eventFlagKey('registration_closed', 'evt-reopened'), value: 'false' },
+      { key: eventFlagKey('souvenir_promo_off', 'evt-new'), value: 'true' },
+      { key: eventFlagKey('runner_numbers_off', 'evt-new'), value: 'true' },
       { key: 'affiliate_default_commission_rate', value: '0.1000' },
       // LIKE treats "_" as a wildcard, so near-miss keys must still be ignored.
-      { key: 'eventXregistrationXclosed:evt-other', value: 'true' },
+      { key: 'eventXregistration_closed:evt-other', value: 'true' },
     ]);
 
-    expect([...closed]).toEqual(['evt-closed']);
+    expect(flags.get('evt-closed')).toEqual({ ...defaultEventFlags(), registration_closed: true });
+    expect(flags.get('evt-reopened')).toEqual(defaultEventFlags());
+    expect(flags.get('evt-new')).toEqual({
+      registration_closed: false,
+      souvenir_promo_off: true,
+      runner_numbers_off: true,
+    });
+    expect(flags.has('evt-other')).toBe(false);
   });
 
-  it('reports nothing closed when no flags exist', () => {
-    expect(closedRegistrationEventIds([]).size).toBe(0);
+  it('leaves events without rows on the defaults', () => {
+    expect(eventFlagsFromSettings([]).size).toBe(0);
+    expect(defaultEventFlags()).toEqual({
+      registration_closed: false,
+      souvenir_promo_off: false,
+      runner_numbers_off: false,
+    });
+  });
+});
+
+describe('souvenir promo switched off for an event', () => {
+  it('reports the promo as not applicable', () => {
+    expect(
+      souvenirPromoSummary({ ticket_slug: '12km', ticket_name: '12KM', payment_status: 'paid' }, { promoEnabled: false })
+    ).toMatchObject({ applicable: false, shirtLabel: 'Not applicable' });
+  });
+
+  it('still reports shirts awarded before the promo was switched off', () => {
+    expect(
+      souvenirPromoSummary(
+        { ticket_slug: '25km', payment_status: 'paid', promo_rank: 3, free_souvenir_shirt: true },
+        { promoEnabled: false }
+      )
+    ).toMatchObject({ applicable: true, rankLabel: '#3', shirtLabel: 'YES' });
   });
 });

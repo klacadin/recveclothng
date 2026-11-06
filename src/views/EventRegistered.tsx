@@ -158,8 +158,12 @@ const EventRegistered = () => {
                 <h1 className="font-display text-2xl font-bold">{paid ? "You're registered" : "Registration received"}</h1>
                 <p className="text-sm text-muted-foreground">
                   {paid
-                    ? "Show this runner number and check-in code at the door."
-                    : "Complete payment to get your runner number. Staff can also mark you paid on site."}
+                    ? registration.runner_number
+                      ? "Show this runner number and check-in code at the door."
+                      : "Show this check-in code at the door."
+                    : event?.auto_runner_numbers === false
+                      ? "Complete payment to confirm your slot. Staff can also mark you paid on site."
+                      : "Complete payment to get your runner number. Staff can also mark you paid on site."}
                 </p>
               </div>
 
@@ -204,7 +208,9 @@ const EventRegistered = () => {
                   <div className="flex justify-between font-semibold text-foreground border-t border-border pt-1"><span>Total</span><span>₱{Number(registration.final_amount).toLocaleString()}</span></div>
                 </div>
                 {(() => {
-                  const promo = souvenirPromoSummary(registration);
+                  const promoEnabled = event?.souvenir_promo !== false;
+                  const promo = souvenirPromoSummary(registration, { promoEnabled });
+                  if (!promoEnabled && !promo.applicable) return null;
                   return (
                     <p className="text-muted-foreground">
                       {promo.applicable

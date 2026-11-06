@@ -94,6 +94,22 @@ describe("runner export", () => {
     expect(csv.split("\r\n")[0]).toContain("Check-in code");
   });
 
+  it("marks the shirt promo not applicable for events running without it", () => {
+    const rows = buildRunnerExportRows(
+      [
+        registration({ id: "r1", event_id: "old", ticket_slug: "12km", ticket_name: "12KM" }),
+        registration({ id: "r2", event_id: "new", full_name: "Ben Santos", ticket_slug: "12km", ticket_name: "12KM" }),
+      ],
+      new Map([["old", "Old run"], ["new", "New run"]]),
+      { promoDisabledEventIds: new Set(["new"]) }
+    );
+
+    expect(rows[0]["Promo eligible"]).toBe("Yes");
+    expect(rows[0]["Free souvenir shirt"]).toBe("NO");
+    expect(rows[1]["Promo eligible"]).toBe("No");
+    expect(rows[1]["Free souvenir shirt"]).toBe("Not applicable");
+  });
+
   it("builds a safe download slug", () => {
     expect(slugForExportFilename("Test Trail Run")).toBe("test-trail-run");
     expect(slugForExportFilename("  ")).toBe("runners");

@@ -44,6 +44,8 @@ const emptyForm = {
   payment_instructions: "",
   image_url: "",
   is_active: "true",
+  souvenir_promo: true,
+  auto_runner_numbers: true,
   ticket_tiers: [emptyCategory(), emptyCategory(), emptyCategory()],
 };
 
@@ -148,6 +150,8 @@ const EventManagement = () => {
         image_url: form.image_url.trim() || null,
         ticket_tiers: ticketTiers,
         is_active: form.is_active === "true",
+        souvenir_promo: form.souvenir_promo,
+        auto_runner_numbers: form.auto_runner_numbers,
       };
 
       if (editing) {
@@ -363,6 +367,8 @@ const EventManagement = () => {
             const promoRecipients = first150SouvenirRecipients(allRegs);
             const qualifiedCount = promoRecipients.length;
             const remainingPromo = Math.max(0, SOUVENIR_SHIRT_PROMO_LIMIT - qualifiedCount);
+            // Events run without the shirt promo hide it, unless shirts were already awarded.
+            const showPromo = event.souvenir_promo !== false || promoRecipients.length > 0;
             return (
               <div key={event.id} className="border border-border rounded-sm bg-card p-4 space-y-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -379,6 +385,16 @@ const EventManagement = () => {
                         {event.registration_open === false && (
                           <span className="px-2 py-1 text-[10px] font-medium rounded bg-amber-100 text-amber-800">
                             Registration closed
+                          </span>
+                        )}
+                        {event.souvenir_promo === false && (
+                          <span className="px-2 py-1 text-[10px] font-medium rounded bg-gray-200 text-gray-700">
+                            No souvenir promo
+                          </span>
+                        )}
+                        {event.auto_runner_numbers === false && (
+                          <span className="px-2 py-1 text-[10px] font-medium rounded bg-gray-200 text-gray-700">
+                            Manual race bibs
                           </span>
                         )}
                       </div>
@@ -415,12 +431,16 @@ const EventManagement = () => {
                         <DropdownMenuItem onClick={() => handleExportRunners(allRegs, "csv", event)}>
                           CSV
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleExportRunners(promoRecipients, "xlsx", event, { sort: "promo_rank", filenameSuffix: "first-150" })}>
-                          First 150 shirts (Excel)
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleExportRunners(promoRecipients, "csv", event, { sort: "promo_rank", filenameSuffix: "first-150" })}>
-                          First 150 shirts (CSV)
-                        </DropdownMenuItem>
+                        {showPromo && (
+                          <>
+                            <DropdownMenuItem onClick={() => handleExportRunners(promoRecipients, "xlsx", event, { sort: "promo_rank", filenameSuffix: "first-150" })}>
+                              First 150 shirts (Excel)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExportRunners(promoRecipients, "csv", event, { sort: "promo_rank", filenameSuffix: "first-150" })}>
+                              First 150 shirts (CSV)
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                     <Button variant="outline" size="sm" onClick={() => copyEventLink(event.slug)}>
@@ -442,6 +462,8 @@ const EventManagement = () => {
                         payment_instructions: event.payment_instructions ?? "",
                         image_url: event.image_url ?? "",
                         is_active: String(event.is_active),
+                        souvenir_promo: event.souvenir_promo !== false,
+                        auto_runner_numbers: event.auto_runner_numbers !== false,
                         ticket_tiers: event.ticket_tiers?.length
                           ? event.ticket_tiers.map((tier) => ({
                             name: tier.name,
@@ -489,10 +511,12 @@ const EventManagement = () => {
                     <p className="text-muted-foreground">25KM</p>
                     <p className="font-medium text-foreground">{km25}</p>
                   </div>
-                  <div className="bg-secondary rounded-sm p-3 sm:col-span-2">
-                    <p className="text-muted-foreground">First 150 souvenir shirts</p>
-                    <p className="font-medium text-foreground">{qualifiedCount} / {SOUVENIR_SHIRT_PROMO_LIMIT} · {remainingPromo} remaining</p>
-                  </div>
+                  {showPromo && (
+                    <div className="bg-secondary rounded-sm p-3 sm:col-span-2">
+                      <p className="text-muted-foreground">First 150 souvenir shirts</p>
+                      <p className="font-medium text-foreground">{qualifiedCount} / {SOUVENIR_SHIRT_PROMO_LIMIT} · {remainingPromo} remaining</p>
+                    </div>
+                  )}
                 </div>
 
                 {promoRecipients.length > 0 && (
@@ -554,7 +578,9 @@ const EventManagement = () => {
                               {" · "}Code: <span className="font-mono font-semibold">{reg.check_in_code}</span>
                             </p>
                             {(() => {
-                              const promo = souvenirPromoSummary(reg);
+                              const promoEnabled = event.souvenir_promo !== false;
+                              const promo = souvenirPromoSummary(reg, { promoEnabled });
+                              if (!promoEnabled && !promo.applicable) return null;
                               return (
                                 <p className="text-xs text-muted-foreground">
                                   {promo.applicable
@@ -684,6 +710,32 @@ const EventManagement = () => {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Race-day options</Label>
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={form.souvenir_promo}
+                  onCheckedChange={(checked) => setForm((f) => ({ ...f, souvenir_promo: checked === true }))}
+                />
+                <span>
+                  First {SOUVENIR_SHIRT_PROMO_LIMIT} free souvenir shirt promo
+                  <span className="block text-xs text-muted-foreground">For 12KM and 25KM registrants. Shown on the event page and tickets.</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={form.auto_runner_numbers}
+                  onCheckedChange={(checked) => setForm((f) => ({ ...f, auto_runner_numbers: checked === true }))}
+                />
+                <span>
+                  Auto-assign race bib numbers when paid
+                  <span className="block text-xs text-muted-foreground">Turn off to number bibs yourself, e.g. to continue the numbering of another event.</span>
+                </span>
+              </label>
             </div>
 
             <div>

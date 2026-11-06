@@ -1,16 +1,34 @@
 import { NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
-import { getDb } from "@/db/client";
+import { getDb, type Db } from "@/db/client";
 import { events } from "@/db/schema";
-import {
-  clearEventRegistrationSetting,
-  getClosedRegistrationEventIds,
-  isEventRegistrationOpen,
-  setEventRegistrationOpen,
-} from "@/db/settings";
+import { clearEventFlags, getAllEventFlags, getEventFlags, setEventFlag } from "@/db/settings";
 import { requireAdmin } from "@/lib/require-admin";
 import { mapEvent } from "@/lib/event-records";
-import { parseTicketTiers, resolvePublicEventSlug, slugifyEvent } from "@/lib/event-management";
+import {
+  defaultEventFlags,
+  parseTicketTiers,
+  resolvePublicEventSlug,
+  slugifyEvent,
+  type EventFlag,
+} from "@/lib/event-management";
+
+/** On/off fields an admin can send, and the store_settings flag each one inverts. */
+const EVENT_SWITCHES: readonly { field: string; flag: EventFlag }[] = [
+  { field: "registration_open", flag: "registration_closed" },
+  { field: "souvenir_promo", flag: "souvenir_promo_off" },
+  { field: "auto_runner_numbers", flag: "runner_numbers_off" },
+];
+
+/** Saves the switches present in the body. On create only "off" is stored, since no row means on. */
+async function saveEventSwitches(db: Db, eventId: string, body: Record<string, unknown>, onlyOff = false) {
+  for (const { field, flag } of EVENT_SWITCHES) {
+    if (body[field] === undefined) continue;
+    const on = body[field] !== false && body[field] !== "false";
+    if (onlyOff && on) continue;
+    await setEventFlag(db, eventId, flag, !on);
+  }
+}
 
 function parseDate(value: unknown) {
   if (!value) return null;
@@ -32,7 +50,7 @@ export async function GET(req: Request) {
       if (!row || (!row.isActive && !isAdmin)) {
         return NextResponse.json(null);
       }
-      return NextResponse.json(mapEvent(row, { registrationOpen: await isEventRegistrationOpen(db, row.id) }));
+      return NextResponse.json(mapEvent(row, { flags: await getEventFlags(db, row.id) }));
     }
 
     if (slug) {
@@ -44,16 +62,16 @@ export async function GET(req: Request) {
       if (!row || (!row.isActive && !isAdmin)) {
         return NextResponse.json(null);
       }
-      return NextResponse.json(mapEvent(row, { registrationOpen: await isEventRegistrationOpen(db, row.id) }));
+      return NextResponse.json(mapEvent(row, { flags: await getEventFlags(db, row.id) }));
     }
 
-    const [rows, closedRegistrationIds] = await Promise.all([
+    const [rows, flagsByEvent] = await Promise.all([
       db.select().from(events).orderBy(desc(events.startsAt)),
-      getClosedRegistrationEventIds(db),
+      getAllEventFlags(db),
     ]);
     const visible = activeOnly || !isAdmin ? rows.filter((row) => row.isActive) : rows;
     return NextResponse.json(
-      visible.map((row) => mapEvent(row, { registrationOpen: !closedRegistrationIds.has(row.id) }))
+      visible.map((row) => mapEvent(row, { flags: flagsByEvent.get(row.id) ?? defaultEventFlags() }))
     );
   } catch (e) {
     console.error("events GET", e);
@@ -96,9 +114,8 @@ export async function POST(req: Request) {
         isActive: body.is_active !== false && body.is_active !== "false",
       })
       .returning();
-    const registrationOpen = body.registration_open !== false && body.registration_open !== "false";
-    if (!registrationOpen) await setEventRegistrationOpen(db, row.id, false);
-    return NextResponse.json(mapEvent(row, { registrationOpen }));
+    await saveEventSwitches(db, row.id, body, true);
+    return NextResponse.json(mapEvent(row, { flags: await getEventFlags(db, row.id) }));
   } catch (e) {
     console.error("events POST", e);
     const message = e instanceof Error && e.message.includes("unique") ? "Slug already in use" : "Create failed";
@@ -152,14 +169,8 @@ export async function PATCH(req: Request) {
       .returning();
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    let registrationOpen: boolean;
-    if (body.registration_open !== undefined) {
-      registrationOpen = body.registration_open !== false && body.registration_open !== "false";
-      await setEventRegistrationOpen(db, row.id, registrationOpen);
-    } else {
-      registrationOpen = await isEventRegistrationOpen(db, row.id);
-    }
-    return NextResponse.json(mapEvent(row, { registrationOpen }));
+    await saveEventSwitches(db, row.id, body);
+    return NextResponse.json(mapEvent(row, { flags: await getEventFlags(db, row.id) }));
   } catch (e) {
     console.error("events PATCH", e);
     return NextResponse.json({ error: "Update failed" }, { status: 500 });
@@ -177,7 +188,7 @@ export async function DELETE(req: Request) {
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     const db = getDb();
     await db.delete(events).where(eq(events.id, id));
-    await clearEventRegistrationSetting(db, id);
+    await clearEventFlags(db, id);
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("events DELETE", e);

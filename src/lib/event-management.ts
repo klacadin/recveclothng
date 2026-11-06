@@ -78,14 +78,22 @@ export function souvenirPromoDecision(rank: number, limit = SOUVENIR_SHIRT_PROMO
   };
 }
 
-export function souvenirPromoSummary(input: {
-  ticket_slug?: string | null;
-  ticket_name?: string | null;
-  payment_status?: string | null;
-  promo_rank?: number | null;
-  free_souvenir_shirt?: boolean | null;
-}) {
-  if (!isSouvenirPromoCategory(input.ticket_slug, input.ticket_name)) {
+export function souvenirPromoSummary(
+  input: {
+    ticket_slug?: string | null;
+    ticket_name?: string | null;
+    payment_status?: string | null;
+    promo_rank?: number | null;
+    free_souvenir_shirt?: boolean | null;
+  },
+  options: { promoEnabled?: boolean } = {}
+) {
+  // With the promo switched off, only shirts already awarded before the switch still count.
+  const hasPromoRecord = (input.promo_rank ?? 0) > 0 || Boolean(input.free_souvenir_shirt);
+  if (
+    !isSouvenirPromoCategory(input.ticket_slug, input.ticket_name) ||
+    (options.promoEnabled === false && !hasPromoRecord)
+  ) {
     return {
       applicable: false,
       rankLabel: "—",
@@ -167,25 +175,38 @@ export function resolvePublicEventSlug(slug?: string | null) {
 }
 
 /**
- * Admins can close online registration for an event without hiding the event.
- * The flag lives in store_settings, so it needs no events-table migration:
- * key `event_registration_closed:<event id>`, value "true" while closed.
+ * Per-event switches an admin can flip without a schema change. They live in
+ * store_settings as key `event_<flag>:<event id>`, value "true" while the flag is set.
+ * No row means the event behaves as it always has: registration open, first-150
+ * souvenir shirt promo on, race bibs assigned automatically on payment.
  */
-export const EVENT_REGISTRATION_CLOSED_KEY_PREFIX = "event_registration_closed:";
+export const EVENT_FLAGS = ["registration_closed", "souvenir_promo_off", "runner_numbers_off"] as const;
+export type EventFlag = (typeof EVENT_FLAGS)[number];
+export type EventFlags = Record<EventFlag, boolean>;
+export const EVENT_FLAG_KEY_PREFIX = "event_";
 
-export function eventRegistrationClosedKey(eventId: string) {
-  return `${EVENT_REGISTRATION_CLOSED_KEY_PREFIX}${eventId}`;
+export function eventFlagKey(flag: EventFlag, eventId: string) {
+  return `${EVENT_FLAG_KEY_PREFIX}${flag}:${eventId}`;
 }
 
-/** Ids of events whose registration is closed, from store_settings key/value rows. */
-export function closedRegistrationEventIds(rows: readonly { key: string; value: string }[]) {
-  const ids = new Set<string>();
+export function defaultEventFlags(): EventFlags {
+  return { registration_closed: false, souvenir_promo_off: false, runner_numbers_off: false };
+}
+
+/** Per-event flags from store_settings key/value rows (events with no rows are left out). */
+export function eventFlagsFromSettings(rows: readonly { key: string; value: string }[]) {
+  const byEvent = new Map<string, EventFlags>();
   for (const row of rows) {
-    if (row.key.startsWith(EVENT_REGISTRATION_CLOSED_KEY_PREFIX) && row.value === "true") {
-      ids.add(row.key.slice(EVENT_REGISTRATION_CLOSED_KEY_PREFIX.length));
+    for (const flag of EVENT_FLAGS) {
+      const prefix = `${EVENT_FLAG_KEY_PREFIX}${flag}:`;
+      if (!row.key.startsWith(prefix)) continue;
+      const eventId = row.key.slice(prefix.length);
+      const flags = byEvent.get(eventId) ?? defaultEventFlags();
+      flags[flag] = row.value === "true";
+      byEvent.set(eventId, flags);
     }
   }
-  return ids;
+  return byEvent;
 }
 
 function parseFlexibleBool(value: unknown, fallback: boolean) {

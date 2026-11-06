@@ -119,14 +119,19 @@ export interface Event {
   is_active: boolean;
   /** False once an admin closes online registration; the event itself stays visible. */
   registration_open: boolean;
+  /** "First 150 free souvenir shirt" promo for 12KM / 25KM registrants. */
+  souvenir_promo: boolean;
+  /** Race bib (runner) numbers are assigned automatically when a registration is paid. */
+  auto_runner_numbers: boolean;
   created_at: string | Date;
   updated_at: string | Date;
   registration_count?: number;
 }
 
-export type EventInsert = Omit<Event, "id" | "created_at" | "updated_at" | "registration_count" | "registration_open"> & {
-  registration_open?: boolean;
-};
+type EventSwitches = Pick<Event, "registration_open" | "souvenir_promo" | "auto_runner_numbers">;
+
+export type EventInsert = Omit<Event, "id" | "created_at" | "updated_at" | "registration_count" | keyof EventSwitches> &
+  Partial<EventSwitches>;
 export type EventUpdate = Partial<EventInsert>;
 
 export type EventPaymentStatus = "pending" | "paid" | "cancelled" | "refunded";

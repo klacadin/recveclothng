@@ -1,12 +1,12 @@
 import { eventRegistrations, events } from "@/db/schema";
-import { parseTicketTiers, formatRunnerNumber } from "@/lib/event-management";
+import { parseTicketTiers, formatRunnerNumber, type EventFlags } from "@/lib/event-management";
 import type { Event, EventPaymentStatus, EventRegistration, EventRegistrationStatus } from "@/types/app-database";
 
 const PAYMENT_STATUSES = new Set<EventPaymentStatus>(["pending", "paid", "cancelled", "refunded"]);
 
 export function mapEvent(
   row: typeof events.$inferSelect,
-  options: { registrationOpen: boolean; registrationCount?: number }
+  options: { flags: EventFlags; registrationCount?: number }
 ): Event {
   return {
     id: row.id,
@@ -24,7 +24,9 @@ export function mapEvent(
     image_url: row.imageUrl,
     ticket_tiers: parseTicketTiers(row.ticketTiers),
     is_active: row.isActive,
-    registration_open: options.registrationOpen,
+    registration_open: !options.flags.registration_closed,
+    souvenir_promo: !options.flags.souvenir_promo_off,
+    auto_runner_numbers: !options.flags.runner_numbers_off,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
     registration_count: options.registrationCount,

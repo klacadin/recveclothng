@@ -68,7 +68,7 @@ export function first150SouvenirRecipients(registrations: EventRegistration[]) {
 export function buildRunnerExportRows(
   registrations: EventRegistration[],
   eventTitleById: Map<string, string>,
-  options?: { sort?: "name" | "promo_rank" }
+  options?: { sort?: "name" | "promo_rank"; promoDisabledEventIds?: ReadonlySet<string> }
 ): RunnerExportRow[] {
   const sorted = [...registrations];
   if (options?.sort === "promo_rank") {
@@ -78,7 +78,9 @@ export function buildRunnerExportRows(
   }
 
   return sorted.map((reg) => {
-    const promo = souvenirPromoSummary(reg);
+    const promo = souvenirPromoSummary(reg, {
+      promoEnabled: !options?.promoDisabledEventIds?.has(reg.event_id),
+    });
     return {
       Event: eventTitleById.get(reg.event_id) || "",
       Name: reg.full_name,
@@ -141,8 +143,8 @@ function triggerDownload(blob: Blob, filename: string) {
 
 export async function downloadRunnerExport(input: {
   registrations: EventRegistration[];
-  events?: Pick<Event, "id" | "title" | "slug">[];
-  event?: Pick<Event, "id" | "title" | "slug">;
+  events?: (Pick<Event, "id" | "title" | "slug"> & Partial<Pick<Event, "souvenir_promo">>)[];
+  event?: Pick<Event, "id" | "title" | "slug"> & Partial<Pick<Event, "souvenir_promo">>;
   format: RunnerExportFormat;
   sort?: "name" | "promo_rank";
   filenameSuffix?: string;
@@ -152,7 +154,14 @@ export async function downloadRunnerExport(input: {
   );
   if (input.event) eventTitleById.set(input.event.id, input.event.title);
 
-  const rows = buildRunnerExportRows(input.registrations, eventTitleById, { sort: input.sort });
+  const knownEvents = [...(input.events ?? []), ...(input.event ? [input.event] : [])];
+  const promoDisabledEventIds = new Set(
+    knownEvents.filter((event) => event.souvenir_promo === false).map((event) => event.id)
+  );
+  const rows = buildRunnerExportRows(input.registrations, eventTitleById, {
+    sort: input.sort,
+    promoDisabledEventIds,
+  });
   const stamp = new Date().toISOString().slice(0, 10);
   const base = slugForExportFilename(input.event?.slug || input.event?.title || "all-events");
   const extra = input.filenameSuffix ? `-${input.filenameSuffix}` : "";

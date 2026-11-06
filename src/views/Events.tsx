@@ -88,6 +88,7 @@ const Events = () => {
 
   // Admins can close sign-ups while keeping the event page live.
   const registrationOpen = selectedEvent?.registration_open !== false;
+  const souvenirPromo = selectedEvent?.souvenir_promo !== false;
 
   const selectedTier = selectedEvent?.ticket_tiers?.find(
     (tier) => tier.slug === (form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug)
@@ -291,7 +292,7 @@ const Events = () => {
                                   <div className="p-3">
                                     <p className="font-semibold text-foreground">{tier.name}</p>
                                     <p className="text-sm text-muted-foreground">₱{Number(tier.price).toLocaleString()}</p>
-                                    {isSouvenirPromoCategory(tier.slug, tier.name) && (
+                                    {souvenirPromo && isSouvenirPromoCategory(tier.slug, tier.name) && (
                                       <p className="text-[11px] text-muted-foreground mt-1">First 150 qualified 12KM + 25KM get a free souvenir shirt.</p>
                                     )}
                                   </div>
@@ -462,7 +463,7 @@ const Events = () => {
                   <Textarea id="notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Anything we should know?" />
                 </div>
 
-                {selectedEvent && isSouvenirPromoCategory(selectedTier?.slug, selectedTier?.name) && (
+                {selectedEvent && souvenirPromo && isSouvenirPromoCategory(selectedTier?.slug, selectedTier?.name) && (
                   <p className="text-xs text-muted-foreground">{SOUVENIR_SHIRT_PROMO_NOTE}</p>
                 )}
                 {selectedEvent && (

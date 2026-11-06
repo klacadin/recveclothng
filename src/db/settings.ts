@@ -1,12 +1,16 @@
-import { eq, like, sql } from "drizzle-orm";
+import { eq, inArray, like, sql } from "drizzle-orm";
 import {
   AFFILIATE_DEFAULT_RATE_SETTING_KEY,
   DEFAULT_AFFILIATE_COMMISSION_RATE,
 } from "@/lib/affiliate-constants";
 import {
-  closedRegistrationEventIds,
-  EVENT_REGISTRATION_CLOSED_KEY_PREFIX,
-  eventRegistrationClosedKey,
+  defaultEventFlags,
+  EVENT_FLAG_KEY_PREFIX,
+  EVENT_FLAGS,
+  eventFlagKey,
+  eventFlagsFromSettings,
+  type EventFlag,
+  type EventFlags,
 } from "@/lib/event-management";
 import { affiliates, storeSettings } from "./schema";
 import type { Db } from "./client";
@@ -75,26 +79,35 @@ export async function setDefaultAffiliateCommissionRate(
   return { rate: Number(value), updatedCount };
 }
 
-/** Ids of events whose online registration an admin has closed. */
-export async function getClosedRegistrationEventIds(db: Db): Promise<Set<string>> {
+function eventFlagKeys(eventId: string) {
+  return EVENT_FLAGS.map((flag) => eventFlagKey(flag, eventId));
+}
+
+/** Flags for every event that has any set; events missing from the map use defaultEventFlags(). */
+export async function getAllEventFlags(db: Db): Promise<Map<string, EventFlags>> {
   await ensureStoreSettingsTable(db);
   const rows = await db
     .select({ key: storeSettings.key, value: storeSettings.value })
     .from(storeSettings)
-    .where(like(storeSettings.key, `${EVENT_REGISTRATION_CLOSED_KEY_PREFIX}%`));
-  return closedRegistrationEventIds(rows);
+    .where(like(storeSettings.key, `${EVENT_FLAG_KEY_PREFIX}%`));
+  return eventFlagsFromSettings(rows);
 }
 
-export async function isEventRegistrationOpen(db: Db, eventId: string): Promise<boolean> {
-  return (await getStoreSetting(db, eventRegistrationClosedKey(eventId))) !== "true";
-}
-
-export async function setEventRegistrationOpen(db: Db, eventId: string, open: boolean) {
-  await setStoreSetting(db, eventRegistrationClosedKey(eventId), open ? "false" : "true");
-}
-
-/** Drop an event's registration flag (used when the event itself is deleted). */
-export async function clearEventRegistrationSetting(db: Db, eventId: string) {
+export async function getEventFlags(db: Db, eventId: string): Promise<EventFlags> {
   await ensureStoreSettingsTable(db);
-  await db.delete(storeSettings).where(eq(storeSettings.key, eventRegistrationClosedKey(eventId)));
+  const rows = await db
+    .select({ key: storeSettings.key, value: storeSettings.value })
+    .from(storeSettings)
+    .where(inArray(storeSettings.key, eventFlagKeys(eventId)));
+  return eventFlagsFromSettings(rows).get(eventId) ?? defaultEventFlags();
+}
+
+export async function setEventFlag(db: Db, eventId: string, flag: EventFlag, on: boolean) {
+  await setStoreSetting(db, eventFlagKey(flag, eventId), on ? "true" : "false");
+}
+
+/** Drop all of an event's flags (used when the event itself is deleted). */
+export async function clearEventFlags(db: Db, eventId: string) {
+  await ensureStoreSettingsTable(db);
+  await db.delete(storeSettings).where(inArray(storeSettings.key, eventFlagKeys(eventId)));
 }
