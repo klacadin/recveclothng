@@ -1,18 +1,16 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
   },
   plugins: [
     react(),
-    mode === "development" && componentTagger(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'favicon-16x16.png', 'favicon-32x32.png', 'favicon-48x48.png', 'favicon-64x64.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'robots.txt', 'placeholder.svg'],
@@ -75,16 +73,16 @@ export default defineConfig(({ mode }) => ({
         lang: 'en-PH',
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}'],
+        globPatterns: ['**/*.{js,css,html}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
+            urlPattern: /\.(?:png|jpg|jpeg|svg|webp|ico)$/i,
+            handler: 'CacheFirst',
             options: {
-              cacheName: 'supabase-cache',
+              cacheName: 'local-image-cache',
               expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
+                maxEntries: 80,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
               },
               cacheableResponse: {
                 statuses: [0, 200],

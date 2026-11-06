@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { User, Mail, Phone, MapPin, Calendar, ShoppingBag, UserCheck, UserX, Loader2 } from "lucide-react";
 import type { OrderWithItems } from "@/hooks/useOrders";
-import { supabase } from "@/integrations/supabase/client";
 
 interface CustomerInfoDialogProps {
   order: OrderWithItems | null;
@@ -31,29 +30,19 @@ const CustomerInfoDialog = ({ order, open, onOpenChange }: CustomerInfoDialogPro
     const fetchUserInfo = async () => {
       setIsLoadingUserInfo(true);
       try {
-        // Fetch user account information
-        const { data: userData, error: userError } = await supabase.functions.invoke('get-user-emails', {
-          body: { user_ids: [order.user_id] },
+        const res = await fetch('/api/admin/customer-info', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: order.user_id }),
         });
-
-        if (userError) throw userError;
-
-        // Fetch total orders for this customer
-        const { count, error: countError } = await supabase
-          .from('orders')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', order.user_id);
-
-        if (countError) throw countError;
-
-        const users = userData?.users || {};
-        const user = users[order.user_id];
-
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || 'Failed');
         setUserInfo({
-          account_name: user?.full_name || null,
-          account_email: user?.email || null,
-          account_created_at: user?.created_at || null,
-          total_orders: count || 0,
+          account_name: data.account_name ?? null,
+          account_email: data.account_email ?? null,
+          account_created_at: data.account_created_at ?? null,
+          total_orders: Number(data.total_orders ?? 0),
         });
       } catch (error) {
         console.error('Error fetching user info:', error);

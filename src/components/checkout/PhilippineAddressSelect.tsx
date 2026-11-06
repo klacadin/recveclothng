@@ -141,7 +141,7 @@ const PhilippineAddressSelect = ({
       ...value,
       regionCode: code,
       regionName: region?.name ?? '',
-      islandGroupCode: (region as any)?.islandGroupCode ?? '',
+      islandGroupCode: region?.islandGroupCode ?? '',
       provinceCode: '',
       provinceName: '',
       cityCode: '',

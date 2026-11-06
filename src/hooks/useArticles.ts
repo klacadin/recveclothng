@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { apiSend } from '@/lib/api';
 
 export type Article = {
   id: string;
@@ -38,12 +38,10 @@ export const useArticles = () => {
   return useQuery({
     queryKey: ['articles'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('articles')
-        .select('*')
-        .order('published_at', { ascending: false });
-      if (error) throw error;
-      return data as Article[];
+      const res = await fetch('/api/articles');
+      if (!res.ok) throw new Error('Failed to load articles');
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []) as Article[];
     },
   });
 };
@@ -53,13 +51,9 @@ export const useArticle = (slug: string | undefined) => {
     queryKey: ['articles', slug],
     queryFn: async () => {
       if (!slug) return null;
-      const { data, error } = await supabase
-        .from('articles')
-        .select('*')
-        .eq('slug', slug)
-        .maybeSingle();
-      if (error) throw error;
-      return data as Article | null;
+      const res = await fetch(`/api/articles?slug=${encodeURIComponent(slug)}`);
+      if (!res.ok) throw new Error('Failed to load article');
+      return (await res.json()) as Article | null;
     },
     enabled: !!slug,
   });
@@ -70,13 +64,13 @@ export const useCreateArticle = () => {
   return useMutation({
     mutationFn: async (input: ArticleInsert) => {
       const slug = input.slug || slugify(input.title);
-      const { data, error } = await supabase
-        .from('articles')
-        .insert({ ...input, slug, source: input.source || 'manual' })
-        .select()
-        .single();
-      if (error) throw error;
-      return data as Article;
+      const via = await apiSend<Article>('/api/articles', 'POST', {
+        ...input,
+        slug,
+        source: input.source || 'manual',
+      });
+      if (via.ok && via.data) return via.data;
+      throw new Error(via.error || 'Failed to create article');
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['articles'] }),
   });
@@ -86,14 +80,9 @@ export const useUpdateArticle = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<ArticleInsert> }) => {
-      const { data, error } = await supabase
-        .from('articles')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as Article;
+      const via = await apiSend<Article>('/api/articles', 'PATCH', { id, ...updates });
+      if (via.ok && via.data) return via.data;
+      throw new Error(via.error || 'Failed to update article');
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['articles'] }),
   });
@@ -103,8 +92,8 @@ export const useDeleteArticle = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('articles').delete().eq('id', id);
-      if (error) throw error;
+      const via = await apiSend('/api/articles', 'DELETE', { id });
+      if (!via.ok) throw new Error(via.error || 'Failed to delete article');
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['articles'] }),
   });

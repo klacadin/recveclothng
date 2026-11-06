@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, RefreshCw, ExternalLink } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -93,13 +92,12 @@ const ArticleManagement = ({ openFormImmediately, onFormOpened }: ArticleManagem
   const handleSyncFacebook = async () => {
     setIsSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-facebook-posts');
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      toast({ title: 'Facebook sync complete', description: data?.message || 'Posts synced.' });
-      refetch();
-    } catch (err) {
-      toast({ title: 'Sync failed', description: (err as Error).message, variant: 'destructive' });
+      toast({
+        title: 'Facebook sync unavailable',
+        description:
+          'Facebook import is not connected in the current app. Add posts manually for now.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSyncing(false);
     }

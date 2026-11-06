@@ -51,10 +51,10 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
         sku: product.sku || '',
         category: product.category || '',
         image_url: product.image_url || '',
-        images: (product as any).images || [],
+        images: product.images || [],
         stock_quantity: product.stock_quantity,
         low_stock_threshold: product.low_stock_threshold,
-        weight_grams: (product as any).weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS,
+        weight_grams: product.weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS,
         is_active: product.is_active,
       });
     }
@@ -70,7 +70,11 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const url = await uploadImage(file);
+    const url = await uploadImage(file, {
+      name: formData.name,
+      sku: formData.sku,
+      folder: 'product-images',
+    });
     if (url) {
       setFormData({ ...formData, image_url: url });
     }
@@ -84,9 +88,13 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Upload multiple files
+    // Upload multiple files (auto-optimized + SEO filenames)
     const fileArray = Array.from(files);
-    const urls = await uploadMultipleImages(fileArray);
+    const urls = await uploadMultipleImages(fileArray, {
+      name: formData.name,
+      sku: formData.sku,
+      folder: 'product-images',
+    });
 
     // Add all successfully uploaded images
     if (urls.length > 0) {
@@ -191,8 +199,8 @@ const ProductForm = ({ product, productVariants, onSubmit, onCancel, isSubmittin
                 type="number"
                 min="1"
                 step="1"
-                value={(formData as any).weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS}
-                onChange={(e) => setFormData({ ...(formData as any), weight_grams: parseInt(e.target.value, 10) || DEFAULT_PRODUCT_WEIGHT_GRAMS })}
+                value={formData.weight_grams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS}
+                onChange={(e) => setFormData({ ...formData, weight_grams: parseInt(e.target.value, 10) || DEFAULT_PRODUCT_WEIGHT_GRAMS })}
                 required
               />
             </div>

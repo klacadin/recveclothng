@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { apiSend } from '@/lib/api';
 
 export type UserApproval = {
   id: string;
@@ -14,29 +14,18 @@ export type UserApproval = {
   full_name: string | null;
 };
 
-export type UserApprovalWithEmail = UserApproval & {
-  email: string;
-  created_at_user: string;
-};
-
-export const usePendingUsers = () => {
+export const usePendingUsers = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['pending-users'],
     queryFn: async () => {
-      // Get all pending approvals
-      const { data: approvals, error: approvalsError } = await supabase
-        .from('user_approvals')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
-      if (approvalsError) throw approvalsError;
-
-      // Get user emails from auth.users (we'll need to use a function for this)
-      // Since we can't directly query auth.users, we'll return the approvals
-      // and fetch emails separately if needed
-      return approvals as UserApproval[];
+      const res = await fetch('/api/admin/user-approvals?status=pending', {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to load pending users');
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []) as UserApproval[];
     },
+    enabled: options?.enabled ?? true,
   });
 };
 
@@ -44,39 +33,24 @@ export const useAllUserApprovals = () => {
   return useQuery({
     queryKey: ['all-user-approvals'],
     queryFn: async () => {
-      const { data: approvals, error } = await supabase
-        .from('user_approvals')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return approvals as UserApproval[];
+      const res = await fetch('/api/admin/user-approvals', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load approvals');
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []) as UserApproval[];
     },
   });
 };
 
 export const useApproveUser = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (userId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('user_approvals')
-        .update({
-          status: 'approved',
-          approved_by: user.id,
-          approved_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as UserApproval;
+      const via = await apiSend<UserApproval>('/api/admin/user-approvals', 'PATCH', {
+        user_id: userId,
+        status: 'approved',
+      });
+      if (via.ok && via.data) return via.data;
+      throw new Error(via.error || 'Failed to approve user');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending-users'] });
@@ -87,27 +61,15 @@ export const useApproveUser = () => {
 
 export const useRejectUser = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ userId, reason }: { userId: string; reason?: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('user_approvals')
-        .update({
-          status: 'rejected',
-          approved_by: user.id,
-          approved_at: new Date().toISOString(),
-          rejection_reason: reason || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as UserApproval;
+      const via = await apiSend<UserApproval>('/api/admin/user-approvals', 'PATCH', {
+        user_id: userId,
+        status: 'rejected',
+        rejection_reason: reason || null,
+      });
+      if (via.ok && via.data) return via.data;
+      throw new Error(via.error || 'Failed to reject user');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending-users'] });
@@ -115,4 +77,3 @@ export const useRejectUser = () => {
     },
   });
 };
-

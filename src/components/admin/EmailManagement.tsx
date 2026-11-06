@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +24,10 @@ interface EmailDetails extends ResendEmail {
   html?: string;
   text?: string;
   object?: string;
+}
+
+interface ResendEmailsResponse {
+  data?: ResendEmail[];
 }
 
 const getStatusColor = (status: string) => {
@@ -73,31 +76,19 @@ const EmailManagement = () => {
       if (!user) {
         throw new Error('User not authenticated');
       }
-
-      // Ensure we have a valid session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No active session');
+      const res = await fetch('/api/admin/emails?limit=100', { credentials: 'include' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to load emails');
       }
-
-      const { data, error } = await supabase.functions.invoke('get-resend-emails', {
-        body: { limit: 100 },
-      });
-
-      if (error) {
-        console.error('Function invoke error:', error);
-        throw error;
-      }
-      
-      // Resend API returns { data: [...] }
       return data as { data: ResendEmail[] };
     },
-    enabled: !!user, // Only fetch when user is authenticated
-    retry: false, // Don't retry on auth errors
+    enabled: !!user,
+    retry: false,
   });
 
   // Extract emails array from response
-  const emails = (emailsData as any)?.data || [];
+  const emails = (emailsData as ResendEmailsResponse | undefined)?.data || [];
 
   const filteredEmails = emails.filter((email) => {
     const query = searchQuery.toLowerCase();
@@ -111,11 +102,11 @@ const EmailManagement = () => {
   const handleViewEmail = async (emailId: string) => {
     setEmailDetailsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('get-resend-email', {
-        body: { email_id: emailId },
+      const res = await fetch(`/api/admin/emails?id=${encodeURIComponent(emailId)}`, {
+        credentials: 'include',
       });
-
-      if (error) throw error;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to load email details');
       setSelectedEmail(data as EmailDetails);
     } catch (error) {
       console.error('Error fetching email details:', error);

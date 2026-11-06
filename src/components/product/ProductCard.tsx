@@ -96,6 +96,8 @@ const ProductCard = ({
           alt={name}
           className="w-full h-full object-contain bg-secondary group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
+          decoding="async"
+          sizes="(min-width: 1024px) 25vw, 50vw"
         />
 
         {/* Tags */}

@@ -1,73 +1,54 @@
-# Welcome to your Lovable project
+# REVE Clothing
 
-## Project info
+Production storefront and admin system for REVE Clothing x Nobody.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+- Next.js 15 app router
+- React 18 client app mounted through the Next catch-all route
+- Tailwind CSS and shadcn/Radix UI components
+- Drizzle ORM with Postgres
+- Clerk authentication
+- Vercel Blob uploads
+- HitPay checkout and webhook reconciliation
+- Resend transactional/admin email support
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Local Setup
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm install
+cp .env.local.example .env.local
+docker compose up -d postgres
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The local app runs on `http://localhost:3000` by default.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Useful Commands
 
-**Use GitHub Codespaces**
+```sh
+npm run dev
+npm run build
+npm run lint
+npm run test:run
+npm run db:push
+npm run db:studio
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Required Runtime Environment
 
-## What technologies are used for this project?
+See `.env.example` for the full list. The core production variables are:
 
-This project is built with:
+- `DATABASE_URL` or `POSTGRES_URL`
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `BLOB_READ_WRITE_TOKEN`
+- `HITPAY_API_KEY`
+- `HITPAY_WEBHOOK_SALT`
+- `APP_URL`
+- `RESEND_API_KEY`
+- `CRON_SECRET`
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Deployment
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This build is configured for Next.js deployment. Run `npm run build` before shipping and verify the configured host has the required environment variables.

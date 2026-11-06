@@ -1,0 +1,2 @@
+order_number,order_created_at,customer_name,customer_email,status,payment_method,product_name,product_sku,size,quantity,unit_price,total_price,product_id
+ORD-20260505-9387,2026-05-05T17:50:01.830Z,keren happuch,khlacadin@gmail.com,new,cod,Faith Over Fear,SING-FAITH--M,M,1,350,350,5553b0c8-4906-4de4-b731-00eaf18790ac
