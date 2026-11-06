@@ -166,6 +166,28 @@ export function resolvePublicEventSlug(slug?: string | null) {
   return EVENT_SLUG_ALIASES[normalized] || normalized;
 }
 
+/**
+ * Admins can close online registration for an event without hiding the event.
+ * The flag lives in store_settings, so it needs no events-table migration:
+ * key `event_registration_closed:<event id>`, value "true" while closed.
+ */
+export const EVENT_REGISTRATION_CLOSED_KEY_PREFIX = "event_registration_closed:";
+
+export function eventRegistrationClosedKey(eventId: string) {
+  return `${EVENT_REGISTRATION_CLOSED_KEY_PREFIX}${eventId}`;
+}
+
+/** Ids of events whose registration is closed, from store_settings key/value rows. */
+export function closedRegistrationEventIds(rows: readonly { key: string; value: string }[]) {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    if (row.key.startsWith(EVENT_REGISTRATION_CLOSED_KEY_PREFIX) && row.value === "true") {
+      ids.add(row.key.slice(EVENT_REGISTRATION_CLOSED_KEY_PREFIX.length));
+    }
+  }
+  return ids;
+}
+
 function parseFlexibleBool(value: unknown, fallback: boolean) {
   if (value === undefined || value === null || value === "") return fallback;
   if (typeof value === "boolean") return value;

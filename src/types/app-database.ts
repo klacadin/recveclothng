@@ -117,12 +117,16 @@ export interface Event {
   image_url: string | null;
   ticket_tiers: EventTicketTier[];
   is_active: boolean;
+  /** False once an admin closes online registration; the event itself stays visible. */
+  registration_open: boolean;
   created_at: string | Date;
   updated_at: string | Date;
   registration_count?: number;
 }
 
-export type EventInsert = Omit<Event, "id" | "created_at" | "updated_at" | "registration_count">;
+export type EventInsert = Omit<Event, "id" | "created_at" | "updated_at" | "registration_count" | "registration_open"> & {
+  registration_open?: boolean;
+};
 export type EventUpdate = Partial<EventInsert>;
 
 export type EventPaymentStatus = "pending" | "paid" | "cancelled" | "refunded";

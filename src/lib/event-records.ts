@@ -6,7 +6,7 @@ const PAYMENT_STATUSES = new Set<EventPaymentStatus>(["pending", "paid", "cancel
 
 export function mapEvent(
   row: typeof events.$inferSelect,
-  registrationCount?: number
+  options: { registrationOpen: boolean; registrationCount?: number }
 ): Event {
   return {
     id: row.id,
@@ -24,9 +24,10 @@ export function mapEvent(
     image_url: row.imageUrl,
     ticket_tiers: parseTicketTiers(row.ticketTiers),
     is_active: row.isActive,
+    registration_open: options.registrationOpen,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
-    registration_count: registrationCount,
+    registration_count: options.registrationCount,
   };
 }
 

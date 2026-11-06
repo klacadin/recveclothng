@@ -49,7 +49,7 @@ const UpcomingEvents = () => {
                   )}
                 </div>
                 <p className="text-sm font-medium text-foreground">
-                  {formatEventPriceLabel(Number(event.price), event.ticket_tiers)} · Register
+                  {formatEventPriceLabel(Number(event.price), event.ticket_tiers)} · {event.registration_open !== false ? "Register" : "Registration closed"}
                 </p>
               </div>
             </Link>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { eventRegistrations, events } from "@/db/schema";
+import { isEventRegistrationOpen } from "@/db/settings";
 import { getAppBaseUrl } from "@/config/constants";
 import {
   calculateRegistrationTotals,
@@ -54,6 +55,9 @@ export async function POST(req: Request) {
     const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
     if (!event || !event.isActive) {
       return NextResponse.json({ error: "Event is not available" }, { status: 404 });
+    }
+    if (!(await isEventRegistrationOpen(db, event.id))) {
+      return NextResponse.json({ error: "Registration for this event is closed" }, { status: 409 });
     }
 
     const ticketTiers = parseTicketTiers(event.ticketTiers);

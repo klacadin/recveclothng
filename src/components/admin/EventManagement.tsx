@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarRange, Check, Clock3, Copy, Download, Loader2, MapPin, Plus, Search, Trash2, Upload, UserRoundCheck } from "lucide-react";
+import { CalendarRange, Check, Clock3, Copy, Download, Loader2, Lock, LockOpen, MapPin, Plus, Search, Trash2, Upload, UserRoundCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -201,6 +201,21 @@ const EventManagement = () => {
     toast({ title: "Public event link copied" });
   };
 
+  const toggleRegistration = async (event: Event) => {
+    const reopen = event.registration_open === false;
+    try {
+      await updateEvent.mutateAsync({ id: event.id, updates: { registration_open: reopen } });
+      toast({
+        title: reopen ? "Registration reopened" : "Registration closed",
+        description: reopen
+          ? "The event is accepting sign-ups again."
+          : "The event page stays live, but new sign-ups are disabled.",
+      });
+    } catch (err) {
+      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    }
+  };
+
   const handleExportRunners = async (
     list: EventRegistration[],
     format: RunnerExportFormat,
@@ -361,6 +376,11 @@ const EventManagement = () => {
                         <span className={`px-2 py-1 text-[10px] font-medium rounded ${event.is_active ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-700"}`}>
                           {event.is_active ? "Active" : "Draft"}
                         </span>
+                        {event.registration_open === false && (
+                          <span className="px-2 py-1 text-[10px] font-medium rounded bg-amber-100 text-amber-800">
+                            Registration closed
+                          </span>
+                        )}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted-foreground">
                         <span className="inline-flex items-center gap-1"><CalendarRange className="h-4 w-4" />{new Date(event.starts_at).toLocaleString()}</span>
@@ -370,6 +390,18 @@ const EventManagement = () => {
                     </div>
                   </div>
                   <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updateEvent.isPending}
+                      onClick={() => toggleRegistration(event)}
+                    >
+                      {event.registration_open === false ? (
+                        <><LockOpen className="h-4 w-4 mr-1" /> Reopen registration</>
+                      ) : (
+                        <><Lock className="h-4 w-4 mr-1" /> Close registration</>
+                      )}
+                    </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" disabled={allRegs.length === 0}>

@@ -86,6 +86,9 @@ const Events = () => {
     return activeEvents[0];
   }, [activeEvents, slug]);
 
+  // Admins can close sign-ups while keeping the event page live.
+  const registrationOpen = selectedEvent?.registration_open !== false;
+
   const selectedTier = selectedEvent?.ticket_tiers?.find(
     (tier) => tier.slug === (form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug)
   ) ?? selectedEvent?.ticket_tiers?.[0] ?? null;
@@ -262,7 +265,7 @@ const Events = () => {
                         {selectedEvent.location && (
                           <span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4" />{selectedEvent.location}</span>
                         )}
-                        <span className="inline-flex items-center gap-2"><Users className="h-4 w-4" />Registration open</span>
+                        <span className="inline-flex items-center gap-2"><Users className="h-4 w-4" />{registrationOpen ? "Registration open" : "Registration closed"}</span>
                       </div>
 
                       {selectedEvent.description && <p className="text-foreground/80 leading-7">{selectedEvent.description}</p>}
@@ -341,154 +344,161 @@ const Events = () => {
           <div className="bg-card border border-border rounded-sm p-6 h-fit">
             <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <Ticket className="h-5 w-5" />
-              Register
+              {registrationOpen ? "Register" : "Registration closed"}
             </div>
-            <form onSubmit={submitRegistration} className="mt-5 space-y-4">
-              <div>
-                <Label htmlFor="full_name">Full name</Label>
-                <Input id="full_name" value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} required />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
-              </div>
-              <div>
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
-              </div>
-              <div>
-                <Label htmlFor="company">Company / Team</Label>
-                <Input id="company" value={form.company} onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            {registrationOpen ? (
+              <form onSubmit={submitRegistration} className="mt-5 space-y-4">
                 <div>
-                  <Label htmlFor="gender">Gender</Label>
-                  <Select value={form.gender} onValueChange={(value) => setForm((f) => ({ ...f, gender: value }))}>
-                    <SelectTrigger id="gender">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EVENT_GENDERS.map((gender) => (
-                        <SelectItem key={gender} value={gender}>{gender}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="full_name">Full name</Label>
+                  <Input id="full_name" value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} required />
                 </div>
                 <div>
-                  <Label htmlFor="age">Age</Label>
-                  <Input
-                    id="age"
-                    type="number"
-                    min={EVENT_AGE_MIN}
-                    max={EVENT_AGE_MAX}
-                    value={form.age}
-                    onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))}
-                    required
-                  />
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
                 </div>
-              </div>
-              {apparel.has_singlet && (
                 <div>
-                  <Label>Event singlet size</Label>
-                  <ApparelSizeButtons
-                    value={form.singlet_size}
-                    onChange={(size) => setForm((f) => ({ ...f, singlet_size: size }))}
-                  />
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input id="phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
                 </div>
-              )}
-              {apparel.has_finisher_shirt && (
                 <div>
-                  <Label>Finisher t-shirt size</Label>
-                  <ApparelSizeButtons
-                    value={form.finisher_shirt_size}
-                    onChange={(size) => setForm((f) => ({ ...f, finisher_shirt_size: size }))}
-                  />
+                  <Label htmlFor="company">Company / Team</Label>
+                  <Input id="company" value={form.company} onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
                 </div>
-              )}
-              {apparel.has_crop_top && (
-                <div>
-                  <label className="flex items-start gap-3 rounded-sm border border-border p-3 cursor-pointer">
-                    <Checkbox
-                      className="mt-0.5"
-                      checked={form.crop_top_enabled}
-                      onCheckedChange={(checked) => setForm((f) => ({
-                        ...f,
-                        crop_top_enabled: checked === true,
-                      }))}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="gender">Gender</Label>
+                    <Select value={form.gender} onValueChange={(value) => setForm((f) => ({ ...f, gender: value }))}>
+                      <SelectTrigger id="gender">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EVENT_GENDERS.map((gender) => (
+                          <SelectItem key={gender} value={gender}>{gender}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="age">Age</Label>
+                    <Input
+                      id="age"
+                      type="number"
+                      min={EVENT_AGE_MIN}
+                      max={EVENT_AGE_MAX}
+                      value={form.age}
+                      onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))}
+                      required
                     />
-                    <span>
-                      <span className="block text-sm font-medium text-foreground">Make this a cropped top</span>
-                      <span className="block text-xs text-muted-foreground mt-1">
-                        Optional. Uses the singlet / finisher size you picked above. Check this only if you want your shirt cropped.
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              )}
-              {selectedEvent?.ticket_tiers?.length ? (
-                <div>
-                  <Label>Distance</Label>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    {selectedEvent.ticket_tiers.map((tier) => (
-                      <Button
-                        key={tier.slug}
-                        type="button"
-                        variant={(form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug) === tier.slug ? "default" : "outline"}
-                        onClick={() => selectTicket(tier.slug)}
-                      >
-                        {tier.name}
-                      </Button>
-                    ))}
                   </div>
                 </div>
-              ) : null}
-              {selectedEvent?.promo_code && (
+                {apparel.has_singlet && (
+                  <div>
+                    <Label>Event singlet size</Label>
+                    <ApparelSizeButtons
+                      value={form.singlet_size}
+                      onChange={(size) => setForm((f) => ({ ...f, singlet_size: size }))}
+                    />
+                  </div>
+                )}
+                {apparel.has_finisher_shirt && (
+                  <div>
+                    <Label>Finisher t-shirt size</Label>
+                    <ApparelSizeButtons
+                      value={form.finisher_shirt_size}
+                      onChange={(size) => setForm((f) => ({ ...f, finisher_shirt_size: size }))}
+                    />
+                  </div>
+                )}
+                {apparel.has_crop_top && (
+                  <div>
+                    <label className="flex items-start gap-3 rounded-sm border border-border p-3 cursor-pointer">
+                      <Checkbox
+                        className="mt-0.5"
+                        checked={form.crop_top_enabled}
+                        onCheckedChange={(checked) => setForm((f) => ({
+                          ...f,
+                          crop_top_enabled: checked === true,
+                        }))}
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-foreground">Make this a cropped top</span>
+                        <span className="block text-xs text-muted-foreground mt-1">
+                          Optional. Uses the singlet / finisher size you picked above. Check this only if you want your shirt cropped.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                )}
+                {selectedEvent?.ticket_tiers?.length ? (
+                  <div>
+                    <Label>Distance</Label>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {selectedEvent.ticket_tiers.map((tier) => (
+                        <Button
+                          key={tier.slug}
+                          type="button"
+                          variant={(form.ticket_slug || selectedEvent.ticket_tiers[0]?.slug) === tier.slug ? "default" : "outline"}
+                          onClick={() => selectTicket(tier.slug)}
+                        >
+                          {tier.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {selectedEvent?.promo_code && (
+                  <div>
+                    <Label htmlFor="promo_code">Promo code</Label>
+                    <Input
+                      id="promo_code"
+                      value={form.promo_code}
+                      onChange={(e) => setForm((f) => ({ ...f, promo_code: e.target.value }))}
+                      placeholder={selectedEvent.promo_code}
+                    />
+                  </div>
+                )}
                 <div>
-                  <Label htmlFor="promo_code">Promo code</Label>
-                  <Input
-                    id="promo_code"
-                    value={form.promo_code}
-                    onChange={(e) => setForm((f) => ({ ...f, promo_code: e.target.value }))}
-                    placeholder={selectedEvent.promo_code}
-                  />
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea id="notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Anything we should know?" />
                 </div>
-              )}
-              <div>
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Anything we should know?" />
+
+                {selectedEvent && isSouvenirPromoCategory(selectedTier?.slug, selectedTier?.name) && (
+                  <p className="text-xs text-muted-foreground">{SOUVENIR_SHIRT_PROMO_NOTE}</p>
+                )}
+                {selectedEvent && (
+                  <p className="text-xs text-muted-foreground">A ₱{totals.convenienceFee.toLocaleString()} convenience fee is added to every registration.</p>
+                )}
+                {selectedEvent && (
+                  <div className="rounded-sm border border-border bg-secondary/50 p-4 space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Registration fee</span><span>₱{totals.basePrice.toLocaleString()}</span></div>
+                    {totals.discountAmount > 0 && (
+                      <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-₱{totals.discountAmount.toLocaleString()}</span></div>
+                    )}
+                    <div className="flex justify-between"><span className="text-muted-foreground">Convenience fee</span><span>₱{totals.convenienceFee.toLocaleString()}</span></div>
+                    <div className="flex justify-between font-semibold text-foreground border-t border-border pt-2"><span>Total amount due</span><span>₱{totals.finalAmount.toLocaleString()}</span></div>
+                    {selectedEvent.promo_code && form.promo_code && !totals.isPromoValid && (
+                      <p className="text-xs text-red-600">That promo code is not valid for this event.</p>
+                    )}
+                    {totals.isPromoValid && (
+                      <p className="text-xs text-green-700 inline-flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />Promo code applied.</p>
+                    )}
+                  </div>
+                )}
+
+                <Button type="submit" className="w-full" disabled={createRegistration.isPending || !selectedEvent}>
+                  {createRegistration.isPending
+                    ? "Submitting..."
+                    : totals.finalAmount > 0
+                      ? "Register and pay"
+                      : "Submit registration"}
+                </Button>
+              </form>
+            ) : (
+              <div className="mt-5 space-y-3 text-sm text-muted-foreground">
+                <p>Online registration for this event is closed.</p>
+                <p>Already registered? Check your confirmation email for your ticket and check-in code.</p>
               </div>
-
-              {selectedEvent && isSouvenirPromoCategory(selectedTier?.slug, selectedTier?.name) && (
-                <p className="text-xs text-muted-foreground">{SOUVENIR_SHIRT_PROMO_NOTE}</p>
-              )}
-              {selectedEvent && (
-                <p className="text-xs text-muted-foreground">A ₱{totals.convenienceFee.toLocaleString()} convenience fee is added to every registration.</p>
-              )}
-              {selectedEvent && (
-                <div className="rounded-sm border border-border bg-secondary/50 p-4 space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Registration fee</span><span>₱{totals.basePrice.toLocaleString()}</span></div>
-                  {totals.discountAmount > 0 && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-₱{totals.discountAmount.toLocaleString()}</span></div>
-                  )}
-                  <div className="flex justify-between"><span className="text-muted-foreground">Convenience fee</span><span>₱{totals.convenienceFee.toLocaleString()}</span></div>
-                  <div className="flex justify-between font-semibold text-foreground border-t border-border pt-2"><span>Total amount due</span><span>₱{totals.finalAmount.toLocaleString()}</span></div>
-                  {selectedEvent.promo_code && form.promo_code && !totals.isPromoValid && (
-                    <p className="text-xs text-red-600">That promo code is not valid for this event.</p>
-                  )}
-                  {totals.isPromoValid && (
-                    <p className="text-xs text-green-700 inline-flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />Promo code applied.</p>
-                  )}
-                </div>
-              )}
-
-              <Button type="submit" className="w-full" disabled={createRegistration.isPending || !selectedEvent}>
-                {createRegistration.isPending
-                  ? "Submitting..."
-                  : totals.finalAmount > 0
-                    ? "Register and pay"
-                    : "Submit registration"}
-              </Button>
-            </form>
+            )}
           </div>
         </div>
       </main>

@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { events } from "@/db/schema";
+import {
+  clearEventRegistrationSetting,
+  getClosedRegistrationEventIds,
+  isEventRegistrationOpen,
+  setEventRegistrationOpen,
+} from "@/db/settings";
 import { requireAdmin } from "@/lib/require-admin";
 import { mapEvent } from "@/lib/event-records";
 import { parseTicketTiers, resolvePublicEventSlug, slugifyEvent } from "@/lib/event-management";
@@ -26,7 +32,7 @@ export async function GET(req: Request) {
       if (!row || (!row.isActive && !isAdmin)) {
         return NextResponse.json(null);
       }
-      return NextResponse.json(mapEvent(row));
+      return NextResponse.json(mapEvent(row, { registrationOpen: await isEventRegistrationOpen(db, row.id) }));
     }
 
     if (slug) {
@@ -38,12 +44,17 @@ export async function GET(req: Request) {
       if (!row || (!row.isActive && !isAdmin)) {
         return NextResponse.json(null);
       }
-      return NextResponse.json(mapEvent(row));
+      return NextResponse.json(mapEvent(row, { registrationOpen: await isEventRegistrationOpen(db, row.id) }));
     }
 
-    const rows = await db.select().from(events).orderBy(desc(events.startsAt));
+    const [rows, closedRegistrationIds] = await Promise.all([
+      db.select().from(events).orderBy(desc(events.startsAt)),
+      getClosedRegistrationEventIds(db),
+    ]);
     const visible = activeOnly || !isAdmin ? rows.filter((row) => row.isActive) : rows;
-    return NextResponse.json(visible.map((row) => mapEvent(row)));
+    return NextResponse.json(
+      visible.map((row) => mapEvent(row, { registrationOpen: !closedRegistrationIds.has(row.id) }))
+    );
   } catch (e) {
     console.error("events GET", e);
     return NextResponse.json({ error: "Failed to load events" }, { status: 500 });
@@ -85,7 +96,9 @@ export async function POST(req: Request) {
         isActive: body.is_active !== false && body.is_active !== "false",
       })
       .returning();
-    return NextResponse.json(mapEvent(row));
+    const registrationOpen = body.registration_open !== false && body.registration_open !== "false";
+    if (!registrationOpen) await setEventRegistrationOpen(db, row.id, false);
+    return NextResponse.json(mapEvent(row, { registrationOpen }));
   } catch (e) {
     console.error("events POST", e);
     const message = e instanceof Error && e.message.includes("unique") ? "Slug already in use" : "Create failed";
@@ -138,7 +151,15 @@ export async function PATCH(req: Request) {
       .where(eq(events.id, id))
       .returning();
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json(mapEvent(row));
+
+    let registrationOpen: boolean;
+    if (body.registration_open !== undefined) {
+      registrationOpen = body.registration_open !== false && body.registration_open !== "false";
+      await setEventRegistrationOpen(db, row.id, registrationOpen);
+    } else {
+      registrationOpen = await isEventRegistrationOpen(db, row.id);
+    }
+    return NextResponse.json(mapEvent(row, { registrationOpen }));
   } catch (e) {
     console.error("events PATCH", e);
     return NextResponse.json({ error: "Update failed" }, { status: 500 });
@@ -156,6 +177,7 @@ export async function DELETE(req: Request) {
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     const db = getDb();
     await db.delete(events).where(eq(events.id, id));
+    await clearEventRegistrationSetting(db, id);
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("events DELETE", e);

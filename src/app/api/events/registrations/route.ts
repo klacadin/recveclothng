@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { eventRegistrations, events } from "@/db/schema";
+import { isEventRegistrationOpen } from "@/db/settings";
 import { requireAdmin } from "@/lib/require-admin";
 import { isPaidEventStatus, mapEvent, mapRegistration } from "@/lib/event-records";
 import { runnerBibSearchSql } from "@/lib/assign-runner-number";
@@ -24,7 +25,9 @@ export async function GET(req: Request) {
       const [event] = await db.select().from(events).where(eq(events.id, row.eventId)).limit(1);
       return NextResponse.json({
         ...mapRegistration(row),
-        event: event ? mapEvent(event) : null,
+        event: event
+          ? mapEvent(event, { registrationOpen: await isEventRegistrationOpen(db, event.id) })
+          : null,
       });
     }
 

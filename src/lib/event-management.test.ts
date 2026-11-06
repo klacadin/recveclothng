@@ -15,6 +15,8 @@ import {
   runnerBibPrefix,
   parseTicketTiers,
   canCheckInWithPaymentStatus,
+  closedRegistrationEventIds,
+  eventRegistrationClosedKey,
   resolveEventTicket,
   ticketApparel,
   isSouvenirPromoCategory,
@@ -200,5 +202,29 @@ describe('souvenir shirt promo', () => {
       shirtLabel: 'NO',
       shirt: false,
     });
+  });
+});
+
+describe('event registration open / closed flag', () => {
+  it('stores one store_settings key per event', () => {
+    expect(eventRegistrationClosedKey('913d2d76-7ae2-4bd3-8d54-6376f3975b77')).toBe(
+      'event_registration_closed:913d2d76-7ae2-4bd3-8d54-6376f3975b77'
+    );
+  });
+
+  it('treats only events flagged "true" as closed', () => {
+    const closed = closedRegistrationEventIds([
+      { key: eventRegistrationClosedKey('evt-closed'), value: 'true' },
+      { key: eventRegistrationClosedKey('evt-reopened'), value: 'false' },
+      { key: 'affiliate_default_commission_rate', value: '0.1000' },
+      // LIKE treats "_" as a wildcard, so near-miss keys must still be ignored.
+      { key: 'eventXregistrationXclosed:evt-other', value: 'true' },
+    ]);
+
+    expect([...closed]).toEqual(['evt-closed']);
+  });
+
+  it('reports nothing closed when no flags exist', () => {
+    expect(closedRegistrationEventIds([]).size).toBe(0);
   });
 });
